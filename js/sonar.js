@@ -53,7 +53,7 @@
       const a = Math.max(0, 1 - age / 12);
       So.blips.forEach(b => {
         const [x, y] = toC(b.x, b.z);
-        const col = b.sp === 'pred' || b.sp === 'eel' || b.sp === 'leech' ? '255,93,108' : b.sp === 'ognevka' ? '255,140,60' : b.sp === 'hvaten' ? '206,130,255' : b.sp === 'krab' ? '255,170,90' : b.sp === 'ezh' ? '140,220,255' : b.sp === 'raduzh' ? '200,255,170' : b.sp === 'plankton' ? '120,255,230' : b.sp === 'monet' ? '255,230,140' : b.sp === 'grot' ? '230,200,150' : b.sp === 'skalnik' ? '255,120,90' : b.sp === 'veil' ? '255,138,224' : b.sp === 'ray' ? '191,246,255' : '255,210,107';
+        const col = b.sp === 'pred' || b.sp === 'eel' || b.sp === 'leech' ? '255,93,108' : b.sp === 'ognevka' ? '255,140,60' : b.sp === 'hvaten' ? '206,130,255' : b.sp === 'krab' ? '255,170,90' : b.sp === 'ezh' ? '140,220,255' : b.sp === 'raduzh' ? '200,255,170' : b.sp === 'plankton' ? '120,255,230' : b.sp === 'monet' ? '255,230,140' : b.sp === 'grot' ? '230,200,150' : b.sp === 'skalnik' ? '255,120,90' : b.sp === 'prisoska' ? '200,220,230' : b.sp === 'veil' ? '255,138,224' : b.sp === 'ray' ? '191,246,255' : '255,210,107';
         c.fillStyle = `rgba(${col},${a.toFixed(2)})`; c.beginPath(); c.arc(x, y, b.sp === 'veil' || b.sp === 'ray' || b.sp === 'grot' ? 10 : b.sp === 'ezh' ? 3 : 6, 0, 7); c.fill();
       });
     }
