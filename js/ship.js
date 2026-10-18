@@ -400,8 +400,9 @@
       }
     }
 
-    S.roll += (-S.turn * 0.06 * Math.min(1, Math.abs(S.speed) / 3 + 0.3) - S.roll) * Math.min(1, dt * 2);
-    S.pitch += (S.vy * 0.012 - S.pitch) * Math.min(1, dt * 2);
+    const tilt = G.Settings.comfort() ? 0 : 1; // защита от укачивания: горизонт не заваливается
+    S.roll += (-S.turn * 0.06 * Math.min(1, Math.abs(S.speed) / 3 + 0.3) * tilt - S.roll) * Math.min(1, dt * 2);
+    S.pitch += (S.vy * 0.012 * tilt - S.pitch) * Math.min(1, dt * 2);
     S.applyTransform();
 
     // энергия и корпус
