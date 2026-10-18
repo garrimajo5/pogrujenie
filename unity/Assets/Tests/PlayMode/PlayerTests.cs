@@ -63,29 +63,25 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
-        public IEnumerator КнопкаДействияГаситИВключаетПрожектор()
+        public IEnumerator УКреслаКнопкаЗоветЗаШтурвал()
         {
-            Assert.IsTrue(boot.Lamp.enabled);
-            boot.Controls.PressAction();
             yield return null;
-            yield return null;
-            Assert.IsFalse(boot.LampOn);
-            Assert.IsFalse(boot.Lamp.enabled, "прожектор погас");
-            Assert.AreEqual("Включить прожектор", boot.Controls.ActionLabel);
-            boot.Controls.PressAction();
-            yield return null;
-            yield return null;
-            Assert.IsTrue(boot.Lamp.enabled, "снова светит");
-            Assert.AreEqual("Погасить прожектор", boot.Controls.ActionLabel);
+            Assert.AreEqual("Сесть за штурвал", boot.Controls.ActionLabel, "со старта кресло пилота прямо перед нами");
+            Assert.IsTrue(boot.Controls.ActionEnabled);
+            Assert.IsFalse(boot.Controls.PilotButtons, "пока стоим, кнопок пилота нет");
         }
 
         [UnityTest]
-        public IEnumerator БезЭнергииКнопкаНеЗажигаетПрожектор()
+        public IEnumerator БезЭнергииСветНеЗажигаетПрожектор()
         {
-            boot.Reactor.Set(ShipSystem.Lamp, 0);
-            boot.Controls.PressAction(); // погасить
+            boot.Controls.PressAction(); // за штурвал
             yield return null;
-            boot.Controls.PressAction(); // попытка включить
+            yield return null;
+            Assert.IsTrue(boot.Player.Piloting);
+            boot.Reactor.Set(ShipSystem.Lamp, 0);
+            boot.Controls.PressLight(); // погасить
+            yield return null;
+            boot.Controls.PressLight(); // попытка включить
             yield return null;
             yield return null;
             Assert.IsTrue(boot.LampOn);
@@ -97,7 +93,7 @@ namespace Pogrujenie.Tests
         {
             boot.Controls.PressAction();
             for (int i = 0; i < 5; i++) yield return null;
-            Assert.IsFalse(boot.LampOn, "нажатие сработало один раз, а не каждый кадр");
+            Assert.IsTrue(boot.Player.Piloting, "нажатие сработало один раз: сели и не встали обратно");
         }
     }
 }

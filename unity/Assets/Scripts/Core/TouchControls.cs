@@ -42,6 +42,29 @@ namespace Pogrujenie.Core
             // кнопка действия чуть выше нижнего края — там её удобнее достать большим пальцем
             action = new Circle(new P2(safeX + safeW - m - ar * 1.3f, safeY + m + pr), ar);
         }
+
+        public const float PilotShare = 0.075f;
+
+        /// <summary>
+        /// Кнопки пилота (видны только за штурвалом): «Всплыть» и «Вниз» столбиком слева от кнопки действия,
+        /// «Свет» над ней. Все внутри безопасной области и не задевают крестовину и кнопку действия.
+        /// </summary>
+        public static void ComputePilot(float safeX, float safeY, float safeW, float safeH,
+            out Circle up, out Circle down, out Circle light)
+        {
+            Compute(safeX, safeY, safeW, safeH, out _, out var action);
+            float s = Math.Min(safeW, safeH);
+            float br = s * PilotShare, gap = s * 0.035f;
+            float cx = action.C.X - action.R - gap - br * 1.4f;
+            up = new Circle(new P2(cx, action.C.Y + br + gap * 0.5f), br);
+            down = new Circle(new P2(cx, action.C.Y - br - gap * 0.5f), br);
+            if (down.Bottom < safeY + gap) // на низком экране столбик поднимаем
+            {
+                float lift = safeY + gap - down.Bottom;
+                up.C.Y += lift; down.C.Y += lift;
+            }
+            light = new Circle(new P2(action.C.X, action.Top + gap + br), br);
+        }
     }
 
     /// <summary>Крестовина на 8 направлений, как в браузерной версии (js/controls.js).</summary>
@@ -67,32 +90,45 @@ namespace Pogrujenie.Core
     /// </summary>
     public sealed class TouchRouter
     {
-        enum Role { Pad, Action, Look }
+        enum Role { Pad, Action, Look, Up, Down, Light }
 
         sealed class Finger { public Role Role; public P2 Last; }
 
         readonly Dictionary<int, Finger> fingers = new Dictionary<int, Finger>();
 
-        public Circle Pad, Action;
+        public Circle Pad, Action, Up, Down, Light;
+
+        /// <summary>За штурвалом: кнопки «Всплыть», «Вниз» и «Свет» работают. Иначе там обычный свайп.</summary>
+        public bool PilotButtons;
 
         public int MoveX { get; private set; }
         public int MoveY { get; private set; }
         public bool ActionDown { get; private set; }
         /// <summary>Кнопку нажали в этом кадре; сбрасывается в EndFrame.</summary>
         public bool ActionPressed { get; private set; }
+        /// <summary>Нажали «Свет» в этом кадре; сбрасывается в EndFrame.</summary>
+        public bool LightPressed { get; private set; }
+        /// <summary>Вертикаль: 1 — держат «Всплыть», −1 — «Вниз», 0 — ничего (или кнопки скрыты).</summary>
+        public int Vert => !PilotButtons ? 0 : HasRole(Role.Up) ? 1 : HasRole(Role.Down) ? -1 : 0;
         public float LookDX { get; private set; }
         public float LookDY { get; private set; }
 
         public void SetLayout(Circle pad, Circle action) { Pad = pad; Action = action; }
+
+        public void SetPilotLayout(Circle up, Circle down, Circle light) { Up = up; Down = down; Light = light; }
 
         public void Begin(int id, P2 p)
         {
             var f = new Finger { Last = p };
             if (Pad.Contains(p)) f.Role = Role.Pad;
             else if (Action.Contains(p)) f.Role = Role.Action;
+            else if (PilotButtons && Up.Contains(p)) f.Role = Role.Up;
+            else if (PilotButtons && Down.Contains(p)) f.Role = Role.Down;
+            else if (PilotButtons && Light.Contains(p)) f.Role = Role.Light;
             else f.Role = Role.Look;
             fingers[id] = f;
             if (f.Role == Role.Action) { ActionDown = true; ActionPressed = true; }
+            if (f.Role == Role.Light) LightPressed = true;
             Apply(f, p);
         }
 
@@ -135,7 +171,7 @@ namespace Pogrujenie.Core
         /// <summary>Конец кадра: обзор уже применён, «нажатие» прошло.</summary>
         public void EndFrame()
         {
-            LookDX = 0; LookDY = 0; ActionPressed = false;
+            LookDX = 0; LookDY = 0; ActionPressed = false; LightPressed = false;
         }
 
         public void Clear()

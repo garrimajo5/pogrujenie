@@ -6,8 +6,10 @@ namespace Pogrujenie.Game
 {
     /// <summary>
     /// Экранное управление для телефона: крестовина слева, кнопка действия справа, свайп по остальному
-    /// экрану — обзор. В редакторе работают мышь (как один палец), WASD/стрелки и E/Enter.
-    /// Тесты подменяют ввод через PadOverride, InjectLook и PressAction — как G.Ctl.padMove в браузере.
+    /// экрану — обзор. За штурвалом добавляются «Всплыть», «Вниз» и «Свет».
+    /// В редакторе работают мышь (как один палец), WASD/стрелки, E/Enter, R/F (вверх-вниз) и L (свет).
+    /// Тесты подменяют ввод через PadOverride, VertOverride, InjectLook, PressAction и PressLight —
+    /// как G.Ctl.padMove и G.Ctl.btnVert в браузере.
     /// </summary>
     public sealed class TouchInput : MonoBehaviour
     {
@@ -15,6 +17,15 @@ namespace Pogrujenie.Game
 
         /// <summary>Подмена крестовины в тестах (x, y из −1, 0, 1); null — читать экран.</summary>
         public Vector2Int? PadOverride;
+        /// <summary>Подмена кнопок «Всплыть»/«Вниз» в тестах (1, 0, −1); null — читать экран.</summary>
+        public int? VertOverride;
+
+        /// <summary>Показывать кнопки пилота (игрок за штурвалом).</summary>
+        public bool PilotButtons;
+        /// <summary>Вертикаль пилота: 1 — всплыть, −1 — вниз.</summary>
+        public int Vert { get; private set; }
+        /// <summary>Нажали «Свет» в этом кадре.</summary>
+        public bool LightPressed { get; private set; }
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; } // в «точках» экрана (1/160 дюйма)
@@ -27,7 +38,7 @@ namespace Pogrujenie.Game
         public Circle PadCircle => Router.Pad;
         public Circle ActionCircle => Router.Action;
 
-        bool injectedPress, injectedDown;
+        bool injectedPress, injectedDown, injectedLight;
         Vector2 injectedLook;
         bool legacyInput = true;
         int lastW, lastH;
@@ -51,6 +62,7 @@ namespace Pogrujenie.Game
         public void PressAction() { injectedPress = true; }
         public void HoldAction(bool down) { injectedDown = down; if (down) injectedPress = true; }
         public void InjectLook(Vector2 points) { injectedLook += points; }
+        public void PressLight() { injectedLight = true; }
 
         void Relayout(bool force = false)
         {
@@ -59,6 +71,8 @@ namespace Pogrujenie.Game
             lastW = Screen.width; lastH = Screen.height; lastSafe = safe;
             TouchLayout.Compute(safe.x, safe.y, safe.width, safe.height, out var pad, out var act);
             Router.SetLayout(pad, act);
+            TouchLayout.ComputePilot(safe.x, safe.y, safe.width, safe.height, out var up, out var down, out var light);
+            Router.SetPilotLayout(up, down, light);
         }
 
         /// <summary>Читает экран и клавиатуру. Вызывается игроком один раз в кадр, до движения.</summary>
@@ -66,6 +80,7 @@ namespace Pogrujenie.Game
         {
             Relayout();
             Router.EndFrame();
+            Router.PilotButtons = PilotButtons;
             if (legacyInput)
             {
                 try { ReadScreen(); }
@@ -92,6 +107,17 @@ namespace Pogrujenie.Game
             bool keyDown = legacyInput && (Input.GetKey(KeyCode.E) || Input.GetKey(KeyCode.Return));
             ActionPressed = Router.ActionPressed || injectedPress || keyPress;
             ActionDown = Router.ActionDown || injectedDown || keyDown;
+            int v = Router.Vert;
+            if (legacyInput && PilotButtons)
+            {
+                if (Input.GetKey(KeyCode.R) || Input.GetKey(KeyCode.Space)) v = 1;
+                if (Input.GetKey(KeyCode.F) || Input.GetKey(KeyCode.C)) v = -1;
+            }
+            if (VertOverride.HasValue) v = VertOverride.Value;
+            Vert = PilotButtons ? v : 0;
+            bool keyLight = legacyInput && PilotButtons && Input.GetKeyDown(KeyCode.L);
+            LightPressed = PilotButtons && (Router.LightPressed || injectedLight || keyLight);
+            injectedLight = false;
             injectedPress = false;
             injectedLook = Vector2.zero;
         }
@@ -154,6 +180,23 @@ namespace Pogrujenie.Game
             };
             style.normal.textColor = new Color(0.02f, 0.1f, 0.15f);
             GUI.Label(GuiRect(act.C, act.R), ActionLabel, style);
+            if (PilotButtons)
+            {
+                var small = new GUIStyle(style) { fontSize = Mathf.RoundToInt(Router.Up.R * 0.36f) };
+                PilotButton(Router.Up, "Всплыть", Vert > 0, small);
+                PilotButton(Router.Down, "Вниз", Vert < 0, small);
+                PilotButton(Router.Light, "Свет", LampLit, small);
+            }
+        }
+
+        /// <summary>Прожектор горит — кнопка «Свет» подсвечена.</summary>
+        public bool LampLit;
+
+        void PilotButton(Circle c, string label, bool on, GUIStyle style)
+        {
+            DrawTex(disc, c.C, c.R, on ? new Color(0.75f, 0.95f, 1f, 0.75f) : new Color(0.75f, 0.95f, 1f, 0.4f));
+            GUI.color = Color.white;
+            GUI.Label(GuiRect(c.C, c.R), label, style);
         }
 
         static Rect GuiRect(P2 c, float r) => new Rect(c.X - r, Screen.height - c.Y - r, r * 2, r * 2);
