@@ -33,3 +33,11 @@
 - Одна задача из `ROADMAP.md` = одна PR. В PR: что сделано, как проверено.
 - После проверки PR сливается в `main` (squash). Владелец разрешил сливать самостоятельно.
 - В той же PR отметить задачу `[x]` в `ROADMAP.md` и добавить строку в `CHANGELOG.md`.
+
+## Unity (этап 5)
+- Проект в `unity/`, Unity 6000.6.6f1 (Personal), цель — Android (ARM64, IL2CPP, minSdk 26, альбомная ориентация). iPhone позже.
+- Сборки: `Pogrujenie.Core` — чистый C# без UnityEngine (`noEngineReferences`), сюда идёт логика из `js/` (реактор, экосистема, правила), её тестируют EditMode-тесты. `Pogrujenie.Game` — MonoBehaviour и сцена. `Pogrujenie.Editor` — меню и `BuildScript.BuildAndroid`.
+- Сцена собирается из кода (`Bootstrap`). Сцена `Assets/Scenes/Main.unity` создаётся сборкой или меню «Погружение → Создать сцену Main»; в репозиторий её не кладём, пока не понадобятся ручные правки.
+- Тесты: `unity/Assets/Tests/EditMode` (NUnit, логика из Core) и `unity/Assets/Tests/PlayMode` (сцена, `[UnityTest]`). Новая фича — с тестами, как и в браузерной версии.
+- Редактора Unity в облачной сессии нет: тесты и сборка идут только в GitHub Actions, проверка «Unity» (`.github/workflows/unity.yml`, GameCI, секреты `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`). Перед PR внимательно перечитать C#: компилятор увидим только в CI. PR сливается, когда зелёные и «Тесты», и «Unity».
+- APK — артефакт `pogrujenie-apk` у запуска «Unity».

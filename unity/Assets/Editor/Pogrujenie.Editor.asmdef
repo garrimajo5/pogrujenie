@@ -1,0 +1,9 @@
+{
+  "name": "Pogrujenie.Editor",
+  "rootNamespace": "Pogrujenie.EditorTools",
+  "references": ["Pogrujenie.Core", "Pogrujenie.Game"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}
