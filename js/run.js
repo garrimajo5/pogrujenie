@@ -9,7 +9,11 @@
     { id: 'vents', name: 'Тёплые трубы', pois: ['geyser', 'shell'], desc: 'Короткий путь к Раковине древних мимо чёрного курильщика: реактор будет греться.' },
     { id: 'edge', name: 'Край отмели', pois: ['well', 'drop'], desc: 'К обрыву над Кристальным лесом. Оползни поднимают ил — готовьтесь к сонарной тьме.' }
   ];
-  const R = G.Run = { ROUTES, route: null, visited: new Set(), done: false, sel: 0, open: false, el: null, hudT: 0 };
+  const R = G.Run = { ROUTES, route: null, visited: new Set(), done: false, sel: 0, open: false, el: null, hudT: 0,
+    depth: 0, voteOpen: false, stats: null, ended: false };
+  /* счёт забега: что экипаж успел за погружение */
+  R.startStats = function () { R.stats = { t0: G.Game.t, samples: 0, species: 0, places: 0, breaches: 0, routes: 0, hits: 0 }; };
+  R.note = function (k, n) { if (!R.stats) R.startStats(); R.stats[k] += n || 1; };
   const poi = key => G.World.pois.find(p => p.key === key);
   R.next = () => (R.route ? R.route.pois.map(poi).find(p => p && !R.visited.has(p.key)) || null : null);
   R.choose = function (id) {
@@ -21,7 +25,11 @@
     G.Audio.discover(); R.render(); R.hud(true);
     return true;
   };
-  R.reset = function () { R.route = null; R.visited.clear(); R.done = false; R.sel = 0; if (R.open) R.close(); R.hud(true); };
+  R.reset = function () {
+    R.route = null; R.visited.clear(); R.done = false; R.sel = 0; R.depth = 0; R.ended = false;
+    if (R.open) R.close(); if (R.voteOpen) R.closeVote(); R.startStats(); R.hud(true);
+    const res = document.getElementById('results'); if (res) res.hidden = true;
+  };
   R.update = function (dt) {
     if (R.route && !R.done) {
       const S = G.Ship;
@@ -32,10 +40,10 @@
           const n = R.next();
           if (n) { G.Game.feedMsg && G.Game.feedMsg(`Точка маршрута пройдена: ${p.name}. Дальше — ${n.name}`, true); G.Audio.beep(880); }
           else {
-            R.done = true;
-            G.Game.toast('Маршрут пройден', `«${R.route.name}» закрыт. Пора решать: глубже или наверх.`, 5000);
+            R.done = true; R.note('routes');
+            G.Game.toast('Маршрут пройден', `«${R.route.name}» закрыт. Экипаж собирается у голостола: глубже или наверх?`, 5000);
             G.Game.feedMsg && G.Game.feedMsg(`Маршрут «${R.route.name}» пройден`, true);
-            G.Audio.discover();
+            G.Audio.discover(); R.openVote();
           }
         }
       }
@@ -51,6 +59,61 @@
     const n = R.next(), S = G.Ship;
     el.textContent = R.done ? `Маршрут «${R.route.name}» пройден` : `${R.route.name} · ${R.visited.size}/${R.route.pois.length} · ${n.name} ${Math.round(Math.hypot(n.pos.x - S.pos.x, n.pos.z - S.pos.z))} м`;
   };
+
+  /* ---------- голосование: глубже или наверх ---------- */
+  /* мнения экипажа подсказывают капитану: решает голос игрока */
+  R.opinions = function () {
+    const S = G.Ship, P = G.Power;
+    return [
+      { who: 'Пилот', up: S.hull < 50, why: S.hull < 50 ? `корпус ${Math.round(S.hull)}% — второй такой удар не выдержим` : 'корабль слушается, можно идти дальше' },
+      { who: 'Инженер', up: S.energy < 40 || P.hot, why: P.hot ? 'реактор перегрет' : S.energy < 40 ? `энергии ${Math.round(S.energy)} — не хватит на обратный путь` : 'реактор в норме' },
+      { who: 'Сонарщик', up: !!(G.Silt && G.Silt.inside), why: G.Silt && G.Silt.inside ? 'вокруг ил, мы слепые' : 'сонар чистый' },
+      { who: 'Биолог', up: S.cargo.length >= 4, why: S.cargo.length >= 4 ? `в трюме ${S.cargo.length} образцов — пора их довезти` : 'образцов мало, внизу их больше' }
+    ];
+  };
+  R.openVote = function () {
+    const el = document.getElementById('vote'); if (!el) return;
+    R.voteOpen = true; el.hidden = false; R.back = G.Game.state === 'vote' ? R.back : G.Game.state; G.Game.state = 'vote'; R.voteHeld = true; // ждём, пока отпустят крестовину
+    el.querySelector('.vt-crew').innerHTML = R.opinions().map(o => `<div class="vt-op ${o.up ? 'up' : 'deep'}"><b>${o.who}: ${o.up ? 'наверх' : 'глубже'}</b><small>${o.why}</small></div>`).join('');
+    el.querySelector('.vt-depth').textContent = R.depth ? `Глубина забега: ${R.depth + 1}-й спуск` : 'Первый спуск';
+  };
+  R.closeVote = function () { const el = document.getElementById('vote'); if (R.voteOpen && G.Game.state === 'vote') G.Game.state = R.back || 'play'; R.voteOpen = false; if (el) el.hidden = true; if (G.Game.resumeClock) G.Game.resumeClock(); };
+  R.isVoteOpen = () => R.voteOpen;
+  R.voteNav = function (mx) { if (Math.abs(mx) < 0.5) { R.voteHeld = false; return; } if (R.voteHeld) return; R.decide(mx > 0 ? 'deep' : 'up'); };
+  /* решение капитана */
+  R.decide = function (choice) {
+    R.closeVote();
+    if (choice === 'deep') {
+      R.depth++; R.route = null; R.visited.clear(); R.done = false; R.hud(true);
+      G.Game.toast('Глубже', `Экипаж идёт дальше. Хищники здесь злее (+${R.depth * 15}% к чутью). Выберите новый маршрут у голостола.`, 5000);
+      G.Game.feedMsg && G.Game.feedMsg(`Решение экипажа: глубже (${R.depth + 1}-й спуск)`, true);
+      return 'deep';
+    }
+    R.finish('up'); return 'up';
+  };
+  /* итоги забега */
+  R.finish = function (why) {
+    if (!R.stats) R.startStats();
+    R.ended = true;
+    const st = R.stats, S = G.Ship, el = document.getElementById('results');
+    const min = Math.max(0, Math.round((G.Game.t - st.t0) / 60));
+    const rows = [
+      ['Время под водой', `${min} мин`], ['Спусков', R.depth + 1], ['Маршрутов пройдено', st.routes],
+      ['Новых видов в журнале', st.species], ['Новых мест', st.places], ['Образцов поднято', st.samples],
+      ['Улучшений', G.Cargo.owned.size], ['Пробоин заварено', st.breaches], ['Корпус на финише', Math.round(S.hull) + '%']
+    ];
+    const score = st.species * 10 + st.places * 15 + st.samples * 5 + st.routes * 20 + R.depth * 25 + Math.round(S.hull / 10);
+    if (el) {
+      el.querySelector('.rs-title').textContent = why === 'up' ? 'Экипаж поднялся наверх' : 'Забег окончен';
+      el.querySelector('.rs-rows').innerHTML = rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+      el.querySelector('.rs-score').textContent = `Очки экспедиции: ${score}`;
+      el.hidden = false;
+    }
+    G.Game.state = 'results';
+    R.score = score;
+    return score;
+  };
+  R.predK = () => 1 + R.depth * 0.15; // чутьё хищников растёт с каждым спуском
 
   /* ---------- панель брифинга ---------- */
   R.isOpen = () => R.open;
@@ -84,6 +147,11 @@
       const row = b.closest('.cg-row'); if (!row) return;
       R.sel = ROUTES.findIndex(r => r.id === row.dataset.r); R.choose(row.dataset.r); R.close();
     });
-    R.render(); R.hud(true);
+    R.render(); R.hud(true); R.startStats();
+    const vote = document.getElementById('vote');
+    if (vote) {
+      vote.addEventListener('pointerdown', e => e.stopPropagation());
+      vote.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.v) R.decide(b.dataset.v); });
+    }
   };
 })(window.G);

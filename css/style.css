@@ -93,6 +93,17 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #b-action.dis { opacity: .45; box-shadow: none; }
 
 /* оверлеи */
+#vote, #results { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); background: rgba(2, 12, 18, .82); overflow: auto; touch-action: pan-y; z-index: 7; }
+#vote h2, #results h2 { font: 800 28px var(--disp); margin: 0; color: var(--glow); }
+.vt-crew { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vt-op { border: 1px solid var(--line); padding: 6px 8px; font-size: 12px; }
+.vt-op b { display: block; } .vt-op small { color: var(--dim); }
+.vt-op.up b { color: var(--amber); } .vt-op.deep b { color: var(--glow); }
+.vt-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.vt-depth, .rs-score { font-size: 13px; color: var(--amber); }
+.rs-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 13px; }
+.rs-rows div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding: 3px 0; }
+.rs-rows b { color: var(--glow); }
 #intro, #lost { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--st) var(--sr) var(--sb) var(--sl); background: radial-gradient(ellipse at 50% 40%, rgba(4, 20, 27, .35), rgba(4, 20, 27, .9)); overflow: auto; touch-action: pan-y; }
 .card { max-width: 680px; width: 100%; display: grid; gap: 14px; padding: 8px 4px; }
 .tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
@@ -194,6 +205,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .pw-row .chip { min-height: 28px; }
   .pw-name small { display: none; }
   #cargo, #brief { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
+  #vote h2, #results h2 { font-size: 20px; }
+  .vt-op { padding: 3px 6px; font-size: 10px; }
+  .rs-rows { font-size: 11px; }
   #brief .pw-name small { display: block; font-size: 9px; }
   #stats .route { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
   .cg-row { padding: 2px 4px; }

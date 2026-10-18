@@ -98,7 +98,7 @@
   /* образец в шлюзе: попадает в колбу лаборатории */
   M.stow = function (s) {
     M.state = 'idle'; M.target = null; M.prog = 0; M.arm.carry.visible = false;
-    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name });
+    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name }); G.Run.note('samples');
     G.Ship.showTubes && G.Ship.showTubes();
     G.Game.toast('Образец в шлюзе', `${KIND[s.kind].name} — в колбе лаборатории. Всего образцов: ${G.Ship.cargo.length}.`);
     G.Game.feedMsg && G.Game.feedMsg(`Манипулятор достал образец: ${KIND[s.kind].name.toLowerCase()}`, true);

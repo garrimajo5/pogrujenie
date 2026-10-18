@@ -41,6 +41,7 @@ T.describe('Брифинг и маршрут', () => {
     T.ok(!R().done);
     fly(pois[0]); T.ok(R().done, 'маршрут не закрыт');
     T.eq(R().next(), null);
+    T.ok(R().isVoteOpen(), 'после маршрута нет голосования'); R().closeVote();
     D().frame(10); T.ok(document.getElementById('s-route').textContent.includes('пройден'));
   });
 

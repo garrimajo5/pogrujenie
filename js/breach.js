@@ -65,7 +65,7 @@
     G.Audio.creak();
   };
   B.end = function () {
-    const spot = B.active; B.active = null; B.welding = false; B.weld = 0;
+    const spot = B.active; B.active = null; B.welding = false; B.weld = 0; G.Run.note('breaches');
     crackTex('welded'); B.spray.m.visible = false; B.sparks.m.visible = false;
     G.Game.toast('Пробоина заделана', `Корпус ${Math.round(G.Ship.hull)}%. Насосы откачивают воду.`);
     G.Game.feedMsg && G.Game.feedMsg(`Шов заварен: ${spot.name}`);
