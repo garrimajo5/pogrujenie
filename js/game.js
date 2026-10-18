@@ -24,7 +24,7 @@
     G.World.build(scene);
     G.Sonar.init();
     G.Ship.build(scene);
-    G.Eco.init(scene); G.Silt.build(scene); G.Manip.build(scene);
+    G.Eco.init(scene); G.Silt.build(scene); G.Echo.build(scene); G.Manip.build(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
     G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Run.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
@@ -76,7 +76,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Roles.reset(); G.Voice.reset(); G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Roles.reset(); G.Voice.reset(); G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Echo.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -253,7 +253,7 @@
     const S = G.Ship;
     if (!S.light && S.energy < 3) { Game.toast('Мало энергии', 'Прожектор не включить'); return; }
     if (!S.light && G.Power.k('lamp') <= 0) { Game.toast('Прожектор обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'Дайте ему энергию в машинном отделении'); return; }
-    S.light = !S.light; G.Audio.beep(S.light ? 760 : 380);
+    S.light = !S.light; G.Audio.beep(S.light ? 760 : 380); G.Echo.onLight(S.light);
     if (G.Net.isGuest()) G.Net.pendingLight = Game.t; // попросить хоста переключить свет
     $('b-light').classList.toggle('lit', S.light);
   };
@@ -280,7 +280,7 @@
     if (Game.piloting) Game.toggleHelm();
   }
   function restart() {
-    G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset(); G.Save.mark(); // груз потерян вместе с кораблём
+    G.Breach.reset(); G.Silt.reset(); G.Echo.reset(); G.Ship.reset(); G.Eco.reset(); G.Save.mark(); // груз потерян вместе с кораблём
     const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
     $('lost').hidden = true; Game.state = 'play'; clock.getDelta();
   }
@@ -520,7 +520,7 @@
     $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
     $('b-intro-settings').onclick = () => G.Settings.open();
     $('b-restart').onclick = restart;
-    $('b-newrun').onclick = () => { G.Run.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); restart(); };
+    $('b-newrun').onclick = () => { G.Run.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Echo.reset(); G.Manip.reset(); G.Cargo.reset(); restart(); };
     if (G.Ctl.gyroAvailable()) {
       $('b-gyro').hidden = false;
       $('b-gyro').onclick = async () => {

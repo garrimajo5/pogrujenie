@@ -16,7 +16,7 @@ T.describe('Посты ролей', () => {
   };
   const leave = () => { if (N().ws) N().ws.onclose = null; Object.assign(N(), { ws: null, on: false, host: false, status: 'off', target: null, remote: null, peers: [] }); Ro().reset(); N().hud(); };
   const label = () => document.getElementById('act-label').textContent;
-  const stand = (x, z, yaw) => { const pl = G.Game.player; pl.x = x; pl.z = z; pl.yaw = yaw; pl.pitch = -0.1; D().frame(1); };
+  const stand = (x, z, yaw) => { const pl = G.Game.player; pl.x = x; pl.z = z; pl.yaw = yaw; pl.pitch = -1.1; D().frame(1); }; // взгляд в пол: рыба за окном не перехватит кнопку
   const roleMsgs = ws => ws.sent.filter(m => m.t === 'role');
 
   T.test('при входе берётся первая свободная роль: хосту — пилот, гостю — следующая', () => {

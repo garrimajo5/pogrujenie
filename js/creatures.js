@@ -96,9 +96,12 @@
       notes: { across: 'Стоит поперёк течения — по нему видно, куда сносит корабль.', turn: 'Когда течение меняется, веерники разворачиваются следом.', ognevka: 'Огнёвки кормятся на веернике, пока их станция пустует.' } },
     fern: { name: 'Волнолист', acc: 'волнолист', gen: 'волнолиста', unom: 'папоротник-спираль', uacc: 'папоротник-спираль', ugen: 'папоротника-спирали',
       desc: 'Спиральный папоротник около 1,5 метра. Разворачивает листья к свету и сворачивает их в темноте.',
-      notes: { open: 'Раскрывается в луче прожектора, в темноте сворачивается.', mollusk: 'Под раскрытыми листьями — съедобные моллюски, к ним приплывают светляки.' } }
+      notes: { open: 'Раскрывается в луче прожектора, в темноте сворачивается.', mollusk: 'Под раскрытыми листьями — съедобные моллюски, к ним приплывают светляки.' } },
+    echo: { name: 'Эхоловец', acc: 'эхоловца', gen: 'эхоловца', unom: 'засадчик с ушами-воронками', uacc: 'засадчика с ушами-воронками', ugen: 'засадчика с ушами-воронками',
+      desc: 'Засадчик около 3 метров с двумя ушами-воронками. Лежит у Костей левиафана, слушает корабль и повторяет голоса экипажа по внутренней связи. От него спасает только кодовое слово погружения.',
+      notes: { fake: 'Подделывает голоса экипажа по связи — без кодового слова или со старым, с прошлого спуска.', strike: 'Просит импульс сонара и бьёт по корпусу на его звук.', lure: 'Просит включить прожектор — на свет приходит серпохвост.', reveal: 'Импульс, о котором он не просил, выдаёт его: ложные вызовы на время прекращаются.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ', 'cushion', 'bladder', 'fan', 'fern'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ', 'cushion', 'bladder', 'fan', 'fern', 'echo'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -263,6 +266,7 @@
     else if (E.shipWake > 0.5) E.emit('plankton', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил светящийся след ${G.nm('plankton', 'gen')} и разворачивается к кораблю`);
     else E.emit('pred', 'hear', pr.p, () => `${cap(G.nm('pred'))} услышал двигатели и разворачивается к кораблю`);
   }
+  E.lure = pr => startCharge(pr); // серпохвост идёт на корабль (эхоловец заманил светом)
   function predUpdate(pr, dt) {
     const S = G.Ship;
     pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt;
@@ -2027,12 +2031,14 @@
     if (E.kmCrownIM) masonsUpdate(dt, t);
     if (E.rmIM) remorasUpdate(dt, t);
     if (G.Silt.pts) G.Silt.update(dt, t);
+    if (G.Echo) G.Echo.update(dt);
   };
 
   E.scanTargets = function () {
     const L = [];
     E.shoals.forEach(sh => { if (sh.n >= 3) L.push({ sp: 'fish', pos: sh.c, r: 2.5 }); });
     E.preds.forEach(p => L.push({ sp: 'pred', pos: p.p, r: 2.5 }));
+    const ec = G.Echo && G.Echo.target(); if (ec) L.push(ec);
     E.veils.forEach(v => L.push({ sp: 'veil', pos: v.scanP, r: 7 }));
     E.grazers.forEach(gz => { if (gz.alive) L.push({ sp: 'grazer', pos: gz.p, r: 1.4 }); });
     E.eels.forEach(el => L.push({ sp: 'eel', pos: el.p, r: 1.3 }));
@@ -2060,6 +2066,7 @@
 
   E.onPing = function (pos) {
     E.lastPing = G.Game.t; let heard = false;
+    if (G.Echo) G.Echo.onPing(pos);
     E.preds.forEach(pr => {
       if (pr.state === 'charge' || pr.state === 'retreat' || pr.state === 'flee') return;
       const d = pr.p.distanceTo(pos);
