@@ -294,6 +294,82 @@
     for (const [lx, lz] of FOOT) m = Math.max(m, G.World.height(px + lx * c + lz * s, pz - lx * s + lz * c));
     return m;
   };
+  /* Объём корпуса в корабельных координатах: коробки отсеков по внешним граням стен
+     [x0, x1, y0, y1, z0, z1]. Существа не заходят внутрь: S.pushOut выталкивает их наружу. */
+  const HULL = S.HULL = [
+    [-5.1, 5.1, -0.15, 3.3, -6.1, 2.1],   // мостик
+    [-1.2, 1.2, -0.15, 2.7, 2.1, 8.1],    // коридор
+    [-4.1, 4.1, -0.2, 3.5, 7.9, 14.1],    // лаборатория
+    [-3.1, 3.1, -0.15, 3.3, 14.1, 19.6],  // машинное отделение
+    [-2.6, 2.6, -0.15, 3.1, 19.6, 24.1]   // трюм
+  ];
+  const hInv = new THREE.Matrix4(), hl = new V3(), hq = new V3(), hn = new V3();
+  const inBox = (b, x, y, z, r) => x > b[0] - r && x < b[1] + r && y > b[2] - r && y < b[3] + r && z > b[4] - r && z < b[5] + r;
+  const inHull = (x, y, z, r) => HULL.some(b => inBox(b, x, y, z, r));
+  /* расстояние от точки (мир) до корпуса: >0 снаружи, ≤0 внутри */
+  S.hullDist = function (p) {
+    hl.copy(p).applyMatrix4(hInv);
+    let best = 1e9;
+    for (const b of HULL) {
+      const dx = Math.max(b[0] - hl.x, hl.x - b[1]), dy = Math.max(b[2] - hl.y, hl.y - b[3]), dz = Math.max(b[4] - hl.z, hl.z - b[5]);
+      const d = dx > 0 || dy > 0 || dz > 0 ? Math.hypot(Math.max(dx, 0), Math.max(dy, 0), Math.max(dz, 0)) : Math.max(dx, dy, dz);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+  /* вытолкнуть точку p (мир) из корпуса с запасом r; v — скорость: её часть внутрь корпуса гасится.
+     Возвращает true, если точка была внутри. */
+  S.pushOut = function (p, r, v) {
+    if (p.distanceToSquared(S.center) > (22 + r) * (22 + r)) return false;
+    hl.copy(p).applyMatrix4(hInv);
+    let moved = false;
+    for (let it = 0; it < 4; it++) { // на стыке отсеков точка может попасть из одного в другой — повторить
+      const b = HULL.find(bx => inBox(bx, hl.x, hl.y, hl.z, r));
+      if (!b) break;
+      /* грани коробки по глубине проникновения; берём ближайшую, за которой нет соседнего отсека */
+      const faces = [[0, -1, hl.x - b[0] + r], [0, 1, b[1] + r - hl.x], [1, -1, hl.y - b[2] + r], [1, 1, b[3] + r - hl.y], [2, -1, hl.z - b[4] + r], [2, 1, b[5] + r - hl.z]].sort((a, c) => a[2] - c[2]);
+      let face = faces[0];
+      for (const f of faces) {
+        hq.copy(hl).setComponent(f[0], hl.getComponent(f[0]) + f[1] * (f[2] + 0.01));
+        if (!inHull(hq.x, hq.y, hq.z, r)) { face = f; break; }
+      }
+      hl.setComponent(face[0], hl.getComponent(face[0]) + face[1] * (face[2] + 0.01));
+      if (v) {
+        hn.set(0, 0, 0).setComponent(face[0], face[1]).applyQuaternion(g.quaternion);
+        const vn = v.dot(hn); if (vn < 0) v.addScaledVector(hn, -vn);
+      }
+      moved = true;
+    }
+    if (!moved) return false;
+    p.copy(hl).applyMatrix4(g.matrixWorld);
+    return true;
+  };
+  /* пересекает ли отрезок a–b (корабельные координаты) корпус с запасом r */
+  function segHits(a, b, r) {
+    for (const bx of HULL) {
+      let t0 = 0, t1 = 1, hit = true;
+      for (let k = 0; k < 3 && hit; k++) {
+        const o = a.getComponent(k), d = b.getComponent(k) - o, lo = bx[k * 2] - r, hi = bx[k * 2 + 1] + r;
+        if (Math.abs(d) < 1e-9) { if (o <= lo || o >= hi) hit = false; continue; }
+        let u0 = (lo - o) / d, u1 = (hi - o) / d; if (u0 > u1) { const s = u0; u0 = u1; u1 = s; }
+        t0 = Math.max(t0, u0); t1 = Math.min(t1, u1); if (t0 >= t1) hit = false;
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
+  const dA = new V3(), dB = new V3();
+  /* обход корпуса: если прямой путь от p к goal идёт сквозь корабль, вернуть точку сбоку от него
+     (в out), иначе сам goal. Существо плывёт вдоль борта и сворачивает к цели за кораблём. */
+  S.detour = function (p, goal, r, out) {
+    if (p.distanceToSquared(S.center) > 900) return goal;
+    dA.copy(p).applyMatrix4(hInv); dB.copy(goal).applyMatrix4(hInv);
+    if (!segHits(dA, dB, r)) return goal;
+    const side = dA.x < 0 ? -1 : 1, fwd = dB.z < dA.z;
+    let z = dA.z + (fwd ? -6 : 6);
+    if (fwd ? z < dB.z : z > dB.z) z = dB.z + (fwd ? -1 : 1);
+    return out.set(side * (5.5 + r + 0.6), dA.y, z).applyMatrix4(g.matrixWorld);
+  };
   S.reset = function () {
     S.pos.copy(S.start); S.yaw = 0;
     S.pos.y = Math.min(-9, S.clearance(S.pos.x, S.pos.z, 0) + 9);
@@ -306,6 +382,7 @@
     g.position.copy(S.pos); g.rotation.set(S.pitch, S.yaw, S.roll, 'YXZ'); g.updateMatrixWorld(true);
     S.center.set(0, 1.5, 4); g.localToWorld(S.center);
     S.front.set(0, 1.8, -6.6); g.localToWorld(S.front);
+    hInv.copy(g.matrixWorld).invert();
   };
 
   /* Можно ли стоять игроку в точке (x,z) корабельных координат */
