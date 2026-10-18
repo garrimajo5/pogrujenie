@@ -1,10 +1,11 @@
 'use strict';
 /* Живая экосистема отмели.
    Пищевые связи: серпохвосты охотятся на светляков; вуали жалят рыб, хищники их обходят;
-   скребуны пасутся на мху; стеклоусты подстерегают скребунов и рыб; за ледокрылами ходят стаи. */
+   скребуны пасутся на мху; стеклоусты подстерегают скребунов и рыб; за ледокрылами ходят стаи;
+   огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -27,9 +28,15 @@
       notes: { eelcatch: 'Бросается из укрытия на скребунов и рыб.', latch: 'Присасывается к корпусу и пьёт энергию.', zap: 'Разряд по корпусу сбрасывает его.' } },
     ray: { name: 'Ледокрыл', acc: 'ледокрыла', unom: 'гигантский скат', uacc: 'гигантского ската',
       desc: 'Огромный скат с размахом крыльев около 14 метров. Скользит под самым льдом и поёт низким голосом.',
-      notes: { follow: 'За ним держатся стаи светляков.' } }
+      notes: { follow: 'За ним держатся стаи светляков.' } },
+    ognevka: { name: 'Огнёвка', acc: 'огнёвку', unom: 'рачки-чистильщики', uacc: 'рачков-чистильщиков',
+      desc: 'Светящиеся креветки длиной около 8 см. Держат «станции чистки» на вершинах огнецвета и снимают паразитов с крупных рыб.',
+      notes: { clean: 'Снимают пиявников с серпохвостов, которые приплывают на станцию.', truce: 'У станции чистки серпохвост не охотится.', shelter: 'Корабль может переждать у станции: хищник отворачивает.' } },
+    leech: { name: 'Пиявник', acc: 'пиявника', unom: 'паразит', uacc: 'паразита',
+      desc: 'Плоский червь около 20 см. Присасывается к жабрам серпохвостов.',
+      notes: { infest: 'Присасывается к жабрам серпохвоста.', angry: 'Заражённый хищник медленнее, но злее: замечает корабль издалека.', cleaned: 'Огнёвки снимают пиявников на станциях чистки.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'acc' ? s.uacc : s.unom); };
 
@@ -67,7 +74,7 @@
   }
   function nearestFish(p, R) {
     let best = null, bd = R;
-    for (const f of E.fish) { if (!f.alive) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
+    for (const f of E.fish) { if (!f.alive || nearStation(f.p)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
     return best;
   }
   function updateFish(dt, t) {
@@ -156,18 +163,38 @@
       const tailG = new THREE.Group();
       const tail = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.08, 5, 18, Math.PI * 0.95), new THREE.MeshLambertMaterial({ color: 0x5a7394, emissive: 0x140c1c }));
       tail.rotation.set(0, Math.PI / 2, -Math.PI / 2); tail.position.z = -0.9; tailG.add(tail);
+      const leechM = new THREE.Mesh(leechGeo(), new THREE.MeshLambertMaterial({ color: 0x8a2f3c, emissive: 0x3a0a12 }));
+      leechM.position.set(0.5, -0.05, 0.25); leechM.rotation.set(0, 0.4, -0.5); head.add(leechM);
       scene.add(head); scene.add(tailG);
-      const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], head, tailG, cd: 20, avoidCd: 0, i };
+      const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], head, tailG, cd: 20, avoidCd: 0, i,
+        leech: false, leechCd: 0, angryCd: 0, truceCd: 0, station: null, leechM, leechP: new V3() };
+      setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160);
       for (let k = 0; k < PSEG; k++) pr.segs.push(p.clone().add(new V3(0, 0, -k * 0.6)));
       E.preds.push(pr);
     }
   }
+  function leechGeo() { const g = new THREE.CapsuleGeometry(0.09, 0.32, 3, 6); g.rotateX(Math.PI / 2); g.scale(1.4, 0.45, 1); return g; }
+  function setLeech(pr, on) { pr.leech = on; pr.leechM.visible = on; if (!on) pr.station = null; }
   function startCharge(pr) { pr.state = 'charge'; pr.timer = 10; E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`); }
   function predUpdate(pr, dt) {
     const S = G.Ship;
-    pr.hunger = Math.min(1, pr.hunger + dt * 0.03); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt;
-    const dShip = pr.p.distanceTo(S.center);
-    const canAttack = pr.cd <= 0 && pr.hunger > 0.2 && dShip < 32 && (S.light || G.Game.t - E.lastPing < 12) && !E.shipHidden && S.hull > 0;
+    pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt;
+    const dShip = pr.p.distanceTo(S.center), atStation = nearStation(pr.p);
+    const reach = pr.leech ? 48 : 32; // заражённый пиявником замечает корабль издалека
+    const lured = dShip < reach && (S.light || G.Game.t - E.lastPing < 12) && !E.shipHidden && S.hull > 0;
+    const canAttack = pr.cd <= 0 && pr.hunger > (pr.leech ? 0.1 : 0.2) && lured && !E.shipSheltered && !atStation;
+    if (pr.leech && canAttack && dShip > 32 && pr.angryCd <= 0) { pr.angryCd = 60; E.emit('leech', 'angry', pr.p, () => `Заражённый ${G.nm('pred')} злее обычного и замечает корабль издалека`); }
+    if (lured && E.shipSheltered && pr.cd <= 0 && pr.truceCd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
+      pr.truceCd = 40; pr.cd = Math.max(pr.cd, 8);
+      E.emit('ognevka', 'shelter', pr.p, () => `${cap(G.nm('pred'))} не трогает корабль у станции чистки`);
+    }
+    /* заражение пиявником и поиск станции чистки */
+    if (!pr.leech) {
+      pr.leechCd -= dt;
+      if (pr.leechCd <= 0 && !atStation) { setLeech(pr, true); E.emit('leech', 'infest', pr.p, () => `${cap(G.nm('leech'))} присосался к жабрам ${G.nm('pred', 'acc')}`); }
+    } else if (!pr.station && pr.hunger < 0.45 && (pr.state === 'patrol' || pr.state === 'eat') && E.stations.length) {
+      pr.station = nearestStation(pr.p); pr.state = 'clean'; pr.timer = 60; pr.goal.copy(pr.station.top);
+    }
     let speed = 3;
     switch (pr.state) {
       case 'patrol':
@@ -177,12 +204,32 @@
           else pr.goal.set(G.rr(-170, 150), 0, G.rr(-170, 150));
           pr.goal.y = Math.min(H(pr.goal.x, pr.goal.z) + G.rr(4, 14), -6);
         }
-        if (pr.hunger > 0.45) { const f = nearestFish(pr.p, 50); if (f) { pr.state = 'hunt'; pr.target = f; pr.timer = 12; } }
+        if (pr.hunger > 0.45 && !atStation) { const f = nearestFish(pr.p, 50); if (f) { pr.state = 'hunt'; pr.target = f; pr.timer = 12; } }
         if (canAttack) startCharge(pr);
         break;
+      case 'clean': {
+        const st = pr.station;
+        if (!st || !pr.leech) { pr.state = 'patrol'; pr.timer = 0; break; }
+        const d = pr.p.distanceTo(st.top);
+        speed = d < 4 ? 0.6 : 4;
+        pr.goal.copy(st.top);
+        if (d < 4) { st.busy = pr; st.work += dt; }
+        if (st.work >= 6) {
+          st.work = 0; st.busy = null; setLeech(pr, false); pr.leechCd = G.rr(150, 260); pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.hunger = Math.min(pr.hunger, 0.3);
+          E.emit('ognevka', 'clean', st.top, () => `${cap(G.nm('pred'))} на станции чистки: его очистили от ${G.nm('leech', 'acc')}`);
+          E.emit('leech', 'cleaned', st.top, null);
+        } else if (pr.timer <= 0 || pr.hunger > 0.9) { pr.state = 'patrol'; pr.station = null; pr.timer = 0; }
+        if (canAttack && pr.hunger > 0.6) startCharge(pr);
+        break;
+      }
       case 'hunt':
         speed = 7.6;
         if (!pr.target || !pr.target.alive || pr.timer <= 0) { pr.state = 'patrol'; pr.timer = 0; pr.target = null; break; }
+        if (atStation || nearStation(pr.target.p)) { // у станции чистки перемирие
+          pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
+          if (pr.truceCd <= 0) { pr.truceCd = 40; E.emit('ognevka', 'truce', pr.p, () => `${cap(G.nm('pred'))} бросил охоту у станции чистки`); }
+          break;
+        }
         pr.goal.copy(pr.target.v).multiplyScalar(0.4).add(pr.target.p);
         if (pr.p.distanceTo(pr.target.p) < 1.6) {
           killFish(pr.target); pr.hunger = 0; pr.state = 'eat'; pr.timer = 5; pr.target = null;
@@ -197,6 +244,11 @@
         break;
       case 'charge':
         speed = 9.5; pr.goal.copy(S.center);
+        if (E.shipSheltered) {
+          pr.state = 'retreat'; pr.timer = 8; pr.cd = Math.max(pr.cd, 15); pr.goal.copy(pr.p).add(tv.set(G.rr(-40, 40), 4, G.rr(-40, 40))); pr.goal.y = Math.min(pr.goal.y, -6);
+          if (pr.truceCd <= 0) { pr.truceCd = 40; E.emit('ognevka', 'shelter', pr.p, () => `${cap(G.nm('pred'))} отвернул: корабль у станции чистки`); }
+          break;
+        }
         if (E.shipHidden) {
           pr.state = 'retreat'; pr.timer = 10; pr.goal.copy(pr.p).add(tv.set(G.rr(-40, 40), 5, G.rr(-40, 40))); pr.goal.y = Math.min(pr.goal.y, -6);
           E.emit('veil', 'hide', pr.p, () => `Корабль под куполом: ${G.nm('pred')} потерял его из виду`);
@@ -215,6 +267,7 @@
         break;
     }
     const steer = tv2.copy(pr.goal).sub(pr.p);
+    if (pr.leech && pr.state !== 'clean') speed *= 0.75; // пиявник замедляет хищника
     if (steer.lengthSq() > 1e-4) steer.normalize().multiplyScalar(speed);
     for (const vl of E.veils) {
       const dx = pr.p.x - vl.p.x, dz = pr.p.z - vl.p.z, dh = Math.hypot(dx, dz) + 0.01;
@@ -254,6 +307,7 @@
       });
       lastPos = dummy.position;
     }
+    pr.head.updateMatrixWorld(); pr.leechM.getWorldPosition(pr.leechP);
     pr.tailG.position.copy(lastPos);
     pr.tailG.lookAt(segs[segs.length - 2]);
   }
@@ -512,13 +566,73 @@
     }
   }
 
+
+  /* ======================= ОГНЁВКИ И СТАНЦИИ ЧИСТКИ ======================= */
+  const ST_R = 14, SHELTER_R = 18, SHRIMP = 10;
+  function nearStation(p) { for (const st of E.stations) if (p.distanceTo(st.top) < ST_R) return st; return null; }
+  function nearestStation(p) { let best = null, bd = 1e9; for (const st of E.stations) { const d = st.top.distanceTo(p); if (d < bd) { bd = d; best = st; } } return best; }
+  E.nearStation = nearStation;
+  function fireCoralGeo() { // огнецвет: веер толстых ветвей с огненными кончиками
+    const parts = [], wood = new THREE.Color(0.75, 0.32, 0.16), tip = new THREE.Color(1, 0.75, 0.35);
+    const trunk = new THREE.CylinderGeometry(0.28, 0.45, 2.2, 7); trunk.translate(0, 1.1, 0);
+    parts.push({ g: trunk, c: wood });
+    for (let k = 0; k < 6; k++) {
+      const a = k / 6 * 6.283 + 0.3, tilt = 0.45 + (k % 2) * 0.25, L = 1.6 + (k % 3) * 0.35;
+      const br = new THREE.CylinderGeometry(0.1, 0.2, L, 5); br.translate(0, L / 2, 0);
+      const m = new THREE.Matrix4().makeTranslation(0, 1.9, 0).multiply(new THREE.Matrix4().makeRotationAxis(new V3(Math.sin(a), 0, -Math.cos(a)), tilt));
+      parts.push({ g: br, m, c: wood });
+      const tp = new THREE.SphereGeometry(0.22, 6, 4); tp.translate(0, L, 0);
+      parts.push({ g: tp, m: m.clone(), c: tip });
+    }
+    return G.merge(parts);
+  }
+  function initStations(scene) {
+    const spots = G.World.coralSpots;
+    if (!spots.length) return;
+    const geo = fireCoralGeo(), mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x5a1a04 });
+    [[-45, 35], [38, 72], [22, -42]].forEach(([x, z]) => {
+      let best = null, bd = 1e9;
+      for (const sp of spots) { const d = Math.hypot(sp.x - x, sp.z - z); if (d < bd && E.stations.every(st => Math.hypot(st.base.x - sp.x, st.base.z - sp.z) > 40)) { bd = d; best = sp; } }
+      if (!best) return;
+      const base = best.clone(); base.y = H(base.x, base.z);
+      const m = new THREE.Mesh(geo, mat); m.position.copy(base); m.rotation.y = G.rr(0, 6.28); m.scale.setScalar(1.3); scene.add(m);
+      E.stations.push({ i: E.stations.length, base, top: base.clone().add(new V3(0, 4.2, 0)), busy: null, work: 0, mesh: m });
+    });
+    const sg = new THREE.CapsuleGeometry(0.06, 0.2, 2, 5); sg.rotateX(Math.PI / 2);
+    E.shrimpIM = new THREE.InstancedMesh(sg, new THREE.MeshBasicMaterial({ color: 0xffa040 }), Math.max(1, E.stations.length * SHRIMP));
+    E.shrimpIM.frustumCulled = false; scene.add(E.shrimpIM);
+    E.shrimp = [];
+    E.stations.forEach(st => { for (let k = 0; k < SHRIMP; k++) E.shrimp.push({ st, ph: G.rr(0, 6.28), r: G.rr(0.6, 1.6), h: G.rr(-0.6, 0.8), p: st.top.clone() }); });
+  }
+  function stationsUpdate(dt, t) {
+    const S = G.Ship;
+    E.shipSheltered = null;
+    for (const st of E.stations) {
+      if (st.busy && (st.busy.state !== 'clean' || st.busy.p.distanceTo(st.top) > 5)) st.busy = null;
+      if (!st.busy) st.work = Math.max(0, st.work - dt * 0.5);
+      if (S.center.distanceTo(st.top) < SHELTER_R) E.shipSheltered = st;
+    }
+    if (!E.shrimpIM) return;
+    E.shrimp.forEach((sh, k) => {
+      const st = sh.st, a = t * 0.8 + sh.ph;
+      if (st.busy) tv.copy(st.busy.p).add(tv2.set(Math.cos(a * 2) * sh.r * 0.5, 0.4 + sh.h * 0.4, Math.sin(a * 2) * sh.r * 0.5));
+      else tv.copy(st.top).add(tv2.set(Math.cos(a) * sh.r, sh.h + Math.sin(t * 3 + sh.ph) * 0.15, Math.sin(a) * sh.r));
+      tv3.copy(sh.p); sh.p.lerp(tv, Math.min(1, dt * 3));
+      tv2.subVectors(sh.p, tv3); if (tv2.lengthSq() < 1e-8) tv2.set(Math.cos(a + 1.57), 0, Math.sin(a + 1.57));
+      dummy.position.copy(sh.p); dummy.lookAt(tv3.copy(sh.p).add(tv2));
+      dummy.scale.setScalar(1); dummy.updateMatrix(); E.shrimpIM.setMatrixAt(k, dummy.matrix);
+    });
+    E.shrimpIM.instanceMatrix.needsUpdate = true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
     E.veils.forEach(v => veilUpdate(v, dt, t));
     E.shipHidden = E.veils.some(vl => Math.hypot(S.center.x - vl.p.x, S.center.z - vl.p.z) < vl.r + 6 && S.center.y < vl.p.y + 1 && S.center.y > vl.p.y - vl.len - 6);
+    stationsUpdate(dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -536,6 +650,8 @@
     E.grazers.forEach(gz => { if (gz.alive) L.push({ sp: 'grazer', pos: gz.p, r: 1.4 }); });
     E.eels.forEach(el => L.push({ sp: 'eel', pos: el.p, r: 1.3 }));
     E.rays.forEach(r => L.push({ sp: 'ray', pos: r.p, r: 7 }));
+    E.stations.forEach(st => L.push({ sp: 'ognevka', pos: st.top, r: 1.6 }));
+    E.preds.forEach(p => { if (p.leech) L.push({ sp: 'leech', pos: p.leechP, r: 0.7 }); });
     return L;
   };
 
@@ -567,6 +683,7 @@
 
   E.reset = function () {
     if (E.latched) { E.latched.state = 'flee'; E.latched.cd = 40; E.latched = null; }
-    E.preds.forEach(pr => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; });
+    E.preds.forEach((pr, i) => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; });
+    E.stations.forEach(st => { st.busy = null; st.work = 0; });
   };
 })(window.G);

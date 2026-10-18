@@ -5,7 +5,8 @@
   const P = G.DebugPanel = { on: false, fps: 0, frames: 0, acc: 0, el: null };
 
   P.teleport = function (key) {
-    const p = G.World.pois.find(x => x.key === key);
+    const st = /^station(\d)$/.exec(key || '');
+    const p = st ? (G.Eco.stations[+st[1]] && { pos: G.Eco.stations[+st[1]].top }) : G.World.pois.find(x => x.key === key);
     if (!p) return false;
     const S = G.Ship;
     S.pos.set(p.pos.x + 18, -12, p.pos.z + 18);
@@ -24,7 +25,7 @@
       fish: E.fish.filter(f => f.alive).length + '/' + E.fish.length,
       grazers: E.grazers.filter(g => g.alive).length + '/' + E.grazers.length,
       preds: Object.entries(st).map(([k, v]) => k + ':' + v).join(' '),
-      latched: !!E.latched, hidden: E.shipHidden,
+      latched: !!E.latched, hidden: E.shipHidden, sheltered: !!E.shipSheltered, leech: E.preds.filter(p => p.leech).length,
       pos: G.Ship.pos.toArray().map(v => Math.round(v)).join(', ')
     };
   };
@@ -35,6 +36,7 @@
     el.innerHTML = '<pre id="dbg-text"></pre><div class="dbg-row" id="dbg-tp"></div><div class="dbg-row"><button data-a="energy">Энергия 100</button><button data-a="hull">Корпус 100</button><button data-a="close">Скрыть</button></div>';
     const tp = el.querySelector('#dbg-tp');
     G.World.pois.forEach(p => { const b = document.createElement('button'); b.dataset.tp = p.key; b.textContent = '→ ' + p.name; tp.appendChild(b); });
+    G.Eco.stations.forEach((s, i) => { const b = document.createElement('button'); b.dataset.tp = 'station' + i; b.textContent = '→ Станция чистки ' + (i + 1); tp.appendChild(b); });
     el.addEventListener('pointerdown', e => e.stopPropagation());
     el.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;

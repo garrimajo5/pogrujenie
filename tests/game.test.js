@@ -42,7 +42,7 @@ T.describe('Сканирование', () => {
     for (let i = 0; i < 40 && !G.SPECIES.veil.scanned; i++) { D().lookAt(vl.scanP); D().frame(1); }
     G.Ctl.actionDown = false;
     T.ok(G.SPECIES.veil.scanned, 'вуаль не отсканирована');
-    T.ok(document.getElementById('j-count').textContent.startsWith('1/6'));
+    T.ok(document.getElementById('j-count').textContent.startsWith('1/8'));
     D().lookAt(vl.scanP); D().frame(1);
     T.eq(D().actionLabel(), 'Сведения: Фонарная вуаль');
   });
@@ -86,7 +86,7 @@ T.describe('Открытия и журнал', () => {
   T.test('журнал открывается и закрывается', () => {
     G.Game.openJournal();
     T.eq(G.Game.state, 'journal');
-    T.eq(document.querySelectorAll('#journal-body .j-card').length, 12);
+    T.eq(document.querySelectorAll('#journal-body .j-card').length, G.SPECIES_ORDER.length + G.World.pois.length);
     G.Ctl.journalPressed = true; D().frame(1);
     T.eq(G.Game.state, 'play');
   });
