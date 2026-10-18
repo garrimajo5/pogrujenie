@@ -5,10 +5,12 @@
    огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников;
    хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки;
    светляки прячутся в ленточнике, шипоежи объедают его до стеблей, кольчужники раскалывают ежей;
-   радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека. */
+   радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека;
+   мерцающий планктон вспыхивает от движения: за быстрым кораблём тянется след, который видят серпохвосты,
+   а ледокрылы процеживают облака, и после них след тусклый. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], clouds: [], trail: 0, trailCloud: null, trailCd: 0, flare: 0, flareSw: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -31,7 +33,7 @@
       notes: { eelcatch: 'Бросается из укрытия на скребунов и рыб.', latch: 'Присасывается к корпусу и пьёт энергию.', zap: 'Разряд по корпусу сбрасывает его.' } },
     ray: { name: 'Ледокрыл', acc: 'ледокрыла', unom: 'гигантский скат', uacc: 'гигантского ската',
       desc: 'Огромный скат с размахом крыльев около 14 метров. Скользит под самым льдом и поёт низким голосом.',
-      notes: { follow: 'За ним держатся стаи светляков.' } },
+      notes: { follow: 'За ним держатся стаи светляков.', feed: 'Процеживает облака мерцающего планктона.' } },
     ognevka: { name: 'Огнёвка', acc: 'огнёвку', unom: 'рачки-чистильщики', uacc: 'рачков-чистильщиков',
       desc: 'Светящиеся креветки длиной около 8 см. Держат «станции чистки» на вершинах огнецвета и снимают паразитов с крупных рыб.',
       notes: { clean: 'Снимают пиявников с серпохвостов, которые приплывают на станцию.', truce: 'У станции чистки серпохвост не охотится.', shelter: 'Корабль может переждать у станции: хищник отворачивает.' } },
@@ -52,9 +54,12 @@
       notes: { hunt: 'Выходит из норы и раскалывает шипоежей. Возле его норы ленточник остаётся густым.', armor: 'Вплетает иглы съеденных ежей в панцирь.', guard: 'Охраняет нору: корабль у самого дна хватает клешнёй.' } },
     raduzh: { name: 'Радужник', acc: 'радужника', gen: 'радужников', unom: 'гребневики', uacc: 'гребневиков', ugen: 'гребневиков',
       desc: 'Прозрачный гребневик около 30 см. Своего света нет: ряды ресничек раскладывают чужой свет в радугу. Дрейфует стаями в толще воды.',
-      notes: { flare: 'В луче прожектора стая вспыхивает радугой, и корабль видно издалека.', betray: 'Серпохвосты замечают вспышку и плывут к кораблю.', fade: 'Если погасить прожектор, стая гаснет за пару секунд.' } }
+      notes: { flare: 'В луче прожектора стая вспыхивает радугой, и корабль видно издалека.', betray: 'Серпохвосты замечают вспышку и плывут к кораблю.', fade: 'Если погасить прожектор, стая гаснет за пару секунд.' } },
+    plankton: { name: 'Мерцающий планктон', acc: 'мерцающий планктон', gen: 'мерцающего планктона', unom: 'светящаяся взвесь', uacc: 'светящуюся взвесь', ugen: 'светящейся взвеси',
+      desc: 'Облака светящихся одноклеточных размером около миллиметра — основа питания всего рифа. Вспыхивают, когда их тревожит движение воды.',
+      notes: { trail: 'Вспыхивает от движения: за быстрым кораблём тянется светящийся след. На малом ходу следа нет.', betray: 'Серпохвосты замечают светящийся след и плывут к кораблю.', feed: 'Ледокрыл процеживает облако: после него планктон редеет и след почти не виден.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -84,6 +89,7 @@
       const col = new THREE.Color(cols[si % cols.length]);
       for (let k = 0; k < PER; k++) {
         const f = { s: sh, p: sh.home.clone().add(new V3(G.rr(-3, 3), G.rr(0, 3), G.rr(-3, 3))), v: new V3(G.rr(-1, 1), 0, G.rr(-1, 1)), alive: true, t: 0, i: E.fish.length, ph: G.rr(0, 6) };
+        f.o = f.p.clone().sub(sh.home); f.v0 = f.v.clone(); // для сброса мира
         E.fish.push(f); sh.members.push(f);
         im.setColorAt(f.i, col.clone().multiplyScalar(G.rr(0.75, 1.15)));
       }
@@ -185,7 +191,7 @@
       leechM.position.set(0.5, -0.05, 0.25); leechM.rotation.set(0, 0.4, -0.5); head.add(leechM);
       scene.add(head); scene.add(tailG);
       const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], head, tailG, cd: 20, avoidCd: 0, i,
-        leech: false, leechCd: 0, angryCd: 0, truceCd: 0, flareCd: 0, station: null, leechM, leechP: new V3() };
+        leech: false, leechCd: 0, angryCd: 0, truceCd: 0, flareCd: 0, trailCd: 0, station: null, leechM, leechP: new V3(), p0: p.clone() };
       setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160);
       for (let k = 0; k < PSEG; k++) pr.segs.push(p.clone().add(new V3(0, 0, -k * 0.6)));
       E.preds.push(pr);
@@ -196,12 +202,17 @@
   function startCharge(pr) { pr.state = 'charge'; pr.timer = 10; E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`); }
   function predUpdate(pr, dt) {
     const S = G.Ship;
-    pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt;
+    pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt; pr.trailCd -= dt;
     const dShip = pr.p.distanceTo(S.center), atStation = nearStation(pr.p);
     const reach = pr.leech ? 48 : 32; // заражённый пиявником замечает корабль издалека
     const lured = dShip < reach && (S.light || G.Game.t - E.lastPing < 12) && !E.shipHidden && S.hull > 0;
     const canAttack = pr.cd <= 0 && pr.hunger > (pr.leech ? 0.1 : 0.2) && lured && !E.shipSheltered && !atStation;
     /* вспышка радужников выдаёт корабль издалека: хищник плывёт проверить */
+    /* светящийся след в планктоне тоже выдаёт корабль */
+    if (E.trail > 0.5 && dShip >= reach && dShip < TRAIL_REACH && !E.shipHidden && !E.shipSheltered && S.hull > 0 && pr.cd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
+      pr.state = 'investigate'; pr.goal.copy(S.center); pr.timer = 25;
+      if (pr.trailCd <= 0) { pr.trailCd = 30; E.emit('plankton', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил светящийся след и плывёт к кораблю`); }
+    }
     if (E.flare > 0.5 && dShip >= reach && dShip < FLARE_REACH && !E.shipHidden && !E.shipSheltered && S.hull > 0 && pr.cd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
       pr.state = 'investigate'; pr.goal.copy(S.center); pr.timer = 25;
       if (pr.flareCd <= 0) { pr.flareCd = 30; E.emit('raduzh', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил вспышку ${G.nm('raduzh', 'gen')} и плывёт к кораблю`); }
@@ -570,7 +581,8 @@
       const spots = []; for (let k = 0; k < 14; k++) { const s = k % 2 ? 1 : -1; spots.push({ g: new THREE.SphereGeometry(0.12, 6, 4), m: new THREE.Matrix4().makeTranslation(s * (0.8 + (k >> 1) * 0.35), 0.45, 1 - (k >> 1) * 0.4) }); }
       mesh.add(new THREE.Mesh(G.merge(spots), new THREE.MeshBasicMaterial({ color: 0x9ffcff })));
       mesh.frustumCulled = false; scene.add(mesh);
-      E.rays.push({ c: o.c, R: o.R, sp: o.sp, ang: G.rr(0, 6.28), p: new V3(), dir: new V3(), mesh, geo, base: Float32Array.from(geo.attributes.position.array), fcd: G.rr(5, 15), i, init: false, nT: 0 });
+      const ang = G.rr(0, 6.28);
+      E.rays.push({ c: o.c, R: o.R, sp: o.sp, ang, ang0: ang, p: new V3(), dir: new V3(), mesh, geo, base: Float32Array.from(geo.attributes.position.array), fcd: G.rr(5, 15), i, init: false, nT: 0 });
     });
   }
   function rayUpdate(ry, dt, t) {
@@ -1047,8 +1059,99 @@
     }
   }
 
+  /* ======================= МЕРЦАЮЩИЙ ПЛАНКТОН ======================= */
+  /* Облака светящихся одноклеточных. На малом ходу корабль проходит незаметно, на быстром планктон
+     вспыхивает от движения и за кораблём тянется след: серпохвосты замечают его издалека.
+     Ледокрылы процеживают облака — после них планктон редеет и след тусклый, потом отрастает. */
+  const PL_R = 18, PL_H = 7, PL_AMB = 110, TR_N = 200, TRAIL_SPEED = 3.5, TRAIL_REACH = 75, TR_LIFE = 5;
+  const plV = new V3();
+  const PL_SPOTS = [[-63, -10, 67], [20, -14, 60], [-85, -11, -90]];
+  function inCloud(cl, p, pad) { return Math.hypot(p.x - cl.c.x, p.z - cl.c.z) < PL_R + (pad || 0) && Math.abs(p.y - cl.c.y) < PL_H + (pad || 0) * 0.5; }
+  E.inCloud = (p) => E.clouds.find(cl => inCloud(cl, p)) || null;
+  function initClouds(scene) {
+    const rng0 = G.rng; G.seed(8123); // своё зерно, как у радужников
+    /* первое облако лежит на пути первого ледокрыла, третье — второго */
+    PL_SPOTS.forEach(([x, y, z], i) => {
+      const cl = { i, c: new V3(x, y, z), density: 1, spark: 0, feedCd: 0, acc: 0, m: [] };
+      for (let k = 0; k < PL_AMB; k++) {
+        const a = G.rr(0, 6.283), r = PL_R * Math.sqrt(G.rng());
+        cl.m.push({ o: new V3(Math.cos(a) * r, G.rr(-PL_H, PL_H) * 0.9, Math.sin(a) * r), ph: G.rr(0, 6.283), p: new V3() });
+      }
+      E.clouds.push(cl);
+    });
+    G.rng = rng0;
+    const mk = (n, size, op) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      const pts = new THREE.Points(g, new THREE.PointsMaterial({ size, map: glowTex(), vertexColors: true, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
+      pts.frustumCulled = false; scene.add(pts); return pts;
+    };
+    E.plAmb = mk(E.clouds.length * PL_AMB, 0.8, 0.9);
+    E.plTrail = mk(TR_N, 0.8, 0.95);
+    E.trailPts = []; for (let k = 0; k < TR_N; k++) E.trailPts.push({ p: new V3(0, -999, 0), life: 0 });
+    E.trailNext = 0;
+  }
+  function trailSpawn(p) {
+    const q = E.trailPts[E.trailNext]; E.trailNext = (E.trailNext + 1) % TR_N;
+    q.p.copy(p); q.life = TR_LIFE;
+  }
+  function trailRender() {
+    const pa = E.plTrail.geometry.attributes.position.array, pc = E.plTrail.geometry.attributes.color.array;
+    E.trailPts.forEach((q, k) => {
+      const f = Math.max(0, q.life / TR_LIFE), b = f * f;
+      pa[k * 3] = q.p.x; pa[k * 3 + 1] = q.life > 0 ? q.p.y : -999; pa[k * 3 + 2] = q.p.z;
+      pc[k * 3] = 0.35 * b; pc[k * 3 + 1] = 1.0 * b; pc[k * 3 + 2] = 0.85 * b;
+    });
+    E.plTrail.geometry.attributes.position.needsUpdate = true; E.plTrail.geometry.attributes.color.needsUpdate = true;
+  }
+  function cloudsUpdate(dt, t) {
+    const S = G.Ship, fast = Math.abs(S.speed) > TRAIL_SPEED;
+    E.trailCd -= dt;
+    let target = 0; E.trailCloud = null;
+    for (const cl of E.clouds) {
+      cl.feedCd -= dt;
+      const ray = E.rays.find(r => inCloud(cl, r.p, 3));
+      if (ray) { // ледокрыл процеживает облако
+        cl.density = Math.max(0.15, cl.density - dt * 0.08);
+        if (cl.feedCd <= 0) {
+          cl.feedCd = 60;
+          E.emit('plankton', 'feed', ray.p, () => `${cap(G.nm('ray'))} процеживает облако ${G.nm('plankton', 'gen')} — облако редеет`);
+          E.emit('ray', 'feed', ray.p, null);
+        }
+        cl.acc += dt * 10 * cl.density;
+        while (cl.acc >= 1) { cl.acc -= 1; trailSpawn(plV.set(ray.p.x + G.rr(-6, 6), ray.p.y + G.rr(-1, 1), ray.p.z + G.rr(-6, 6))); }
+      } else cl.density = Math.min(1, cl.density + dt * 0.004);
+      const shipIn = inCloud(cl, S.center);
+      if (shipIn) E.trailCloud = cl;
+      if (shipIn && fast) {
+        target = Math.max(target, cl.density);
+        cl.acc += dt * (Math.abs(S.speed) - TRAIL_SPEED + 1) * 9 * cl.density;
+        while (cl.acc >= 1) { cl.acc -= 1; plV.set(G.rr(-5, 5), G.rr(-1.5, 4), G.rr(-10, 15)); S.group.localToWorld(plV); trailSpawn(plV); }
+      }
+      cl.spark = (shipIn && fast) || ray ? Math.min(1, cl.spark + dt * 3) : Math.max(0, cl.spark - dt * 0.5);
+    }
+    E.trail = target > E.trail ? Math.min(target, E.trail + dt * 1.2) : Math.max(target, E.trail - dt * 0.3);
+    if (E.trail > 0.3 && E.trailCd <= 0) { E.trailCd = 30; E.emit('plankton', 'trail', S.center, () => `${cap(G.nm('plankton'))} вспыхивает от движения — за кораблём тянется светящийся след`); }
+    for (const q of E.trailPts) if (q.life > 0) { q.life -= dt; q.p.y += dt * 0.05; }
+    trailRender();
+    /* фон облака: тусклые точки, у быстрого корабля вспыхивают */
+    const pa = E.plAmb.geometry.attributes.position.array, pc = E.plAmb.geometry.attributes.color.array;
+    E.clouds.forEach((cl, ci) => {
+      for (let k = 0; k < PL_AMB; k++) {
+        const m = cl.m[k], j = (ci * PL_AMB + k) * 3;
+        m.p.copy(cl.c).add(m.o); m.p.x += Math.sin(t * 0.3 + m.ph) * 0.6; m.p.y += Math.sin(t * 0.4 + m.ph * 1.3) * 0.4;
+        let b = (0.05 + 0.05 * Math.max(0, Math.sin(t * 1.1 + m.ph))) * (0.4 + 0.6 * cl.density);
+        if (cl.spark > 0) { const d = m.p.distanceTo(S.center); if (d < 20 && fast) b = Math.max(b, cl.spark * cl.density * (1 - d / 20)); }
+        pa[j] = m.p.x; pa[j + 1] = m.p.y; pa[j + 2] = m.p.z;
+        pc[j] = 0.3 * b; pc[j + 1] = b; pc[j + 2] = 0.8 * b;
+      }
+    });
+    E.plAmb.geometry.attributes.position.needsUpdate = true; E.plAmb.geometry.attributes.color.needsUpdate = true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1068,6 +1171,7 @@
       E.rdIM.instanceMatrix.needsUpdate = true; if (E.rdIM.instanceColor) E.rdIM.instanceColor.needsUpdate = true;
       E.rdGlow.geometry.attributes.position.needsUpdate = true; E.rdGlow.geometry.attributes.color.needsUpdate = true;
     }
+    if (E.plAmb) cloudsUpdate(dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1090,6 +1194,7 @@
     E.urchins.forEach(u => { if (u.alive) L.push({ sp: 'ezh', pos: u.p, r: 0.6 }); });
     if (E.crab) L.push({ sp: 'krab', pos: E.crab.p, r: 0.9 });
     E.swarms.forEach(sw => L.push({ sp: 'raduzh', pos: sw.c, r: RD_R }));
+    E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 6 }));
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
@@ -1122,14 +1227,21 @@
 
   E.reset = function () {
     if (E.latched) { E.latched.state = 'flee'; E.latched.cd = 40; E.latched = null; }
-    E.preds.forEach((pr, i) => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; pr.flareCd = 0; });
+    E.preds.forEach((pr, i) => { pr.p.copy(pr.p0); pr.goal.copy(pr.p0); pr.v.set(0, 0, 1); pr.segs.forEach((sg, k) => sg.copy(pr.p0).z -= k * 0.6); pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; pr.flareCd = 0; pr.trailCd = 0; });
     E.stations.forEach(st => { st.busy = null; st.work = 0; });
+    /* хищники, рыбы и ледокрылы — на исходные места: тесты не зависят от кадров, прошедших до них */
+    E.shoals.forEach(sh => { sh.alarm = 0; sh.follow = null; sh.followT = 0; sh.gt = 0; sh.fleeCd = 0; sh.threat = null; sh.goal.copy(sh.home); sh.c.copy(sh.home); });
+    E.fish.forEach(f => { f.alive = true; f.t = 0; f.p.copy(f.s.home).add(f.o); f.v.copy(f.v0); });
+    E.rays.forEach(r => { r.ang = r.ang0; r.init = false; r.fcd = 10; r.nT = 0; });
     E.anemones.forEach(hv => { hv.open = 1; hv.lit = false; hv.digest = 0; hv.lure = null; hv.lureT = 0; hv.lureCd = G.rr(4, 12); hv.leftT = 0; hv.hideCd = 0; hv.msgCd = 0; });
     E.groves.forEach(gr => { gr.msgCd = 0; gr.grazeCd = 0; gr.stalks.forEach((s, k) => { s.f = 1; s.eater = null; s.drawn = 1; setKelp(gr, k); }); gr.cover = 1; });
     if (E.kelpIM) { E.kelpIM.instanceMatrix.needsUpdate = true; E.kelpIM.instanceColor.needsUpdate = true; }
     E.urchins.forEach(urchSpawn);
     E.swarms.forEach(sw => { sw.glow = 0; sw.lit = false; sw.flareCd = 0; sw.fadeCd = 0; });
     E.flare = 0; E.flareSw = null;
+    E.clouds.forEach(cl => { cl.density = 1; cl.spark = 0; cl.feedCd = 0; });
+    E.trail = 0; E.trailCloud = null; E.trailCd = 0;
+    if (E.trailPts) { E.trailPts.forEach(q => { q.life = 0; }); trailRender(); }
     const cr = E.crab;
     if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
   };

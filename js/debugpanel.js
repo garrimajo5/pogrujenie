@@ -7,16 +7,18 @@
   P.teleport = function (key) {
     const st = /^station(\d)$/.exec(key || ''), hv = /^hvaten(\d)$/.exec(key || '');
     if (key === 'krab' && !G.Eco.crab) return false;
-    const rd = /^raduzh(\d)$/.exec(key || '');
+    const rd = /^raduzh(\d)$/.exec(key || ''), pl = /^plankton(\d)$/.exec(key || '');
     const p = st ? (G.Eco.stations[+st[1]] && { pos: G.Eco.stations[+st[1]].top })
       : hv ? (G.Eco.anemones[+hv[1]] && { pos: G.Eco.anemones[+hv[1]].top })
       : rd ? (G.Eco.swarms[+rd[1]] && { pos: G.Eco.swarms[+rd[1]].home })
+      : pl ? (G.Eco.clouds[+pl[1]] && { pos: G.Eco.clouds[+pl[1]].c })
       : key === 'krab' ? { pos: G.Eco.crab.den } : G.World.pois.find(x => x.key === key);
     if (!p) return false;
     const S = G.Ship;
     S.pos.set(p.pos.x + 18, -12, p.pos.z + 18);
     S.speed = 0; S.vy = 0;
     S.pos.y = Math.max(-90, Math.min(-6, S.clearance(S.pos.x, S.pos.z, S.yaw) + 6));
+    if (pl) { S.pos.set(p.pos.x, p.pos.y - 1.5, p.pos.z + 10); S.yaw = 0; } // в самое облако, носом к центру
     S.applyTransform();
     return true;
   };
@@ -44,6 +46,7 @@
     G.Eco.stations.forEach((s, i) => { const b = document.createElement('button'); b.dataset.tp = 'station' + i; b.textContent = '→ Станция чистки ' + (i + 1); tp.appendChild(b); });
     if (G.Eco.anemones.length) { const b = document.createElement('button'); b.dataset.tp = 'hvaten0'; b.textContent = '→ Хватень'; tp.appendChild(b); }
     if (G.Eco.swarms.length) { const b = document.createElement('button'); b.dataset.tp = 'raduzh0'; b.textContent = '→ Радужники'; tp.appendChild(b); }
+    if (G.Eco.clouds.length) { const b = document.createElement('button'); b.dataset.tp = 'plankton1'; b.textContent = '→ Планктон'; tp.appendChild(b); }
     if (G.Eco.crab) { const b = document.createElement('button'); b.dataset.tp = 'krab'; b.textContent = '→ Нора кольчужника'; tp.appendChild(b); }
     el.addEventListener('pointerdown', e => e.stopPropagation());
     el.addEventListener('click', e => {
