@@ -39,6 +39,7 @@ async def main(a):
                 os.makedirs(a.shots, exist_ok=True)
                 await pg.wait_for_timeout(1500)
                 await pg.screenshot(path=os.path.join(a.shots, f"{name}.png"))
+            await pg.close()  # первая вкладка продолжает рисовать и отнимает процессор у второй
         await b.close()
     httpd.shutdown()
     if errors:
