@@ -98,9 +98,10 @@
   /* образец в шлюзе: попадает в колбу лаборатории */
   M.stow = function (s) {
     M.state = 'idle'; M.target = null; M.prog = 0; M.arm.carry.visible = false;
-    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name });
+    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name, i: s.i });
     G.Ship.showTubes && G.Ship.showTubes();
-    G.Game.toast('Образец в шлюзе', `${KIND[s.kind].name} — в колбе лаборатории. Всего образцов: ${G.Ship.cargo.length}.`);
+    G.Save.mark(); // груз и поднятые образцы переживают перезапуск игры
+    G.Game.toast('Образец в шлюзе', `${KIND[s.kind].name} — в колбе лаборатории и на полке грузового отсека. Всего образцов: ${G.Ship.cargo.length}.`);
     G.Game.feedMsg && G.Game.feedMsg(`Манипулятор достал образец: ${KIND[s.kind].name.toLowerCase()}`, true);
     G.Audio.scanDone();
   };
@@ -113,6 +114,19 @@
   };
   /* образец снова лежит на дне — его можно достать ещё раз */
   M.drop = function (s, pos) { s.taken = false; s.pos.set(pos.x, G.World.height(pos.x, pos.z) + 0.15, pos.z); M.place(); };
+  /* груз из сохранения: эти образцы уже подняты и больше не лежат на дне */
+  M.restore = function (list) {
+    M.reset();
+    const cargo = [];
+    list.forEach(c => {
+      if (!c || !KIND[c.kind]) return;
+      const s = Number.isInteger(c.i) ? M.samples[c.i] : null;
+      if (s && s.kind === c.kind && !s.taken) s.taken = true; else if (c.i != null) return; // чужой индекс — пропустить
+      cargo.push({ kind: c.kind, name: KIND[c.kind].name, i: s ? s.i : null });
+    });
+    G.Ship.cargo.length = 0; cargo.forEach(c => G.Ship.cargo.push(c));
+    M.place(); G.Ship.showTubes();
+  };
   M.reset = function () {
     M.samples.forEach(s => { s.taken = false; s.pos.copy(s.pos0); }); M.state = 'idle'; M.target = null; M.prog = 0;
     if (M.arm) { M.arm.carry.visible = false; M.pose(M.arm.fold); }

@@ -251,7 +251,9 @@
     if (Game.piloting) Game.toggleHelm();
   }
   function restart() {
+    const cargo = G.Ship.cargo.slice(); // груз остаётся на полках и после аварии
     G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset();
+    cargo.forEach(c => G.Ship.cargo.push(c)); G.Ship.showTubes();
     const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
     $('lost').hidden = true; Game.state = 'play'; clock.getDelta();
   }
@@ -409,7 +411,7 @@
     $('s-head').textContent = String(Math.round(((-S.yaw * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, '0');
     $('s-speed').textContent = Math.abs(S.speed).toFixed(1);
     setBar('s-hull', S.hull); setBar('s-energy', S.energy);
-    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное' }[Game.room];
+    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное', hold: 'Грузовой отсек' }[Game.room];
     $('b-light').classList.toggle('lit', S.light);
   }
   function feed(text, isNew) {
@@ -437,6 +439,7 @@
     G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
     G.Tutorial.restart();
     G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
+    G.Ship.cargo.length = 0; G.Manip.reset(); G.Ship.showTubes(); // полки пустеют, образцы снова на дне
     Game.done = false; updateCounts();
     if (Game.state === 'journal') renderJournal();
     Game.toast('Журнал очищен', 'Экспедиция начинается заново.');

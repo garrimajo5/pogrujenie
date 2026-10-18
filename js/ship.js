@@ -1,13 +1,13 @@
 'use strict';
 /* Батискаф «Ковчег-7»: отсеки, посты, люки, физика движения.
    Корабльная система координат: нос смотрит в -Z, пол на y=0.
-   Мостик z[-6,2], коридор z[2,8], лаборатория z[8,14]. */
+   Мостик z[-6,2], коридор z[2,8], лаборатория z[8,14], машинное z[14,19.5], грузовой отсек z[19.5,24]. */
 (function (G) {
   const V3 = THREE.Vector3;
   const tv = new V3();
   const S = G.Ship = {
     start: new V3(0, -20, 95), pos: new V3(0, -20, 95), yaw: 0, speed: 0, vy: 0, turn: 0, roll: 0, pitch: 0,
-    hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 }, cargo: [], tubeOrbs: [],
+    hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 }, cargo: [], tubeOrbs: [], SHELF: 30,
     windows: [], inter: [], doors: [], obst: [], lights: [],
     center: new V3(), front: new V3(), hitCd: 0, flicker: 0, depthLimit: 0, scrT: 0
   };
@@ -117,6 +117,8 @@
     box(8, 0.1, 6, M.ceil, 0, 3.45, 11);
     box(6, 0.1, 5.5, M.floor, 0, -0.05, 16.75);
     box(6, 0.1, 5.5, M.ceil, 0, 3.25, 16.75);
+    box(6, 0.1, 4.5, M.floor, 0, -0.05, 21.75);
+    box(6, 0.1, 4.5, M.ceil, 0, 3.25, 21.75);
 
     /* ----- мостик ----- */
     wall(10, 3.2, [{ x: 0, y: 1.75, w: 7.6, h: 1.9, rr: 0.5 }], M.wall, new V3(0, 0, -6), E0, 'bridge', bridgeC);
@@ -142,7 +144,8 @@
     /* ----- машинное отделение ----- */
     wall(5.5, 3.2, [{ x: 0, y: 1.6, r: 0.32 }], M.wall, new V3(-3, 0, 16.75), EL, 'eng', engC);
     wall(5.5, 3.2, [{ x: 0.8, y: 1.6, r: 0.32 }], M.wall, new V3(3, 0, 16.75), ER, 'eng', engC);
-    wall(6, 3.2, [], M.wall, new V3(0, 0, 19.5), E0, 'eng', engC);
+    // кормовая переборка с люком в грузовой отсек (люк у правого борта, за реактором не пройти)
+    box(4.1, 3.2, 0.2, M.wall, -0.95, 1.6, 19.5); box(0.3, 3.2, 0.2, M.wall, 2.85, 1.6, 19.5); box(1.6, 0.9, 0.2, M.wall, 1.9, 2.75, 19.5);
     box(0.2, 0.04, 4.6, M.lamp, -2.2, 3.19, 16.75); box(0.2, 0.04, 4.6, M.lamp, 2.2, 3.19, 16.75);
     // реактор: тёмное основание, светящийся стержень в стеклянном кожухе, кольца охлаждения
     box(1.9, 0.3, 1.9, M.dark, 0, 0.15, 17.2);
@@ -157,6 +160,30 @@
     S.powerScreen = screen(1.15, 0.85, 256, 192, 2.44, 1.45, 15.6, 0, -Math.PI / 2);
     S.obst.push({ x: 2.7, z: 15.6, r: 0.6 });
     S.inter.push({ x: 2.0, z: 15.6, r: 1.5, label: () => (G.Power.isOpen() ? 'Закрыть пульт энергии' : 'Распределить энергию'), fn: () => G.Power.toggle() });
+
+    /* ----- грузовой отсек: стеллажи с образцами вдоль бортов ----- */
+    box(0.2, 3.2, 4.5, M.wall, -3, 1.6, 21.75); box(0.2, 3.2, 4.5, M.wall, 3, 1.6, 21.75); box(6, 3.2, 0.2, M.wall, 0, 1.6, 24);
+    box(0.2, 0.04, 3.6, M.lamp, 0, 3.19, 21.75);
+    S.shelfSlots = [];
+    [-1, 1].forEach(side => {
+      const x = side * 2.55;
+      [0.45, 1.15, 1.85].forEach(y => {
+        box(0.75, 0.05, 3.1, M.frame, x, y, 22.05); box(0.75, 0.03, 0.03, M.trim, x, y + 0.04, 20.5);
+        for (let i = 0; i < 5; i++) S.shelfSlots.push(new V3(x, y + 0.2, 20.9 + i * 0.58));
+      });
+      [20.5, 23.6].forEach(z => box(0.06, 2.2, 0.06, M.frame, x + side * 0.3, 1.1, z));
+      [20.5, 23.6].forEach(z => box(0.06, 2.2, 0.06, M.frame, x - side * 0.3, 1.1, z));
+      S.obst.push({ x: side * 2.55, z: 21.3, r: 0.75 }, { x: side * 2.55, z: 22.8, r: 0.75 });
+    });
+    S.SHELF = S.shelfSlots.length;
+    box(1.4, 0.8, 0.9, M.dark, -1.2, 0.4, 23.4); box(0.9, 0.6, 0.9, M.dark, 1.3, 0.3, 23.4); // ящики у кормы
+    box(1.6, 1.0, 0.3, M.dark, 0, 0.5, 23.82); // тумба под экраном учёта груза
+    S.holdScreen = screen(1.3, 0.75, 256, 148, 0, 1.6, 23.88, 0, Math.PI);
+    S.obst.push({ x: 0, z: 23.5, r: 0.5 }, { x: -1.2, z: 23.4, r: 0.6 }, { x: 1.3, z: 23.4, r: 0.5 });
+    S.inter.push({ x: 0, z: 23.0, r: 1.6, label: () => 'Осмотреть полки', fn: () => S.inspectHold() });
+    S.shelfIm = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial(), S.SHELF);
+    S.shelfIm.frustumCulled = false; S.shelfIm.userData.dynamic = true; g.add(S.shelfIm);
+
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.05, 6, 48), M.cyan); ring.rotation.x = Math.PI / 2; ring.position.set(0, 3.38, 11); g.add(ring);
     // колбы с образцами
     const tubeM = new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.18, depthWrite: false });
@@ -215,16 +242,16 @@
     S.inter.push({ x: 2.9, z: 12.6, r: 1.6, label: () => 'Открыть журнал', fn: () => G.Game.openJournal() });
 
     /* ----- люки ----- */
-    [2, 8, 14].forEach(z => {
-      const d = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.3, 0.08), M.door); d.position.set(0, 1.15, z); g.add(d);
+    [[0, 2, 1.75], [0, 8, 1.75], [0, 14, 1.75], [1.9, 19.5, -1.75]].forEach(([dx, z, slide]) => {
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.3, 0.08), M.door); d.position.set(dx, 1.15, z); g.add(d);
       const st = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.1), M.trim); st.position.y = 0.2; d.add(st);
       const wnd = new THREE.Mesh(new THREE.CircleGeometry(0.16, 20), M.cyan); wnd.position.set(0, 0.55, 0.05); d.add(wnd);
       const wnd2 = wnd.clone(); wnd2.position.z = -0.05; wnd2.rotation.y = Math.PI; d.add(wnd2);
-      [-0.84, 0.84].forEach(x => box(0.06, 2.3, 0.26, M.trim, x, 1.15, z));
-      box(1.74, 0.06, 0.26, M.trim, 0, 2.33, z);
-      const door = { mesh: d, z, open: false, t: 0 };
+      [-0.84, 0.84].forEach(x => box(0.06, 2.3, 0.26, M.trim, dx + x, 1.15, z));
+      box(1.74, 0.06, 0.26, M.trim, dx, 2.33, z);
+      const door = { mesh: d, x: dx, z, slide, open: false, t: 0 };
       S.doors.push(door);
-      S.inter.push({ x: 0, z, r: 1.5, label: () => (door.open ? 'Закрыть люк' : 'Открыть люк'), fn: () => { door.open = !door.open; G.Audio.door(); } });
+      S.inter.push({ x: dx, z, r: 1.5, label: () => (door.open ? 'Закрыть люк' : 'Открыть люк'), fn: () => { door.open = !door.open; G.Audio.door(); } });
     });
 
     /* ----- прожектор ----- */
@@ -253,7 +280,7 @@
      Подвижное (люки, штурвал, рычаг, экраны, прожектор) помечается userData.dynamic и не трогается. */
   S.mergeStatic = function () {
     [S.wheel, S.lever, S.beam, S.spot, S.reactorCore].concat(S.doors.map(d => d.mesh)).forEach(o => o && o.traverse(c => { c.userData.dynamic = true; }));
-    const canvasMaps = new Set([S.helmScreen, S.engScreen, S.powerScreen].filter(Boolean));
+    const canvasMaps = new Set([S.helmScreen, S.engScreen, S.powerScreen, S.holdScreen].filter(Boolean));
     const groups = new Map();
     g.traverse(o => {
       if (!o.isMesh || o.userData.dynamic || o.isInstancedMesh || Array.isArray(o.material)) return;
@@ -287,10 +314,51 @@
   };
 
   /* Можно ли стоять игроку в точке (x,z) корабельных координат */
-  /* в колбах лаборатории — три последних образца */
+  /* в колбах лаборатории — три последних образца, на полках грузового отсека — все */
   S.showTubes = function () {
     const last = S.cargo.slice(-S.tubeOrbs.length);
     S.tubeOrbs.forEach((o, i) => { const c = last[i]; o.visible = !!c; if (c) o.material.color.set(G.Manip.KIND[c.kind].color); });
+    S.showShelves();
+  };
+  S.shelfCount = () => Math.min(S.cargo.length, S.SHELF);
+  S.showShelves = function () {
+    if (!S.shelfIm) return;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color(), one = new V3(1, 1.3, 1), none = new V3(0.001, 0.001, 0.001);
+    S.shelfSlots.forEach((p, i) => {
+      const it = S.cargo[i];
+      q.setFromEuler(new THREE.Euler(0, i * 0.7, 0.3));
+      S.shelfIm.setMatrixAt(i, m.compose(it ? p : tv.set(0, -50, 0), q, it ? one : none));
+      S.shelfIm.setColorAt(i, c.set(it ? G.Manip.KIND[it.kind].color : 0x000000));
+    });
+    S.shelfIm.instanceMatrix.needsUpdate = true; if (S.shelfIm.instanceColor) S.shelfIm.instanceColor.needsUpdate = true;
+    S.drawHold();
+  };
+  /* сколько образцов каждого вида в грузе */
+  S.cargoCounts = function () {
+    const n = {}; Object.keys(G.Manip.KIND).forEach(k => { n[k] = 0; });
+    S.cargo.forEach(c => { n[c.kind] = (n[c.kind] || 0) + 1; });
+    return n;
+  };
+  S.drawHold = function () {
+    if (!S.holdScreen) return;
+    const x = S.holdScreen.userData.ctx, K = G.Manip.KIND, n = S.cargoCounts();
+    x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 148);
+    x.strokeStyle = '#5ef2d6'; x.strokeRect(4, 4, 248, 140);
+    x.fillStyle = '#5ef2d6'; x.font = '600 16px monospace'; x.textAlign = 'left';
+    x.fillText('ГРУЗ ' + S.cargo.length + '/' + S.SHELF, 14, 26);
+    Object.keys(K).forEach((k, i) => {
+      const y = 50 + i * 24;
+      x.fillStyle = '#' + K[k].color.toString(16).padStart(6, '0'); x.fillRect(14, y - 11, 12, 12);
+      x.fillStyle = '#9fb4bb'; x.font = '13px monospace'; x.fillText(K[k].name.toUpperCase().slice(0, 18), 34, y);
+      x.fillStyle = '#ffb259'; x.textAlign = 'right'; x.fillText(String(n[k]), 240, y); x.textAlign = 'left';
+    });
+    S.holdScreen.needsUpdate = true;
+  };
+  S.inspectHold = function () {
+    const K = G.Manip.KIND, n = S.cargoCounts();
+    if (!S.cargo.length) { G.Game.toast('Грузовой отсек', 'Полки пусты. Достаньте образцы со дна манипулятором из лаборатории.'); return; }
+    const parts = Object.keys(K).filter(k => n[k]).map(k => `${K[k].name.toLowerCase()} — ${n[k]}`);
+    G.Game.toast('Грузовой отсек', `На полках ${S.cargo.length} из ${S.SHELF}: ${parts.join(', ')}.`);
   };
   /* экран пульта энергии в машинном отделении */
   S.drawPower = function () {
@@ -318,11 +386,13 @@
     if (!ok && x > -4 + r && x < 4 - r && z > 8 + r && z < 14 - r) ok = true;
     if (!ok && x > -3 + r && x < 3 - r && z > 14 + r && z < 19.5 - r) ok = true; // машинное отделение
     if (!ok && x > -1.1 + r && x < 1.1 - r && z > 13.4 && z < 14.6 && S.doors[2].t > 0.85) ok = true;
+    if (!ok && x > -3 + r && x < 3 - r && z > 19.5 + r && z < 24 - r) ok = true; // грузовой отсек
+    if (!ok && x > 1.1 + r && x < 2.7 - r && z > 18.9 && z < 20.1 && S.doors[3].t > 0.85) ok = true;
     if (!ok) return false;
     for (const o of S.obst) if (Math.hypot(x - o.x, z - o.z) < o.r + r) return false;
     return true;
   };
-  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : z < 14 ? 'lab' : 'eng');
+  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : z < 14 ? 'lab' : z < 19.5 ? 'eng' : 'hold');
 
   /* Проходит ли взгляд (из точки p в направлении d, всё в координатах корабля) через иллюминатор */
   S.throughWindow = function (p, d, room) {
@@ -405,7 +475,7 @@
     if (on) { const bk = Math.sqrt(Math.max(0.25, G.Power.k('lamp'))); S.beam.scale.set(bk, bk, bk); S.spot.distance = 120 * bk; }
 
     // люки, штурвал, рычаг
-    S.doors.forEach(d => { d.t = G.clamp(d.t + (d.open ? 1 : -1) * dt * 1.8, 0, 1); d.mesh.position.x = G.smooth(0, 1, d.t) * 1.75; });
+    S.doors.forEach(d => { d.t = G.clamp(d.t + (d.open ? 1 : -1) * dt * 1.8, 0, 1); d.mesh.position.x = d.x + G.smooth(0, 1, d.t) * d.slide; });
     S.wheel.rotation.z = -S.turn * 1.4;
     S.lever.rotation.z = S.flicker > 0 ? -0.9 : 0;
 

@@ -1,5 +1,5 @@
 'use strict';
-/* Сохранение журнала экспедиции в localStorage: изученные виды, наблюдения, найденные и отмеченные места.
+/* Сохранение журнала экспедиции в localStorage: изученные виды, наблюдения, найденные и отмеченные места, груз.
    Запись не чаще раза в секунду после изменений; хранилище может быть недоступно — тогда игра просто не сохраняет. */
 (function (G) {
   const KEY = 'pogrujenie.save.v1';
@@ -10,7 +10,8 @@
     const species = {};
     G.SPECIES_ORDER.forEach(k => { species[k] = { scanned: !!G.SPECIES[k].scanned, seen: [...G.SPECIES[k].seen] }; });
     const pois = G.World.pois.filter(p => p.found || p.pinged).map(p => ({ key: p.key, found: !!p.found, pinged: !!p.pinged }));
-    return { v: 1, species, pois, tutorial: G.Tutorial ? G.Tutorial.state() : null };
+    const cargo = G.Ship.cargo.map(c => ({ kind: c.kind, i: c.i }));
+    return { v: 1, species, pois, cargo, tutorial: G.Tutorial ? G.Tutorial.state() : null };
   };
   S.apply = function (data) {
     if (!data || data.v !== 1 || typeof data.species !== 'object') return false;
@@ -23,6 +24,7 @@
       const p = G.World.pois.find(x => x.key === d.key); if (!p) return;
       p.found = !!d.found; p.pinged = !!d.pinged;
     });
+    if (Array.isArray(data.cargo) && G.Manip.samples.length) G.Manip.restore(data.cargo);
     if (data.tutorial && G.Tutorial) G.Tutorial.apply(data.tutorial);
     return true;
   };
@@ -39,7 +41,7 @@
   S.mark = function () { S.dirty = true; };
   S.tick = function (dt) { if (!S.dirty) return; S.timer += dt; if (S.timer >= 1) S.save(); };
   S.wipe = function () { const st = store(); try { if (st) st.removeItem(KEY); } catch (_) {} S.dirty = false; S.timer = 0; };
-  S.hasProgress = function () { const s = S.snapshot(); return s.pois.length > 0 || Object.values(s.species).some(x => x.scanned || x.seen.length); };
+  S.hasProgress = function () { const s = S.snapshot(); return s.pois.length > 0 || s.cargo.length > 0 || Object.values(s.species).some(x => x.scanned || x.seen.length); };
 
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S.dirty) S.save(); });
   addEventListener('pagehide', () => { if (S.dirty) S.save(); });
