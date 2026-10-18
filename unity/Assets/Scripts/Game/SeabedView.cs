@@ -16,8 +16,7 @@ namespace Pogrujenie.Game
 
         public void Build()
         {
-            var shader = Shader.Find("Pogrujenie/Seabed");
-            if (shader == null) shader = Shader.Find("Standard");
+            var shader = Resources.Load<Shader>("Seabed"); // из Resources — попадает в сборку
 
             // дно
             Seabed.BuildGrid(out var p, out var n, out var c, out var tris);
