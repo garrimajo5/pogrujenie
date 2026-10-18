@@ -223,6 +223,7 @@
       const sp = f.v.length();
       if (sp > maxS) f.v.multiplyScalar(maxS / sp); else if (sp < 0.5) f.v.multiplyScalar(0.5 / (sp + 1e-3));
       f.p.addScaledVector(f.v, dt);
+      S.pushOut(f.p, 0.3, f.v); // сквозь корпус не проплывают
       if (f.p.y < h + 0.4) f.p.y = h + 0.4;
       clampArea(f.p);
       dummy.position.copy(f.p); dummy.lookAt(tv2.copy(f.p).add(f.v)); dummy.rotateY(Math.sin(t * 12 + f.ph) * 0.25);
@@ -371,7 +372,7 @@
           else E.emit('veil', 'hide', pr.p, () => `Корабль под куполом: ${G.nm('pred')} потерял его из виду`);
           break;
         }
-        if (dShip < 8.5) {
+        if (dShip < 8.5 || S.hullDist(pr.p) < 1.2) { // кусает, когда дотянулся до корпуса
           G.Game.hullHit(12, 'bite');
           pr.state = 'retreat'; pr.timer = 14; pr.cd = 25;
           tv.copy(pr.p).sub(S.center).setY(0); if (tv.lengthSq() < 0.01) tv.set(1, 0, 0);
@@ -383,7 +384,7 @@
         if (pr.timer <= 0) { pr.state = 'patrol'; pr.timer = 0; }
         break;
     }
-    const steer = tv2.copy(pr.goal).sub(pr.p);
+    const steer = tv2.copy(pr.state === 'charge' ? pr.goal : S.detour(pr.p, pr.goal, 0.7, tv3)).sub(pr.p); // в броске — прямо на корпус, иначе в обход
     if (pr.leech && pr.state !== 'clean') speed *= 0.75; // пиявник замедляет хищника
     if (steer.lengthSq() > 1e-4) steer.normalize().multiplyScalar(speed);
     for (const vl of E.veils) {
@@ -399,10 +400,11 @@
     if (pr.p.y < h + 1.8) { pr.p.y = h + 1.8; if (pr.v.y < 0) pr.v.y *= -0.3; }
     if (pr.p.y > -4) pr.p.y = -4;
     clampArea(pr.p);
+    S.pushOut(pr.p, 0.7, pr.v); // корпус не пускает внутрь
   }
   function predRender(pr, idx, t) {
     const segs = pr.segs; segs[0].copy(pr.p);
-    for (let k = 1; k < segs.length; k++) { tv.copy(segs[k]).sub(segs[k - 1]); const L = tv.length(); if (L > 0.62) segs[k].copy(segs[k - 1]).addScaledVector(tv, 0.62 / L); }
+    for (let k = 1; k < segs.length; k++) { tv.copy(segs[k]).sub(segs[k - 1]); const L = tv.length(); if (L > 0.62) segs[k].copy(segs[k - 1]).addScaledVector(tv, 0.62 / L); G.Ship.pushOut(segs[k], 0.45); }
     dummy.position.copy(pr.p); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1);
     dummy.lookAt(tv.copy(pr.p).add(pr.v.lengthSq() > 0.01 ? tv3.copy(pr.v) : tv3.set(0, 0, 1))); dummy.updateMatrix();
     const headM = pr.headM = (pr.headM || new THREE.Matrix4()).copy(dummy.matrix);
@@ -611,7 +613,7 @@
         if (el.p.distanceTo(el.lair) < 0.8) el.state = 'hide';
         break;
       case 'toShip':
-        speed = 10; goal = S.front;
+        speed = 10; goal = S.detour(el.p, S.front, 0.3, tv3); // к носу — вокруг корпуса
         if (E.latched || el.timer <= 0) { el.state = 'return'; el.cd = 15; break; }
         if (el.p.distanceTo(S.front) < 2) {
           el.state = 'latched'; E.latched = el;
@@ -621,6 +623,7 @@
         break;
     }
     if (goal) { tv.copy(goal).sub(el.p); const d = tv.length(); if (d > 0.01) el.p.addScaledVector(tv, Math.min(1, speed * dt / d)); }
+    if (el.state !== 'hide' && el.state !== 'latched') S.pushOut(el.p, 0.3);
     const segs = el.segs;
     if (el.state === 'latched') {
       for (let k = 0; k < ESEG; k++) S.group.localToWorld(segs[k].set(-3.4 + k * 0.5, 1.8 + Math.sin(k * 0.8 + t * 2.2) * 0.45, -6.36));
@@ -629,7 +632,7 @@
       for (let k = 0; k < ESEG; k++) segs[k].copy(el.p).addScaledVector(el.out, -(k + 0.5) * 0.45);
     } else {
       segs[0].copy(el.p);
-      for (let k = 1; k < ESEG; k++) { tv.copy(segs[k]).sub(segs[k - 1]); const L = tv.length(); if (L > 0.42) segs[k].copy(segs[k - 1]).addScaledVector(tv, 0.42 / L); }
+      for (let k = 1; k < ESEG; k++) { tv.copy(segs[k]).sub(segs[k - 1]); const L = tv.length(); if (L > 0.42) segs[k].copy(segs[k - 1]).addScaledVector(tv, 0.42 / L); S.pushOut(segs[k], 0.25); }
     }
   }
   function eelRender(el, idx, t) {
@@ -678,11 +681,16 @@
       E.rays.push({ c: o.c, R: o.R, sp: o.sp, ang, ang0: ang, p: new V3(), dir: new V3(), mesh, geo, base: Float32Array.from(geo.attributes.position.array), fcd: G.rr(5, 15), i, init: false, nT: 0 });
     });
   }
+  const RAY_WING = 11, RAY_OVER = 2.6;
   function rayUpdate(ry, dt, t) {
     ry.ang += ry.sp / ry.R * dt;
     const x = ry.c.x + Math.cos(ry.ang) * ry.R, z = ry.c.z + Math.sin(ry.ang) * ry.R;
-    const ty = Math.min(-5.5, Math.max(ry.c.y + Math.sin(t * 0.2 + ry.i) * 1.5, H(x, z) + 7));
-    ry.p.set(x, ry.init ? G.lerp(ry.p.y, ty, Math.min(1, dt * 0.5)) : ty, z); ry.init = true;
+    let ty = Math.min(-5.5, Math.max(ry.c.y + Math.sin(t * 0.2 + ry.i) * 1.5, H(x, z) + 7));
+    /* корабль на пути: ледокрыл проплывает над ним, крылья не задевают корпус */
+    const S = G.Ship, over = S.hullDist(tv.set(x, S.pos.y + 1.6, z)) < RAY_WING;
+    if (over) ty = Math.min(-1, Math.max(ty, S.pos.y + 3.5 + RAY_OVER));
+    ry.p.set(x, ry.init ? G.lerp(ry.p.y, ty, Math.min(1, dt * (over ? 3 : 0.5))) : ty, z); ry.init = true;
+    S.pushOut(ry.p, 1.5);
     ry.dir.set(-Math.sin(ry.ang), 0, Math.cos(ry.ang));
     ry.mesh.position.copy(ry.p); ry.mesh.lookAt(tv.copy(ry.p).add(ry.dir)); ry.mesh.rotateZ(-0.22);
     const pa = ry.geo.attributes.position.array, b = ry.base;
@@ -1132,9 +1140,11 @@
     sw.flareCd -= dt; sw.fadeCd -= dt;
     sw.c.set(sw.home.x + Math.sin(t * 0.05 + sw.ph) * 10, sw.home.y + Math.sin(t * 0.21 + sw.ph) * 1.2, sw.home.z + Math.cos(t * 0.04 + sw.ph * 1.3) * 10);
     const wasLit = sw.lit; sw.lit = false;
+    const near = S.center.distanceTo(sw.c) < RD_R + 26;
     for (let k = 0; k < RD_N; k++) {
       const m = sw.m[k];
       m.p.copy(sw.c).add(m.o); m.p.x += Math.sin(t * 0.6 + m.ph) * 0.5; m.p.y += Math.sin(t * 0.8 + m.ph * 1.7) * 0.4;
+      if (near) S.pushOut(m.p, 0.3);
       if (!sw.lit && k % 3 === 0 && inBeam(m.p)) sw.lit = true;
     }
     const prev = sw.glow;
@@ -1188,7 +1198,7 @@
     const dx = x - a.x - plSeg.x * u, dy = y - a.y - plSeg.y * u, dz = z - a.z - plSeg.z * u;
     return dx * dx + dy * dy + dz * dz;
   }
-  const shipBack = new V3();
+  const shipBack = new V3(), plP = new V3();
   function cloudUpdate(cl, dt, t) {
     const S = G.Ship, pa = E.plPts.geometry.attributes.position.array, pc = E.plPts.geometry.attributes.color.array;
     cl.wakeCd -= dt; cl.slowCd -= dt; cl.predCd -= dt;
@@ -1200,10 +1210,12 @@
     for (const pr of E.preds) if (pr.v.length() > PRED_FAST && pr.p.distanceTo(cl.c) < PL_R + 4) cutters.push({ a: pr.p, b: pr.segs[pr.segs.length - 1], r2: 4, who: 2 });
     for (const ry of E.rays) if (ry.p.distanceTo(cl.c) < PL_R + 8) cutters.push({ a: ry.p.clone().addScaledVector(ry.dir, 3), b: ry.p.clone().addScaledVector(ry.dir, -4), r2: 36, who: 3 });
     let lit = 0, predLit = 0;
+    const hullNear = S.center.distanceTo(cl.c) < PL_R + 24;
     const base = cl.i * PL_N;
     for (let k = 0; k < PL_N; k++) {
       const j = (base + k) * 3, w = t * 0.3 + k;
-      const x = cl.c.x + cl.o[k * 3] + Math.sin(w) * 0.4, y = cl.c.y + cl.o[k * 3 + 1] + Math.sin(w * 1.3) * 0.25, z = cl.c.z + cl.o[k * 3 + 2] + Math.cos(w * 0.9) * 0.4;
+      let x = cl.c.x + cl.o[k * 3] + Math.sin(w) * 0.4, y = cl.c.y + cl.o[k * 3 + 1] + Math.sin(w * 1.3) * 0.25, z = cl.c.z + cl.o[k * 3 + 2] + Math.cos(w * 0.9) * 0.4;
+      if (hullNear && S.pushOut(plP.set(x, y, z), 0.2)) { x = plP.x; y = plP.y; z = plP.z; } // корабль раздвигает облако
       pa[j] = x; pa[j + 1] = y; pa[j + 2] = z;
       for (const cu of cutters) if (segD2(x, y, z, cu.a, cu.b) < cu.r2) { cl.glow[k] = 1; cl.by[k] = cu.who; break; }
       let g = cl.glow[k];
@@ -1294,6 +1306,7 @@
       tv.copy(cn.goal).sub(cn.p); const d = tv.length();
       if (d > 0.05) cn.v.lerp(tv.multiplyScalar(Math.min(maxS, d * 1.5) / d), Math.min(1, dt * 3));
       cn.p.addScaledVector(cn.v, dt);
+      G.Ship.pushOut(cn.p, 0.25, cn.v);
       const h = H(cn.p.x, cn.p.z); if (cn.p.y < h + 0.3) cn.p.y = h + 0.3;
       clampArea(cn.p);
     }
@@ -1538,9 +1551,10 @@
     if (sk.state === 'rock' && G.Manip.arm && (G.Manip.state === 'reach' || G.Manip.state === 'back') && G.Manip.target && G.Manip.target.pos.distanceTo(sk.home) < SK_THIEF_R) { sk.state = 'thief'; sk.reveal = 4; }
     if (sk.carryM) { sk.carryM.visible = !!sk.loot; if (sk.loot) { sk.carryM.position.copy(sk.p).y += 0.9; sk.carryM.material.color.set(G.Manip.KIND[sk.loot.kind].color); } }
     if (speed > 0) {
-      tv.copy(sk.goal).sub(sk.p); const d = tv.length();
+      tv.copy(G.Ship.detour(sk.p, sk.goal, 0.5, tv3)).sub(sk.p); const d = tv.length();
       if (d > 0.05) { sk.v.copy(tv).multiplyScalar(Math.min(speed, d * 2) / d); sk.p.addScaledVector(sk.v, dt); tv2.copy(sk.v).setY(0); if (tv2.lengthSq() > 1e-4) sk.dir.lerp(tv2.normalize(), Math.min(1, dt * 3)).normalize(); }
       else sk.v.set(0, 0, 0);
+      G.Ship.pushOut(sk.p, 0.5, sk.v);
       const h = H(sk.p.x, sk.p.z); if (sk.p.y < h) sk.p.y = h;
       if (sk.state === 'stalk' || sk.state === 'back') sk.p.y = Math.max(h, sk.p.y + (h + 0.2 - sk.p.y) * Math.min(1, dt * 3));
     } else sk.v.set(0, 0, 0);
@@ -1575,7 +1589,7 @@
      Стеклоуст не садится туда, где уже кто-то есть, — прилипалы на корпусе его отпугивают.
      Зато каждая немного тормозит корабль. Разряд по корпусу их сбрасывает, и они уплывают к ледокрылам. */
   const RM_PER_RAY = 3, RM_HOP_R = 16, RM_DRAG = 0.025;
-  const RM_SLOTS = [[-3.3, 0.85, -6.14], [3.4, 0.85, -6.14], [-2.5, 3.25, -3], [2.5, 3.25, -3.6], [0, 3.25, 0.5], [-5.05, 0.7, -0.9], [5.05, 0.7, -3.2], [0, 2.65, 4.2], [-4.05, 0.6, 9.5], [4.05, 0.6, 8.6]];
+  const RM_SLOTS = E.RM_SLOTS = [[-3.3, 0.85, -6.25], [3.4, 0.85, -6.25], [-2.5, 3.45, -3], [2.5, 3.45, -3.6], [0, 3.45, 0.5], [-5.25, 0.7, -0.9], [5.25, 0.7, -3.2], [0, 2.85, 4.2], [-4.25, 0.6, 9.5], [4.25, 0.6, 8.6]]; // снаружи корпуса (S.HULL)
   const RM_ON_RAY = [[-0.9, 0.55, 0.6], [1.0, 0.5, -0.4], [0.2, 0.6, -1.6]];
   function initRemoras(scene) {
     if (!E.rays.length) return;
@@ -1615,7 +1629,7 @@
             E.emit('prisoska', 'hop', rm.p, n === 1 ? () => `${cap(G.nm('prisoska'))} перебралась с ${G.nm('ray', 'gen')} на корпус корабля` : null);
             if (n === 3) E.emit('prisoska', 'drag', rm.p, () => `${cap(G.nm('prisoska', 'gen'))} на корпусе уже три — корабль идёт тяжелее`);
           } else { rm.state = 'ray'; rm.cd = 60; }
-        } else { rm.p.addScaledVector(tv2, Math.min(1, 8 * dt / d)); rm.dir.copy(tv2).normalize(); }
+        } else { rm.p.addScaledVector(tv2, Math.min(1, 8 * dt / d)); rm.dir.copy(tv2).normalize(); if (rm.slot < 0) S.pushOut(rm.p, 0.2); }
       } else if (rm.state === 'hull') { rmAnchor(rm, rm.p); tv.set(0, 0, -1).applyQuaternion(S.group.quaternion); rm.dir.copy(tv); }
     }
     E.hullRemoras = E.remoras.filter(r => r.state === 'hull').length;
