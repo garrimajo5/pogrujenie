@@ -13,21 +13,24 @@
     const ws = N.ws = new WS(url);
     ws.onopen = () => { N.on = true; N.status = 'open'; ws.send(JSON.stringify({ t: 'join', room: N.room, name: N.name })); };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } N.handle(m); };
-    ws.onclose = () => { N.on = false; N.status = 'off'; N.host = false; N.hud(); G.Game.toast && G.Game.toast('Связь потеряна', 'Корабль снова только ваш.'); };
+    ws.onclose = () => { N.on = false; N.status = 'off'; N.host = false; G.Roles.reset(); N.hud(); G.Game.toast && G.Game.toast('Связь потеряна', 'Корабль снова только ваш.'); };
     N.hud(); return true;
   };
   N.handle = function (m) {
     if (m.t === 'joined') {
       N.id = m.id; N.host = m.host; N.peers = m.peers || []; N.room = m.room; N.status = 'joined';
-      G.Game.toast('Экипаж: ' + m.room, m.host ? 'Вы хост: ваш корабль — общий. Остальные подключатся по той же ссылке.' : 'Вы на борту. Корабль ведёт хост, ваша крестовина тоже им управляет.');
+      G.Game.toast('Экипаж: ' + m.room, m.host ? 'Вы хост: ваш корабль — общий. Остальные подключатся по той же ссылке.' : 'Вы на борту. Корабль считает игра хоста, а посты делятся по ролям.');
+      G.Roles.reset(); G.Roles.pick(); // первая свободная роль: хосту — пилот
     } else if (m.t === 'peer') {
-      if (m.ev === 'join') { N.peers.push({ id: m.id, name: m.name }); G.Game.feedMsg && G.Game.feedMsg(`На борт поднялся: ${m.name}`, true); }
+      if (m.ev === 'role') G.Roles.onPeer(m);
+      else if (m.ev === 'join') { N.peers.push({ id: m.id, name: m.name }); G.Game.feedMsg && G.Game.feedMsg(`На борт поднялся: ${m.name}`, true); }
       else { N.peers = N.peers.filter(p => p.id !== m.id); G.Game.feedMsg && G.Game.feedMsg(`Экипаж покинул: ${m.name}`); }
     } else if (m.t === 'host') {
       N.host = m.id === N.id;
       if (N.host) G.Game.toast('Вы теперь хост', 'Прежний хост ушёл — корабль ведёт ваша игра.');
     } else if (m.t === 'state' && !N.host) { N.target = m.s; N.lastState = G.Game.t; }
     else if (m.t === 'input' && N.host) N.remote = Object.assign({ t: G.Game.t }, m.i);
+    else if (m.t === 'error') G.Roles.onError(m);
     N.hud();
   };
   N.send = o => { if (N.ws && N.on && N.ws.readyState === 1) N.ws.send(JSON.stringify(o)); };
@@ -68,7 +71,8 @@
   N.hud = function () {
     const el = document.getElementById('s-net'); if (!el) return;
     el.hidden = !N.on && N.status === 'off';
-    el.textContent = N.status === 'connecting' ? 'Экипаж: подключение…' : `Экипаж ${N.room} · ${N.peers.length + 1} · ${N.host ? 'хост' : 'гость'}`;
+    el.textContent = N.status === 'connecting' ? 'Экипаж: подключение…' : `Экипаж ${N.room} · ${N.peers.length + 1} · ${N.host ? 'хост' : 'гость'}${G.Roles.mine ? ' · ' + G.Roles.get(G.Roles.mine).name : ''}`;
+    el.title = 'Коснитесь, чтобы сменить роль';
   };
   /* ?room=...&name=... в адресе — подключиться к серверу, с которого открыта игра */
   N.auto = function () {

@@ -8,7 +8,9 @@
      клиент → {t:'join', room, name}            сервер → {t:'joined', id, room, host, peers:[{id,name}]}
      хост   → {t:'state', s}                    → остальным в комнате {t:'state', s, from}
      гость  → {t:'input', i}                    → хосту {t:'input', i, from}
-     сервер → {t:'peer', ev:'join'|'leave', id, name}, {t:'host', id}, {t:'error', msg} */
+     любой  → {t:'role', role}                  → всем в комнате {t:'peer', ev:'role', id, name, role}
+     сервер → {t:'peer', ev:'join'|'leave', id, name}, {t:'host', id}, {t:'error', msg}
+   Роли: pilot, sonar, eng, bio — у каждой роли один хозяин; пустая строка снимает роль. */
 const http = require('http'), crypto = require('crypto'), fs = require('fs'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -16,6 +18,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 const MAX_MSG = 64 * 1024, RATE = 60, ROOM_MAX = 5;
 
 function createServer() {
+  const ROLES = ['pilot', 'sonar', 'eng', 'bio'];
   const rooms = new Map(); // room → { peers: [client], host: client }
   let nextId = 1;
 
@@ -79,6 +82,11 @@ function createServer() {
     const r = c.room && rooms.get(c.room); if (!r) return sendJ(c, { t: 'error', msg: 'сначала join' });
     if (m.t === 'state' && r.host === c) r.peers.forEach(p => { if (p !== c) sendJ(p, { t: 'state', s: m.s, from: c.id }); });
     else if (m.t === 'input' && r.host !== c) sendJ(r.host, { t: 'input', i: m.i, from: c.id });
+    else if (m.t === 'role') {
+      const role = ROLES.includes(m.role) ? m.role : '';
+      if (role && r.peers.some(p => p !== c && p.role === role)) return sendJ(c, { t: 'error', msg: 'этот пост уже занят', role });
+      c.role = role; r.peers.forEach(p => sendJ(p, { t: 'peer', ev: 'role', id: c.id, name: c.name, role }));
+    }
   }
   function join(c, m) {
     const room = String(m.room || '').toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/g, '').slice(0, 8);
@@ -88,7 +96,7 @@ function createServer() {
     if (r.peers.length >= ROOM_MAX) return sendJ(c, { t: 'error', msg: 'в экипаже уже пять человек' });
     c.name = String(m.name || 'Гость').slice(0, 24); c.room = room;
     r.peers.push(c); if (!r.host) r.host = c;
-    sendJ(c, { t: 'joined', id: c.id, room, host: r.host === c, hostId: r.host.id, peers: r.peers.filter(p => p !== c).map(p => ({ id: p.id, name: p.name })) });
+    sendJ(c, { t: 'joined', id: c.id, room, host: r.host === c, hostId: r.host.id, peers: r.peers.filter(p => p !== c).map(p => ({ id: p.id, name: p.name, role: p.role || '' })) });
     r.peers.forEach(p => { if (p !== c) sendJ(p, { t: 'peer', ev: 'join', id: c.id, name: c.name }); });
   }
   function leave(c) {
