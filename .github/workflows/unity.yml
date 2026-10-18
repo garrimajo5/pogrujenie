@@ -61,8 +61,9 @@ jobs:
         with:
           path: unity/Library
           # v2: старый кэш Library (18:12) ронял редактор сразу после запуска (exit 137) — начинаем с чистого
-          key: Library-android-v2-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
-          restore-keys: Library-android-v2-
+          # v3: в репозитории появились .meta с постоянными GUID, Library со старыми GUID снова роняла редактор (exit 137)
+          key: Library-android-v3-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          restore-keys: Library-android-v3-
       - uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}

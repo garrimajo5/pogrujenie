@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Unity .meta
+        run: python tools/test_unity_meta.py
       - name: Playwright
         run: |
           pip install playwright==1.47.0

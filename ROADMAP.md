@@ -9,7 +9,9 @@
 ## Замечания тестера
 Отчёты — в ветке `qa/reports`, папка `qa/` (порядок работы — в CLAUDE.md, раздел «Отчёты тестера»). Задачи отсюда идут раньше этапов ниже.
 - [x] Unity: почти всё, кроме дна, розовое в APK (шейдер Standard не попал в сборку) и 84 ошибки «class '…Collider' doesn't exist» от `CreatePrimitive` — свой шейдер `Pogrujenie/Lit` в `Resources`, детали без `CreatePrimitive` (`Game/Shapes.cs`). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, ошибки 1 и 2
-- [ ] Unity: закоммитить `.meta`-файлы (GUID меняются при каждом импорте) и зафиксировать `m_EditorVersionWithRevision` в `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
+- Unity: закоммитить `.meta`-файлы и зафиксировать `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи — разделено на две части:
+  - [x] `.meta` для всех ассетов `unity/Assets` с постоянными GUID (`tools/unity_meta.py`, проверка в CI «Тесты»)
+  - [ ] Дописать в `ProjectVersion.txt` строку `m_EditorVersionWithRevision: 6000.6.6f1 (d20c9ac777da)` (ревизия из лога сборки в CI) и убедиться, что «Unity» зелёная
 - [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
 ## Концепт-арт
