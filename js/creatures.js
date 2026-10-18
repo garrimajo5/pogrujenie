@@ -99,6 +99,7 @@
       const col = new THREE.Color(cols[si % cols.length]);
       for (let k = 0; k < PER; k++) {
         const f = { s: sh, p: sh.home.clone().add(new V3(G.rr(-3, 3), G.rr(0, 3), G.rr(-3, 3))), v: new V3(G.rr(-1, 1), 0, G.rr(-1, 1)), alive: true, t: 0, i: E.fish.length, ph: G.rr(0, 6) };
+        f.o = f.p.clone().sub(sh.home); f.v0 = f.v.clone(); // для сброса мира
         E.fish.push(f); sh.members.push(f);
         im.setColorAt(f.i, col.clone().multiplyScalar(G.rr(0.75, 1.15)));
       }
@@ -200,7 +201,7 @@
       leechM.position.set(0.5, -0.05, 0.25); leechM.rotation.set(0, 0.4, -0.5); head.add(leechM);
       scene.add(head); scene.add(tailG);
       const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], head, tailG, cd: 20, avoidCd: 0, i,
-        leech: false, leechCd: 0, angryCd: 0, truceCd: 0, flareCd: 0, station: null, leechM, leechP: new V3() };
+        leech: false, leechCd: 0, angryCd: 0, truceCd: 0, flareCd: 0, station: null, leechM, leechP: new V3(), p0: p.clone() };
       setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160);
       for (let k = 0; k < PSEG; k++) pr.segs.push(p.clone().add(new V3(0, 0, -k * 0.6)));
       E.preds.push(pr);
@@ -595,7 +596,8 @@
       const spots = []; for (let k = 0; k < 14; k++) { const s = k % 2 ? 1 : -1; spots.push({ g: new THREE.SphereGeometry(0.12, 6, 4), m: new THREE.Matrix4().makeTranslation(s * (0.8 + (k >> 1) * 0.35), 0.45, 1 - (k >> 1) * 0.4) }); }
       mesh.add(new THREE.Mesh(G.merge(spots), new THREE.MeshBasicMaterial({ color: 0x9ffcff })));
       mesh.frustumCulled = false; scene.add(mesh);
-      E.rays.push({ c: o.c, R: o.R, sp: o.sp, ang: G.rr(0, 6.28), p: new V3(), dir: new V3(), mesh, geo, base: Float32Array.from(geo.attributes.position.array), fcd: G.rr(5, 15), i, init: false, nT: 0 });
+      const ang = G.rr(0, 6.28);
+      E.rays.push({ c: o.c, R: o.R, sp: o.sp, ang, ang0: ang, p: new V3(), dir: new V3(), mesh, geo, base: Float32Array.from(geo.attributes.position.array), fcd: G.rr(5, 15), i, init: false, nT: 0 });
     });
   }
   function rayUpdate(ry, dt, t) {
@@ -1448,7 +1450,7 @@
 
   E.reset = function () {
     if (E.latched) { E.latched.state = 'flee'; E.latched.cd = 40; E.latched = null; }
-    E.preds.forEach((pr, i) => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; pr.flareCd = 0; });
+    E.preds.forEach((pr, i) => { pr.p.copy(pr.p0); pr.goal.copy(pr.p0); pr.v.set(0, 0, 1); pr.segs.forEach((sg, k) => sg.copy(pr.p0).z -= k * 0.6); pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; pr.flareCd = 0; });
     E.stations.forEach(st => { st.busy = null; st.work = 0; });
     E.anemones.forEach(hv => { hv.open = 1; hv.lit = false; hv.digest = 0; hv.lure = null; hv.lureT = 0; hv.lureCd = G.rr(4, 12); hv.leftT = 0; hv.hideCd = 0; hv.msgCd = 0; });
     E.groves.forEach(gr => { gr.msgCd = 0; gr.grazeCd = 0; gr.stalks.forEach((s, k) => { s.f = 1; s.eater = null; s.drawn = 1; setKelp(gr, k); }); gr.cover = 1; });
@@ -1465,5 +1467,9 @@
     if (gt) { gt.p.copy(gt.route[0]); gt.wp = 1; gt.yaw = 0; gt.shy = 0; gt.shyCd = 0; gt.lift = 1; gt.hideCd = 0; gt.driftCd = 0; grotPlace(gt, 0, 0); }
     const cr = E.crab;
     if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
+    /* хищники, рыбы и ледокрылы — на исходные места (после гротовика: стая на его спине): тесты не зависят от предыдущих */
+    E.shoals.forEach(sh => { sh.alarm = 0; sh.follow = null; sh.followT = 0; sh.gt = 0; sh.fleeCd = 0; sh.threat = null; sh.goal.copy(sh.home); sh.c.copy(sh.home); });
+    E.fish.forEach(f => { f.alive = true; f.t = 0; f.p.copy(f.s.home).add(f.o); f.v.copy(f.v0); });
+    E.rays.forEach(r => { r.ang = r.ang0; r.init = false; r.fcd = 10; r.nT = 0; });
   };
 })(window.G);
