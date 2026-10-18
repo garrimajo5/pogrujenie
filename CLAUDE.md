@@ -59,3 +59,4 @@
 - Тесты: `unity/Assets/Tests/EditMode` (NUnit, логика из Core) и `unity/Assets/Tests/PlayMode` (сцена, `[UnityTest]`). Новая фича — с тестами, как и в браузерной версии.
 - Редактора Unity в облачной сессии нет: тесты и сборка идут только в GitHub Actions, проверка «Unity» (`.github/workflows/unity.yml`, GameCI, секреты `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`). Перед PR внимательно перечитать C#: компилятор увидим только в CI. PR сливается, когда зелёные и «Тесты», и «Unity».
 - APK — артефакт `pogrujenie-apk` у запуска «Unity».
+- `.meta` лежат в репозитории. Добавил файл или папку в `unity/Assets` — запусти `python3 tools/unity_meta.py` (создаст недостающие с постоянным GUID) и закоммить `.meta`; удалил — удали и его `.meta`. Проверка: `python3 tools/test_unity_meta.py`, она же идёт в CI «Тесты».
