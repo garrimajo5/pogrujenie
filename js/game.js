@@ -29,7 +29,9 @@
     G.Ctl.init(); bindUI(); G.DebugPanel.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
-    $('loading').hidden = true; $('b-start').hidden = false;
+    if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
+    else $('loading').hidden = true;
+    $('b-start').hidden = false;
     updateCounts();
   };
 
@@ -67,7 +69,7 @@
     /* вернуть мир и игрока в исходное состояние (для тестов) */
     paused: false,
     reset() {
-      G.seed(12345);
+      G.seed(12345); G.Save.wipe();
       G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
@@ -138,6 +140,7 @@
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
+    G.Save.tick(dt);
   }
   function clearOneShots() {
     const C = G.Ctl;
@@ -285,7 +288,7 @@
   }
   function completeScan(key) {
     const sp = G.SPECIES[key]; if (sp.scanned) return;
-    sp.scanned = true; G.Audio.scanDone();
+    sp.scanned = true; G.Audio.scanDone(); G.Save.mark();
     Game.toast('Новый вид: ' + sp.name, sp.desc);
     feed('Вид занесён в журнал: ' + sp.name, true);
     updateCounts(); checkComplete();
@@ -296,7 +299,7 @@
       if (ev.pos.distanceTo(S.center) > 80) continue;
       const sp = G.SPECIES[ev.sp];
       let isNew = false;
-      if (ev.note && !sp.seen.has(ev.note)) { sp.seen.add(ev.note); isNew = true; }
+      if (ev.note && !sp.seen.has(ev.note)) { sp.seen.add(ev.note); isNew = true; G.Save.mark(); }
       if (ev.msg) feed(ev.msg(), isNew); else if (isNew) feed('Новое наблюдение: ' + G.nm(ev.sp), true);
     }
     E.events.length = 0;
@@ -306,7 +309,7 @@
     for (const p of G.World.pois) {
       if (p.found) continue;
       if (Math.hypot(p.pos.x - S.pos.x, p.pos.z - S.pos.z) < p.rd) {
-        p.found = true; G.Audio.discover();
+        p.found = true; G.Audio.discover(); G.Save.mark();
         Game.toast('Открытие: ' + p.name, p.desc);
         feed('Место отмечено на сонаре: ' + p.name, true);
         updateCounts(); checkComplete();
@@ -386,6 +389,14 @@
   function flash(color) { const el = $('fx-hit'); el.style.transition = 'none'; el.style.background = color; el.style.opacity = '1'; void el.offsetWidth; el.style.transition = 'opacity .6s'; el.style.opacity = '0'; }
 
   /* ---------- журнал ---------- */
+  Game.resetProgress = function () {
+    G.Save.wipe();
+    G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
+    G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
+    Game.done = false; updateCounts();
+    if (Game.state === 'journal') renderJournal();
+    Game.toast('Журнал очищен', 'Экспедиция начинается заново.');
+  };
   Game.openJournal = function (focus) {
     if (Game.state !== 'play') return;
     Game.state = 'journal'; renderJournal(focus); $('journal').hidden = false; G.Audio.beep(520);
@@ -408,9 +419,16 @@
     G.World.pois.forEach(p => {
       h += `<article class="j-card ${p.found ? '' : 'unk'}"><h4>${p.found ? esc(p.name) : '???'}</h4><p>${p.found ? esc(p.desc) : (p.pinged ? 'Сонар засёк что-то необычное: фиолетовая метка «?» на голостоле.' : 'Ещё не найдено. Импульс сонара покажет необычные места поблизости.')}</p></article>`;
     });
-    h += '</div>';
+    h += '</div><div class="j-foot"><button id="j-reset" class="chip warn" type="button">Сбросить прогресс</button><span id="j-reset-hint"></span></div>';
     $('journal-body').innerHTML = h;
     $('j-close').onclick = closeJournal;
+    const rb = $('j-reset');
+    rb.onclick = () => {
+      if (rb.dataset.armed === '1') { Game.resetProgress(); return; }
+      rb.dataset.armed = '1'; rb.textContent = 'Стереть журнал безвозвратно';
+      $('j-reset-hint').textContent = 'Нажмите ещё раз в течение 4 секунд.';
+      setTimeout(() => { if (rb.isConnected) { rb.dataset.armed = ''; rb.textContent = 'Сбросить прогресс'; $('j-reset-hint').textContent = ''; } }, 4000);
+    };
     if (focus) { const el = $('j-' + focus); if (el) { el.classList.add('focus'); el.scrollIntoView({ block: 'center' }); } }
   }
 
