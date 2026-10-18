@@ -142,6 +142,20 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .step output { min-width: 56px; text-align: center; font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; }
 .step .chip:disabled { opacity: .35; }
 .intro-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#power { position: absolute; right: calc(var(--sr) + 8px); top: calc(var(--st) + 56px); width: min(400px, 56vw); background: rgba(2, 14, 20, .9); border: 1px solid var(--line); padding: 10px; display: grid; gap: 6px; z-index: 4; }
+#power .pw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#power .pw-head b { font: 700 16px var(--disp); color: var(--glow); }
+.pw-row { display: grid; grid-template-columns: 1fr 40px 70px 30px 40px; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid transparent; }
+.pw-row.sel { border-color: var(--amber); background: rgba(255, 178, 89, .08); }
+.pw-row.off .pw-name b { color: var(--alarm); }
+.pw-name b { font-weight: 600; font-size: 12px; color: var(--ink); display: block; }
+.pw-name small { font-size: 10px; color: var(--dim); }
+.pw-row .chip { min-width: 40px; min-height: 34px; padding: 4px; }
+.pw-row .chip:disabled { opacity: .35; }
+.pw-bar { height: 8px; background: rgba(94, 242, 214, .12); }
+.pw-bar i { display: block; height: 100%; background: var(--amber); }
+.pw-row output { text-align: right; color: var(--amber); font-variant-numeric: tabular-nums; }
+.pw-foot { font-size: 11px; color: var(--dim); }
 #errbox { position: fixed; left: 8px; right: 8px; bottom: 8px; background: #400; color: #fff; font-size: 11px; padding: 8px; z-index: 99; }
 
 @media (max-height: 460px) {
@@ -158,6 +172,10 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   #b-action { width: 92px; height: 92px; }
   #feed { bottom: calc(var(--sb) + 150px); }
   #toast { top: 14%; }
+  #power { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
+  .pw-row { padding: 1px 4px; }
+  .pw-row .chip { min-height: 28px; }
+  .pw-name small { display: none; }
 }
 @media (max-width: 620px) {
   .how { grid-template-columns: 1fr; }

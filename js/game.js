@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.Power.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -157,6 +157,11 @@
     if (C.lightPressed) Game.toggleLight();
     if (C.standPressed && Game.piloting) Game.toggleHelm();
     if (C.pingPressed) G.Sonar.ping();
+    if (G.Power.isOpen()) { // пульт энергии: крестовина управляет пультом, игрок стоит; кнопка действия закрывает
+      G.Power.nav(C.move.x, C.move.y, dt); C.move.x = C.move.y = 0;
+      if (C.actionPressed) { C.actionPressed = false; G.Power.close(); }
+      if (Game.room !== 'eng' || Game.piloting) G.Power.close();
+    }
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
@@ -220,11 +225,13 @@
   Game.toggleLight = function () {
     const S = G.Ship;
     if (!S.light && S.energy < 3) { Game.toast('Мало энергии', 'Прожектор не включить'); return; }
+    if (!S.light && G.Power.v.lamp <= 0) { Game.toast('Прожектор обесточен', 'Дайте ему энергию в машинном отделении'); return; }
     S.light = !S.light; G.Audio.beep(S.light ? 760 : 380);
     $('b-light').classList.toggle('lit', S.light);
   };
   Game.zap = function () {
     const S = G.Ship;
+    if (G.Power.v.zap <= 0) { Game.toast('Разряд обесточен', 'В машинном отделении у разряда 0 единиц'); G.Audio.beep(220); return; }
     if (S.energy < 15) { Game.toast('Мало энергии', 'Для разряда нужно 15 единиц'); G.Audio.beep(220); return; }
     S.energy -= 15; S.flicker = 0.8; G.Audio.zap(); flash('rgba(94,242,214,.55)');
     G.Eco.onZap();
@@ -388,7 +395,7 @@
     $('s-head').textContent = String(Math.round(((-S.yaw * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, '0');
     $('s-speed').textContent = Math.abs(S.speed).toFixed(1);
     setBar('s-hull', S.hull); setBar('s-energy', S.energy);
-    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория' }[Game.room];
+    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное' }[Game.room];
     $('b-light').classList.toggle('lit', S.light);
   }
   function feed(text, isNew) {
