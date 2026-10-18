@@ -5,10 +5,11 @@
    огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников;
    хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки;
    светляки прячутся в ленточнике, шипоежи объедают его до стеблей, кольчужники раскалывают ежей;
-   радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека. */
+   радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека;
+   мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -52,9 +53,12 @@
       notes: { hunt: 'Выходит из норы и раскалывает шипоежей. Возле его норы ленточник остаётся густым.', armor: 'Вплетает иглы съеденных ежей в панцирь.', guard: 'Охраняет нору: корабль у самого дна хватает клешнёй.' } },
     raduzh: { name: 'Радужник', acc: 'радужника', gen: 'радужников', unom: 'гребневики', uacc: 'гребневиков', ugen: 'гребневиков',
       desc: 'Прозрачный гребневик около 30 см. Своего света нет: ряды ресничек раскладывают чужой свет в радугу. Дрейфует стаями в толще воды.',
-      notes: { flare: 'В луче прожектора стая вспыхивает радугой, и корабль видно издалека.', betray: 'Серпохвосты замечают вспышку и плывут к кораблю.', fade: 'Если погасить прожектор, стая гаснет за пару секунд.' } }
+      notes: { flare: 'В луче прожектора стая вспыхивает радугой, и корабль видно издалека.', betray: 'Серпохвосты замечают вспышку и плывут к кораблю.', fade: 'Если погасить прожектор, стая гаснет за пару секунд.' } },
+    plankton: { name: 'Мерцающий планктон', acc: 'мерцающий планктон', gen: 'мерцающего планктона', unom: 'светящееся облако', uacc: 'светящееся облако', ugen: 'светящегося облака',
+      desc: 'Облака светящихся одноклеточных размером около миллиметра. Основа питания рифа. Вспыхивают, когда их задевает что-то быстрое.',
+      notes: { wake: 'За быстрым кораблём в облаке тянется светящийся след.', slow: 'Если идти медленно, планктон не вспыхивает.', betray: 'Светящийся след выдаёт корабль хищнику даже с погашенным прожектором.', pred: 'Бросок хищника сквозь облако видно издалека.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -193,13 +197,17 @@
   }
   function leechGeo() { const g = new THREE.CapsuleGeometry(0.09, 0.32, 3, 6); g.rotateX(Math.PI / 2); g.scale(1.4, 0.45, 1); return g; }
   function setLeech(pr, on) { pr.leech = on; pr.leechM.visible = on; if (!on) pr.station = null; }
-  function startCharge(pr) { pr.state = 'charge'; pr.timer = 10; E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`); }
+  function startCharge(pr) {
+    pr.state = 'charge'; pr.timer = 10;
+    if (!G.Ship.light && G.Game.t - E.lastPing >= 12 && E.shipWake > 0.5) E.emit('plankton', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил светящийся след ${G.nm('plankton', 'gen')} и разворачивается к кораблю`);
+    else E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`);
+  }
   function predUpdate(pr, dt) {
     const S = G.Ship;
     pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt;
     const dShip = pr.p.distanceTo(S.center), atStation = nearStation(pr.p);
     const reach = pr.leech ? 48 : 32; // заражённый пиявником замечает корабль издалека
-    const lured = dShip < reach && (S.light || G.Game.t - E.lastPing < 12) && !E.shipHidden && S.hull > 0;
+    const lured = dShip < reach && (S.light || G.Game.t - E.lastPing < 12 || E.shipWake > 0.5) && !E.shipHidden && S.hull > 0;
     const canAttack = pr.cd <= 0 && pr.hunger > (pr.leech ? 0.1 : 0.2) && lured && !E.shipSheltered && !atStation;
     /* вспышка радужников выдаёт корабль издалека: хищник плывёт проверить */
     if (E.flare > 0.5 && dShip >= reach && dShip < FLARE_REACH && !E.shipHidden && !E.shipSheltered && S.hull > 0 && pr.cd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
@@ -1047,8 +1055,69 @@
     }
   }
 
+  /* ======================= МЕРЦАЮЩИЙ ПЛАНКТОН ======================= */
+  /* Облака светящихся одноклеточных. Вспыхивают, когда сквозь них быстро проходит корабль,
+     хищник или ледокрыл; след гаснет за пару секунд. След корабля виден хищникам даже без прожектора. */
+  const PL_N = 360, PL_R = 12, WAKE_SPEED = 2.2, WAKE_R = 2.6, PRED_FAST = 5;
+  const plSeg = new V3(), plCol = new THREE.Color();
+  function initClouds(scene) {
+    const rng0 = G.rng; G.seed(9157);
+    const spots = [[8, 72], [-60, 0], [60, -60], [-20, -140]], N = spots.length * PL_N;
+    const pa = new Float32Array(N * 3), pc = new Float32Array(N * 3), pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(pa, 3)); pg.setAttribute('color', new THREE.BufferAttribute(pc, 3));
+    E.plPts = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.8, map: glowTex(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    E.plPts.frustumCulled = false; scene.add(E.plPts);
+    spots.forEach(([x, z], i) => {
+      const home = new V3(x, 0, z); home.y = Math.min(H(x, z) + 10, -10);
+      const cl = { i, home, c: home.clone(), ph: G.rr(0, 6), o: new Float32Array(PL_N * 3), glow: new Float32Array(PL_N), by: new Uint8Array(PL_N), ship: 0, slowT: 0, wakeCd: 0, slowCd: 0, predCd: 0 };
+      for (let k = 0; k < PL_N; k++) {
+        const v = new V3(G.rr(-1, 1), G.rr(-0.5, 0.5), G.rr(-1, 1)); if (v.lengthSq() > 1) v.normalize();
+        v.multiplyScalar(PL_R * Math.cbrt(G.rng())); cl.o[k * 3] = v.x; cl.o[k * 3 + 1] = v.y; cl.o[k * 3 + 2] = v.z;
+      }
+      E.clouds.push(cl);
+    });
+    G.rng = rng0;
+  }
+  /* квадрат расстояния от точки до отрезка a–b */
+  function segD2(x, y, z, a, b) {
+    plSeg.subVectors(b, a); const L2 = plSeg.lengthSq();
+    let u = L2 > 0 ? ((x - a.x) * plSeg.x + (y - a.y) * plSeg.y + (z - a.z) * plSeg.z) / L2 : 0; u = Math.max(0, Math.min(1, u));
+    const dx = x - a.x - plSeg.x * u, dy = y - a.y - plSeg.y * u, dz = z - a.z - plSeg.z * u;
+    return dx * dx + dy * dy + dz * dz;
+  }
+  const shipBack = new V3();
+  function cloudUpdate(cl, dt, t) {
+    const S = G.Ship, pa = E.plPts.geometry.attributes.position.array, pc = E.plPts.geometry.attributes.color.array;
+    cl.wakeCd -= dt; cl.slowCd -= dt; cl.predCd -= dt;
+    cl.c.set(cl.home.x + Math.sin(t * 0.03 + cl.ph) * 6, cl.home.y + Math.sin(t * 0.17 + cl.ph) * 1, cl.home.z + Math.cos(t * 0.025 + cl.ph) * 6);
+    /* кто сейчас «режет» облако: корабль, если быстрый; хищники в броске; ледокрылы */
+    const cutters = [];
+    const shipIn = S.center.distanceTo(cl.c) < PL_R + 8;
+    if (shipIn && Math.abs(S.speed) > WAKE_SPEED) { shipBack.set(0, 1.5, 12).applyMatrix4(S.group.matrixWorld); cutters.push({ a: S.front, b: shipBack, r2: WAKE_R * WAKE_R, who: 1 }); }
+    for (const pr of E.preds) if (pr.v.length() > PRED_FAST && pr.p.distanceTo(cl.c) < PL_R + 4) cutters.push({ a: pr.p, b: pr.segs[pr.segs.length - 1], r2: 4, who: 2 });
+    for (const ry of E.rays) if (ry.p.distanceTo(cl.c) < PL_R + 8) cutters.push({ a: ry.p.clone().addScaledVector(ry.dir, 3), b: ry.p.clone().addScaledVector(ry.dir, -4), r2: 36, who: 3 });
+    let lit = 0, predLit = 0;
+    const base = cl.i * PL_N;
+    for (let k = 0; k < PL_N; k++) {
+      const j = (base + k) * 3, w = t * 0.3 + k;
+      const x = cl.c.x + cl.o[k * 3] + Math.sin(w) * 0.4, y = cl.c.y + cl.o[k * 3 + 1] + Math.sin(w * 1.3) * 0.25, z = cl.c.z + cl.o[k * 3 + 2] + Math.cos(w * 0.9) * 0.4;
+      pa[j] = x; pa[j + 1] = y; pa[j + 2] = z;
+      for (const cu of cutters) if (segD2(x, y, z, cu.a, cu.b) < cu.r2) { cl.glow[k] = 1; cl.by[k] = cu.who; break; }
+      let g = cl.glow[k];
+      if (g > 0) { g = Math.max(0, g - dt * 0.45); cl.glow[k] = g; if (g > 0.4) { if (cl.by[k] === 1) lit++; else if (cl.by[k] === 2) predLit++; } }
+      const b = 0.05 + 0.03 * Math.sin(t * 1.1 + k * 1.7);
+      pc[j] = b * 0.4 + g * 0.35; pc[j + 1] = b + g * 1.0; pc[j + 2] = b * 1.1 + g * 0.85;
+    }
+    cl.ship = Math.min(1, lit / 25);
+    if (cl.ship > 0.5 && cl.wakeCd <= 0) { cl.wakeCd = 40; E.emit('plankton', 'wake', S.center, () => `${cap(G.nm('plankton'))} вспыхивает: за кораблём тянется светящийся след`); }
+    if (predLit > 8 && cl.predCd <= 0) { cl.predCd = 40; E.emit('plankton', 'pred', cl.c, () => `Бросок ${G.nm('pred', 'gen')} сквозь ${G.nm('plankton', 'acc')} видно издалека`); }
+    /* медленно сквозь облако — без следа */
+    if (S.center.distanceTo(cl.c) < PL_R && Math.abs(S.speed) > 0.3 && Math.abs(S.speed) <= WAKE_SPEED && lit === 0) cl.slowT += dt; else cl.slowT = 0;
+    if (cl.slowT > 4 && cl.slowCd <= 0) { cl.slowCd = 60; E.emit('plankton', 'slow', S.center, () => `Корабль идёт медленно — ${G.nm('plankton')} не вспыхивает`); }
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1067,6 +1136,11 @@
       E.swarms.forEach(sw => { swarmUpdate(sw, dt, t); swarmRender(sw, t); if (sw.glow > E.flare) { E.flare = sw.glow; E.flareSw = sw; } });
       E.rdIM.instanceMatrix.needsUpdate = true; if (E.rdIM.instanceColor) E.rdIM.instanceColor.needsUpdate = true;
       E.rdGlow.geometry.attributes.position.needsUpdate = true; E.rdGlow.geometry.attributes.color.needsUpdate = true;
+    }
+    if (E.plPts) {
+      E.shipWake = 0;
+      E.clouds.forEach(cl => { cloudUpdate(cl, dt, t); E.shipWake = Math.max(E.shipWake, cl.ship); });
+      E.plPts.geometry.attributes.position.needsUpdate = true; E.plPts.geometry.attributes.color.needsUpdate = true;
     }
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
@@ -1090,6 +1164,7 @@
     E.urchins.forEach(u => { if (u.alive) L.push({ sp: 'ezh', pos: u.p, r: 0.6 }); });
     if (E.crab) L.push({ sp: 'krab', pos: E.crab.p, r: 0.9 });
     E.swarms.forEach(sw => L.push({ sp: 'raduzh', pos: sw.c, r: RD_R }));
+    E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
@@ -1130,6 +1205,8 @@
     E.urchins.forEach(urchSpawn);
     E.swarms.forEach(sw => { sw.glow = 0; sw.lit = false; sw.flareCd = 0; sw.fadeCd = 0; });
     E.flare = 0; E.flareSw = null;
+    E.clouds.forEach(cl => { cl.glow.fill(0); cl.ship = 0; cl.slowT = 0; cl.wakeCd = cl.slowCd = cl.predCd = 0; });
+    E.shipWake = 0;
     const cr = E.crab;
     if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
   };

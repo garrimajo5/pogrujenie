@@ -22,7 +22,7 @@ async def main(flt):
         b = await p.chromium.launch(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
         pg = await b.new_page(viewport={"width": 640, "height": 360})
         pg.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
-        await pg.goto(f"http://127.0.0.1:{port}/index.html")
+        await pg.goto(f"http://127.0.0.1:{port}/index.html?test")
         await pg.wait_for_function("window.G && G.Game && G.Game.debug", timeout=90000)
         await pg.evaluate("document.getElementById('b-start').click()")
         await pg.add_script_tag(url=f"http://127.0.0.1:{port}/tests/framework.js")

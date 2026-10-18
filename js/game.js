@@ -68,7 +68,8 @@
       updatePlayer(0);
     },
     /* вернуть мир и игрока в исходное состояние (для тестов) */
-    paused: false,
+    /* ?test в адресе: игра стоит на паузе с первого кадра, чтобы тесты начинались с одного и того же мира */
+    paused: /[?&]test\b/.test(location.search),
     reset() {
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
@@ -128,11 +129,11 @@
     const raw = clock.getDelta();
     if (Game.state !== 'intro') adapt(raw);
     G.DebugPanel.tick(raw);
+    if (Game.debug.paused) { renderer.render(scene, camera); return; } // на паузе время и мир стоят
     const dt = Math.min(raw, 0.05);
     Game.t += dt; G.timeU.value = Game.t;
     const S = G.Ship, C = G.Ctl;
     C.read();
-    if (Game.debug.paused) { renderer.render(scene, camera); return; }
     if (Game.state === 'play') {
       simulate(dt);
     } else if (Game.state === 'intro') {
