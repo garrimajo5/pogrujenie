@@ -6,10 +6,11 @@
    хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки;
    светляки прячутся в ленточнике, шипоежи объедают его до стеблей, кольчужники раскалывают ежей;
    радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека;
-   мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника. */
+   мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника;
+   монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -56,9 +57,15 @@
       notes: { flare: 'В луче прожектора стая вспыхивает радугой, и корабль видно издалека.', betray: 'Серпохвосты замечают вспышку и плывут к кораблю.', fade: 'Если погасить прожектор, стая гаснет за пару секунд.' } },
     plankton: { name: 'Мерцающий планктон', acc: 'мерцающий планктон', gen: 'мерцающего планктона', unom: 'светящееся облако', uacc: 'светящееся облако', ugen: 'светящегося облака',
       desc: 'Облака светящихся одноклеточных размером около миллиметра. Основа питания рифа. Вспыхивают, когда их задевает что-то быстрое.',
-      notes: { wake: 'За быстрым кораблём в облаке тянется светящийся след.', slow: 'Если идти медленно, планктон не вспыхивает.', betray: 'Светящийся след выдаёт корабль хищнику даже с погашенным прожектором.', pred: 'Бросок хищника сквозь облако видно издалека.' } }
+      notes: { wake: 'За быстрым кораблём в облаке тянется светящийся след.', slow: 'Если идти медленно, планктон не вспыхивает.', betray: 'Светящийся след выдаёт корабль хищнику даже с погашенным прожектором.', pred: 'Бросок хищника сквозь облако видно издалека.' } },
+    monet: { name: 'Монетник', acc: 'монетника', gen: 'монетников', unom: 'круглые рыбки', uacc: 'круглую рыбку', ugen: 'круглых рыбок',
+      desc: 'Круглая плоская рыбка около 30 см с серебристо-золотой чешуёй. Пасётся стайками на светящемся мху рядом со скребунами.',
+      notes: { graze: 'Стайкой пасутся на светящемся мху.', scatter: 'От импульса сонара рассыпаются прочь от угрозы — по бегству видно, откуда она.' } },
+    glazun: { name: 'Песчаный глазун', acc: 'песчаного глазуна', gen: 'песчаного глазуна', unom: 'глаза в песке', uacc: 'глаза в песке', ugen: 'глаз в песке',
+      desc: 'Плоская рыба около 80 см. Зарывается в песок у пятен мха, наружу торчат только глаза на стебельках.',
+      notes: { ambush: 'Хватает монетников, которые проплывают над ним.', sonar: 'На сонаре не виден, но монетники шарахаются от него.', eyes: 'В луче прожектора глаза вспыхивают отражённым светом.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -1116,8 +1123,142 @@
     if (cl.slowT > 4 && cl.slowCd <= 0) { cl.slowCd = 60; E.emit('plankton', 'slow', S.center, () => `Корабль идёт медленно — ${G.nm('plankton')} не вспыхивает`); }
   }
 
+  /* ======================= МОНЕТНИКИ И ПЕСЧАНЫЕ ГЛАЗУНЫ ======================= */
+  /* Стайки монетников пасутся на пятнах мха. Рядом в песке лежат глазуны: на сонаре их нет,
+     видно только глаза. Монетник, проплывший над глазуном, пропадает. От импульса сонара стайка
+     рассыпается прочь от ближайшей угрозы — даже от невидимого глазуна. */
+  const CN_PER = 9, GZ_REACH = 1.5, SCATTER_R = 70;
+  function initCoins(scene) {
+    const P = G.World.patches; if (!P.length) return;
+    const rng0 = G.rng; G.seed(4421);
+    const S0 = G.Ship.start, picks = [];
+    P.slice().sort((a, b) => Math.hypot(a.x - S0.x, a.z - S0.z) - Math.hypot(b.x - S0.x, b.z - S0.z))
+      .forEach(pt => { if (picks.length < 3 && picks.every(q => Math.hypot(q.x - pt.x, q.z - pt.z) > 25)) picks.push(pt); });
+    const cg = new THREE.CylinderGeometry(0.15, 0.15, 0.035, 12); cg.rotateZ(Math.PI / 2); // диск боком: плоская круглая рыбка
+    const fin = new THREE.ConeGeometry(0.06, 0.12, 4); fin.rotateX(-Math.PI / 2); fin.translate(0, 0, -0.18);
+    E.coinIM = new THREE.InstancedMesh(G.merge([{ g: cg, c: new THREE.Color(0xe8d48a) }, { g: fin, c: new THREE.Color(0xb59a50) }]), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x3a3010 }), picks.length * CN_PER);
+    const bg = new THREE.SphereGeometry(1, 10, 6); bg.scale(0.45, 0.08, 0.3);
+    const stalk = new THREE.CylinderGeometry(0.012, 0.016, 0.12, 4);
+    const parts = [{ g: bg, c: new THREE.Color(0x8a7a60) }];
+    [-1, 1].forEach(sx => { const st = stalk.clone(); st.translate(sx * 0.07, 0.08, 0.16); parts.push({ g: st, c: new THREE.Color(0x6a5a44) }); });
+    E.glzBodyIM = new THREE.InstancedMesh(G.merge(parts), new THREE.MeshLambertMaterial({ vertexColors: true }), picks.length);
+    E.glzEyeIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.045, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), picks.length * 2);
+    [E.coinIM, E.glzBodyIM, E.glzEyeIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    picks.forEach((pt, i) => {
+      const c = new V3(pt.x, H(pt.x, pt.z), pt.z);
+      const sc = { i, pt, c, scatter: 0, from: new V3(), grazeCd: G.rr(5, 15), scatCd: 0, members: [] };
+      const a = G.rr(0, 6.28), gp = new V3(c.x + Math.cos(a) * 2.2, 0, c.z + Math.sin(a) * 2.2); gp.y = H(gp.x, gp.z);
+      const gz = { i, p: gp, yaw: G.rr(0, 6.28), sc, cd: G.rr(8, 20), lunge: 0, lit: false, eyesCd: 0, eye: [new V3(), new V3()], eyeC: new V3() };
+      sc.gz = gz;
+      for (let k = 0; k < CN_PER; k++) {
+        const cn = { s: sc, i: i * CN_PER + k, alive: true, t: 0, p: new V3(), v: new V3(), goal: new V3(), gt: 0, ph: G.rr(0, 6.28) };
+        coinSpawn(cn); sc.members.push(cn); E.coins.push(cn);
+      }
+      E.schools.push(sc);
+      dummy.position.copy(gp); dummy.rotation.set(0, gz.yaw, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+      E.glzBodyIM.setMatrixAt(i, dummy.matrix);
+      [-1, 1].forEach((sx, k) => { gz.eye[k].set(sx * 0.07, 0.15, 0.16).applyMatrix4(dummy.matrix); });
+      gz.eyeC.addVectors(gz.eye[0], gz.eye[1]).multiplyScalar(0.5);
+      E.glazuns.push(gz);
+      for (let k = 0; k < 2; k++) E.glzEyeIM.setColorAt(i * 2 + k, rdColT.setRGB(0.55, 0.6, 0.25));
+    });
+    E.glzBodyIM.instanceMatrix.needsUpdate = true;
+    G.rng = rng0;
+  }
+  /* монетник появляется над мхом, но не прямо над глазуном */
+  function coinSpawn(cn) {
+    const sc = cn.s, gz = sc.gz;
+    for (let k = 0; k < 10; k++) {
+      cn.p.set(sc.c.x + G.rr(-2.5, 2.5), sc.c.y + G.rr(0.6, 1.4), sc.c.z + G.rr(-2.5, 2.5));
+      if (!gz || Math.hypot(cn.p.x - gz.p.x, cn.p.z - gz.p.z) > GZ_REACH + 0.8) break;
+    }
+    cn.alive = true; cn.t = 0; cn.v.set(0, 0, 0); cn.gt = 0; cn.goal.copy(cn.p);
+  }
+  function coinsUpdate(dt, t) {
+    for (const sc of E.schools) {
+      sc.scatter -= dt; sc.grazeCd -= dt; sc.scatCd -= dt;
+      if (sc.scatter <= 0 && sc.grazeCd <= 0 && sc.pt.food > 0.2 && sc.members.some(c => c.alive)) {
+        sc.grazeCd = 60; E.emit('monet', 'graze', sc.c, () => `Стайка ${G.nm('monet', 'gen')} пасётся на светящемся мху`);
+      }
+      if (sc.scatter <= 0) sc.pt.food = Math.max(0, sc.pt.food - dt * 0.002);
+    }
+    for (const cn of E.coins) {
+      const sc = cn.s;
+      if (!cn.alive) { cn.t -= dt; if (cn.t <= 0) coinSpawn(cn); else continue; }
+      let maxS = 0.8;
+      if (sc.scatter > 0) { // бегство прочь от угрозы
+        tv.copy(cn.p).sub(sc.from).setY(0); if (tv.lengthSq() < 0.01) tv.set(Math.cos(cn.ph), 0, Math.sin(cn.ph));
+        cn.goal.copy(cn.p).addScaledVector(tv.normalize(), 6); cn.goal.y = sc.c.y + 1.5; maxS = 5;
+      } else {
+        cn.gt -= dt;
+        if (cn.gt <= 0) { cn.gt = G.rr(2, 5); cn.goal.set(sc.c.x + G.rr(-3, 3), sc.c.y + G.rr(0.5, 1.3), sc.c.z + G.rr(-3, 3)); }
+        if (Math.hypot(cn.p.x - sc.c.x, cn.p.z - sc.c.z) > 4) maxS = 2.2; // разбежавшиеся возвращаются на мох быстрее
+      }
+      tv.copy(cn.goal).sub(cn.p); const d = tv.length();
+      if (d > 0.05) cn.v.lerp(tv.multiplyScalar(Math.min(maxS, d * 1.5) / d), Math.min(1, dt * 3));
+      cn.p.addScaledVector(cn.v, dt);
+      const h = H(cn.p.x, cn.p.z); if (cn.p.y < h + 0.3) cn.p.y = h + 0.3;
+      clampArea(cn.p);
+    }
+    for (const gz of E.glazuns) {
+      gz.cd -= dt; gz.eyesCd -= dt; gz.lunge = Math.max(0, gz.lunge - dt * 2);
+      if (gz.cd <= 0) {
+        for (const cn of gz.sc.members) {
+          if (!cn.alive) continue;
+          if (Math.hypot(cn.p.x - gz.p.x, cn.p.z - gz.p.z) < GZ_REACH && cn.p.y - gz.p.y < 2.2) {
+            cn.alive = false; cn.t = G.rr(30, 45); gz.cd = 18; gz.lunge = 1;
+            E.emit('glazun', 'ambush', gz.p, () => SP.glazun.scanned ? `Песчаный глазун схватил ${G.nm('monet', 'acc')}` : `Из песка что-то схватило ${G.nm('monet', 'acc')}`);
+            break;
+          }
+        }
+      }
+      const wasLit = gz.lit; gz.lit = inBeam(gz.eyeC);
+      if (gz.lit && !wasLit && gz.eyesCd <= 0) { gz.eyesCd = 40; E.emit('glazun', 'eyes', gz.eyeC, () => `В луче прожектора блеснули ${SP.glazun.scanned ? 'глаза песчаного глазуна' : 'два глаза в песке'}`); }
+    }
+  }
+  function coinsRender(t) {
+    for (const cn of E.coins) {
+      if (cn.alive) {
+        dummy.position.copy(cn.p);
+        if (cn.v.lengthSq() > 1e-4) dummy.lookAt(tv.copy(cn.p).add(cn.v)); else dummy.rotation.set(0, cn.ph, 0);
+        dummy.rotateZ(Math.sin(t * 2 + cn.ph) * 0.2); dummy.scale.setScalar(1);
+      } else { dummy.position.set(0, -999, 0); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(0.001); }
+      dummy.updateMatrix(); E.coinIM.setMatrixAt(cn.i, dummy.matrix);
+    }
+    E.coinIM.instanceMatrix.needsUpdate = true;
+    for (const gz of E.glazuns) {
+      /* бросок: тело приподнимается из песка */
+      dummy.position.copy(gz.p); dummy.position.y += gz.lunge * 0.35; dummy.rotation.set(-gz.lunge * 0.4, gz.yaw, 0, 'YXZ'); dummy.scale.setScalar(1); dummy.updateMatrix();
+      E.glzBodyIM.setMatrixAt(gz.i, dummy.matrix);
+      const k = gz.lit ? 1 : 0.35 + 0.1 * Math.sin(t * 1.3 + gz.i);
+      for (let e = 0; e < 2; e++) {
+        dummy.position.copy(gz.eye[e]); dummy.position.y += gz.lunge * 0.35; dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(gz.lit ? 1.6 : 1); dummy.updateMatrix();
+        E.glzEyeIM.setMatrixAt(gz.i * 2 + e, dummy.matrix);
+        E.glzEyeIM.setColorAt(gz.i * 2 + e, rdColT.setRGB(k + 0.2, k + 0.25, 0.45 * k));
+      }
+    }
+    E.glzBodyIM.instanceMatrix.needsUpdate = true; E.glzEyeIM.instanceMatrix.needsUpdate = true; E.glzEyeIM.instanceColor.needsUpdate = true;
+  }
+  /* импульс сонара: стайки рассыпаются прочь от ближайшей угрозы */
+  function coinsPing(pos) {
+    for (const sc of E.schools) {
+      if (sc.c.distanceTo(pos) > SCATTER_R || !sc.members.some(c => c.alive)) continue;
+      let from = null, kind = null, bd = 1e9;
+      const gz = E.glazuns[sc.i], dg = Math.hypot(gz.p.x - sc.c.x, gz.p.z - sc.c.z);
+      if (dg < 12) { from = gz.p; kind = 'glazun'; bd = dg; }
+      for (const pr of E.preds) { const d = pr.p.distanceTo(sc.c); if (d < 30 && d < bd) { from = pr.p; kind = 'pred'; bd = d; } }
+      if (!from) { from = pos; kind = 'ship'; }
+      sc.from.copy(from); sc.scatter = 2.5;
+      if (sc.scatCd > 0) continue;
+      sc.scatCd = 30;
+      const where = kind === 'glazun' ? 'от песка рядом — там кто-то прячется' : kind === 'pred' ? `от ${G.nm('pred', 'gen')}` : 'от корабля';
+      E.emit('monet', 'scatter', sc.c, () => `Стайка ${G.nm('monet', 'gen')} рассыпается ${where}`);
+      if (kind === 'glazun') E.emit('glazun', 'sonar', gz.p, null);
+    }
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1142,6 +1283,7 @@
       E.clouds.forEach(cl => { cloudUpdate(cl, dt, t); E.shipWake = Math.max(E.shipWake, cl.ship); });
       E.plPts.geometry.attributes.position.needsUpdate = true; E.plPts.geometry.attributes.color.needsUpdate = true;
     }
+    if (E.coinIM) { coinsUpdate(dt, t); coinsRender(t); }
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1165,6 +1307,8 @@
     if (E.crab) L.push({ sp: 'krab', pos: E.crab.p, r: 0.9 });
     E.swarms.forEach(sw => L.push({ sp: 'raduzh', pos: sw.c, r: RD_R }));
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
+    E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
+    E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
@@ -1177,6 +1321,7 @@
       if (d < 150) { pr.state = 'investigate'; pr.goal.copy(pos); pr.timer = 25; if (d < 110) heard = true; }
     });
     if (heard) E.emit('pred', 'ping', pos, () => `${cap(G.nm('pred'))} услышал сонар и плывёт на звук`);
+    coinsPing(pos);
   };
 
   E.onZap = function () {
@@ -1207,6 +1352,9 @@
     E.flare = 0; E.flareSw = null;
     E.clouds.forEach(cl => { cl.glow.fill(0); cl.ship = 0; cl.slowT = 0; cl.wakeCd = cl.slowCd = cl.predCd = 0; });
     E.shipWake = 0;
+    E.schools.forEach(sc => { sc.scatter = 0; sc.scatCd = 0; sc.grazeCd = G.rr(5, 15); });
+    E.glazuns.forEach(gz => { gz.cd = G.rr(8, 20); gz.lunge = 0; gz.lit = false; gz.eyesCd = 0; });
+    E.coins.forEach(coinSpawn);
     const cr = E.crab;
     if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
   };
