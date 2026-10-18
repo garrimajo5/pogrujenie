@@ -158,6 +158,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #brief .pw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #brief .pw-head b { font: 700 16px var(--disp); color: var(--glow); }
 #stats .route { color: var(--amber); max-width: 230px; }
+#stats #s-net { pointer-events: auto; background: none; border: 1px dashed var(--line); font: inherit; text-align: left; padding: 2px 5px; cursor: pointer; }
 #cargo { position: absolute; right: calc(var(--sr) + 8px); top: calc(var(--st) + 56px); width: min(420px, 60vw); background: rgba(2, 14, 20, .9); border: 1px solid var(--line); padding: 10px; display: grid; gap: 6px; z-index: 4; }
 #cargo .pw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #cargo .pw-head b { font: 700 16px var(--disp); color: var(--glow); }

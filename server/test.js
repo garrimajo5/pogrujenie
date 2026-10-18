@@ -60,6 +60,19 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       b.send({ t: 'state', s: { x: 999 } }); // гость не может навязать мир
       assert.ok(await a.none('state'), 'хост получил состояние от гостя');
     });
+    await t('роли: у поста один хозяин, роль видят все', async () => {
+      a.send({ t: 'role', role: 'pilot' });
+      const ra = await b.next('peer'); assert.strictEqual(ra.ev, 'role'); assert.strictEqual(ra.role, 'pilot'); assert.strictEqual(ra.name, 'Пилот');
+      await a.next('peer'); // себе тоже — подтверждение
+      b.send({ t: 'role', role: 'pilot' });
+      const e = await b.next('error'); assert.strictEqual(e.role, 'pilot');
+      b.send({ t: 'role', role: 'sonar' }); const rb = await a.next('peer'); assert.strictEqual(rb.role, 'sonar'); await b.next('peer');
+      b.send({ t: 'role', role: 'капитан' }); const rx = await a.next('peer'); assert.strictEqual(rx.role, '', 'неизвестная роль не снята'); await b.next('peer');
+      b.send({ t: 'role', role: 'sonar' }); await a.next('peer'); await b.next('peer');
+      const late = await client(port); late.send({ t: 'join', room: 'КОВЧЕГ', name: 'Поздний' });
+      const jl = await late.next('joined'); assert.deepStrictEqual(jl.peers.map(p => p.role), ['pilot', 'sonar']);
+      late.close(); await a.next('peer'); await a.next('peer'); await b.next('peer'); await b.next('peer');
+    });
     await t('комнаты не смешиваются', async () => {
       c = await client(port); c.send({ t: 'join', room: 'другая', name: 'Чужой' });
       const jc = await c.next('joined'); assert.strictEqual(jc.host, true);

@@ -76,7 +76,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Roles.reset(); G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -162,7 +162,7 @@
     if (C.journalPressed) Game.openJournal();
     if (C.lightPressed) Game.toggleLight();
     if (C.standPressed && Game.piloting) Game.toggleHelm();
-    if (C.pingPressed) G.Sonar.ping();
+    if (C.pingPressed) { if (G.Roles.lock('sonar')) Game.toast('Сонар — не ваш пост', G.Roles.lockLabel('sonar')); else G.Sonar.ping(); }
     if (G.Power.isOpen()) { // пульт энергии: крестовина управляет пультом, игрок стоит; кнопка действия закрывает
       G.Power.nav(C.move.x, C.move.y, dt); C.move.x = C.move.y = 0;
       if (C.actionPressed) { C.actionPressed = false; G.Power.close(); }
@@ -334,7 +334,9 @@
     }
     if (G.Manip.state === 'reach' && !it && Game.room === 'lab') act = { label: 'Манипулятор: взять образец (держать)', holdFn: dt => G.Manip.hold(G.Manip.target, dt), prog: G.Manip.progress };
     else if (G.Manip.state === 'back' && !it && Game.room === 'lab') act = { label: 'Манипулятор: образец в шлюз…', holdFn: () => {}, prog: G.Manip.progress };
+    else if (it && G.Roles.lock(it.post)) act = { label: G.Roles.lockLabel(it.post), fn: () => {}, dis: true }; // пост чужой роли
     else if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false, holdFn: it.holdFn, prog: it.prog };
+    else if (smp && G.Roles.lock('manip')) act = { label: G.Roles.lockLabel('manip'), fn: () => {}, dis: true };
     else if (smp) { const s = smp.s; act = { label: 'Манипулятор: взять образец (держать)', holdFn: dt => G.Manip.hold(s, dt), prog: G.Manip.progress }; }
     else if (tgt) {
       const sp = SP[tgt.sp];
@@ -512,6 +514,7 @@
       G.Tutorial.render();
     };
     $('b-journal').onclick = () => Game.openJournal();
+    $('s-net').onclick = () => G.Roles.cycle(); // смена роли в экипаже
     $('b-ar').onclick = () => (G.AR.active ? G.AR.stop() : G.AR.start(renderer));
     $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
     $('b-intro-settings').onclick = () => G.Settings.open();

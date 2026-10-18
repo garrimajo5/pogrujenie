@@ -163,7 +163,7 @@
     (function (x) { x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 128); x.fillStyle = '#ffb259'; x.font = '600 20px monospace'; x.textAlign = 'center'; x.fillText('ТРЮМ', 128, 50); x.fillText('УЛУЧШЕНИЯ', 128, 82); x.strokeStyle = '#ffb259'; x.strokeRect(6, 6, 244, 116); })(S.cargoScreen.userData.ctx);
     S.cargoScreen.needsUpdate = true;
     S.obst.push({ x: 0, z: 23.6, r: 0.55 });
-    S.inter.push({ x: 0, z: 22.8, r: 1.5, label: () => (G.Cargo.isOpen() ? 'Закрыть терминал' : 'Терминал трюма: улучшения'), fn: () => G.Cargo.toggle() });
+    S.inter.push({ x: 0, z: 22.8, r: 1.5, post: 'cargo', label: () => (G.Cargo.isOpen() ? 'Закрыть терминал' : 'Терминал трюма: улучшения'), fn: () => G.Cargo.toggle() });
     box(0.2, 0.04, 4.6, M.lamp, -2.2, 3.19, 16.75); box(0.2, 0.04, 4.6, M.lamp, 2.2, 3.19, 16.75);
     // реактор: тёмное основание, светящийся стержень в стеклянном кожухе, кольца охлаждения
     box(1.9, 0.3, 1.9, M.dark, 0, 0.15, 17.2);
@@ -177,7 +177,7 @@
     box(0.5, 1.0, 1.4, M.dark, 2.7, 0.5, 15.6);
     S.powerScreen = screen(1.15, 0.85, 256, 192, 2.44, 1.45, 15.6, 0, -Math.PI / 2);
     S.obst.push({ x: 2.7, z: 15.6, r: 0.6 });
-    S.inter.push({ x: 2.0, z: 15.6, r: 1.5, label: () => (G.Power.isOpen() ? 'Закрыть пульт энергии' : 'Распределить энергию'), fn: () => G.Power.toggle() });
+    S.inter.push({ x: 2.0, z: 15.6, r: 1.5, post: 'power', label: () => (G.Power.isOpen() ? 'Закрыть пульт энергии' : 'Распределить энергию'), fn: () => G.Power.toggle() });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.05, 6, 48), M.cyan); ring.rotation.x = Math.PI / 2; ring.position.set(0, 3.38, 11); g.add(ring);
     // колбы с образцами
     const tubeM = new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.18, depthWrite: false });
@@ -206,7 +206,7 @@
     [[-0.7, M.trim], [0.7, M.red]].forEach(([x, m]) => { box(0.05, 0.35, 0.05, M.frame, x, 0.7, -5.25); box(0.1, 0.1, 0.1, m, x, 0.88, -5.25); });
     box(0.6, 0.1, 0.6, M.dark, 0, 0.5, -4.05); box(0.6, 0.7, 0.08, M.dark, 0, 0.9, -3.75); box(0.12, 0.5, 0.12, M.frame, 0, 0.25, -4.05);
     S.obst.push({ x: 0, z: -5.5, r: 1.0 }, { x: 0, z: -3.95, r: 0.35 });
-    S.inter.push({ x: 0, z: -4.3, r: 1.7, label: () => 'Сесть за штурвал', fn: () => G.Game.toggleHelm() });
+    S.inter.push({ x: 0, z: -4.3, r: 1.7, post: 'helm', label: () => 'Сесть за штурвал', fn: () => G.Game.toggleHelm() });
 
     /* ----- голостол сонара ----- */
     const tb = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.95, 28), M.dark); tb.position.set(0, 0.475, -1.2); g.add(tb);
@@ -216,7 +216,7 @@
     const col = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.7, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     col.position.set(0, 1.36, -1.2); g.add(col);
     S.obst.push({ x: 0, z: -1.2, r: 1.2 });
-    S.inter.push({ x: 0, z: -1.2, r: 2.2, label: () => (S.energy >= 6 ? 'Сонар: импульс' : 'Сонар: мало энергии'), ok: () => S.energy >= 6, fn: () => G.Sonar.ping() });
+    S.inter.push({ x: 0, z: -1.2, r: 2.2, post: 'sonar', label: () => (S.energy >= 6 ? 'Сонар: импульс' : 'Сонар: мало энергии'), ok: () => S.energy >= 6, fn: () => G.Sonar.ping() });
     S.inter.push({ x: -1.9, z: -1.2, r: 0.9, label: () => (G.Run.isOpen() ? 'Закрыть брифинг' : G.Run.done ? 'Голосование: глубже или наверх' : G.Run.route ? 'Брифинг: сменить маршрут' : 'Брифинг: выбрать маршрут'), fn: () => (G.Run.done ? G.Run.openVote() : G.Run.toggle()) }); // левый край голостола
 
     /* ----- пульт инженера (левый борт) ----- */
@@ -226,7 +226,7 @@
     const lh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.45, 6), M.frame); lh.position.y = 0.22; S.lever.add(lh);
     const lb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), M.red); lb.position.y = 0.45; S.lever.add(lb);
     S.lever.position.set(-4.68, 0.75, 0.15); g.add(S.lever);
-    S.inter.push({ x: -4.2, z: -0.6, r: 1.5, label: () => 'Разряд по корпусу', ok: () => S.energy >= 15, fn: () => G.Game.zap() });
+    S.inter.push({ x: -4.2, z: -0.6, r: 1.5, post: 'zap', label: () => 'Разряд по корпусу', ok: () => S.energy >= 15, fn: () => G.Game.zap() });
 
     /* ----- пульт лаборатории ----- */
     box(1.0, 0.95, 0.6, M.dark, 2.9, 0.475, 12.9);
