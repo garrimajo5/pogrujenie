@@ -43,12 +43,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       const bad = await new Promise(res => http.get({ host: '127.0.0.1', port, path: '/../../etc/passwd' }, r => res(r.statusCode)));
       assert.notStrictEqual(bad, 200, 'отдал файл вне папки игры');
     });
-    let a, b, c;
+    let a, b, c, ida, idb;
     await t('первый в комнате — хост, второй — гость', async () => {
       a = await client(port); a.send({ t: 'join', room: 'ковчег', name: 'Пилот' });
       const ja = await a.next('joined'); assert.strictEqual(ja.host, true); assert.strictEqual(ja.room, 'КОВЧЕГ');
       b = await client(port); b.send({ t: 'join', room: 'Ковчег', name: 'Сонарщик' });
-      const jb = await b.next('joined'); assert.strictEqual(jb.host, false); assert.strictEqual(jb.hostId, ja.id);
+      const jb = await b.next('joined'); ida = ja.id; idb = jb.id; assert.strictEqual(jb.host, false); assert.strictEqual(jb.hostId, ja.id);
       assert.deepStrictEqual(jb.peers.map(p => p.name), ['Пилот']);
       const pj = await a.next('peer'); assert.strictEqual(pj.ev, 'join'); assert.strictEqual(pj.name, 'Сонарщик');
     });
@@ -78,6 +78,15 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       const jc = await c.next('joined'); assert.strictEqual(jc.host, true);
       a.send({ t: 'state', s: { x: 2 } }); await b.next('state');
       assert.ok(await c.none('state'), 'состояние ушло в чужую комнату');
+    });
+    await t('голосовая связь: приглашения только адресату, «говорю» — всем остальным', async () => {
+      a.send({ t: 'rtc', to: idb, data: { sdp: { type: 'offer', sdp: 'v=0' } } });
+      const r = await b.next('rtc'); assert.strictEqual(r.from, ida); assert.strictEqual(r.data.sdp.type, 'offer');
+      assert.ok(await c.none('rtc'), 'приглашение ушло в чужую комнату');
+      a.send({ t: 'rtc', to: 99999, data: {} }); assert.ok(await a.none('error'));
+      b.send({ t: 'talk', on: true });
+      const tk = await a.next('talk'); assert.strictEqual(tk.on, true); assert.strictEqual(tk.name, 'Сонарщик');
+      assert.ok(await b.none('talk'), 'говорящему пришло его же «говорю»');
     });
     await t('ушёл хост — хостом становится следующий', async () => {
       a.close();

@@ -8,6 +8,8 @@
      клиент → {t:'join', room, name}            сервер → {t:'joined', id, room, host, peers:[{id,name}]}
      хост   → {t:'state', s}                    → остальным в комнате {t:'state', s, from}
      гость  → {t:'input', i}                    → хосту {t:'input', i, from}
+     любой  → {t:'rtc', to, data}               → только адресату {t:'rtc', from, data} (WebRTC: sdp, ice)
+     любой  → {t:'talk', on}                    → остальным {t:'talk', from, name, on}
      любой  → {t:'role', role}                  → всем в комнате {t:'peer', ev:'role', id, name, role}
      сервер → {t:'peer', ev:'join'|'leave', id, name}, {t:'host', id}, {t:'error', msg}
    Роли: pilot, sonar, eng, bio — у каждой роли один хозяин; пустая строка снимает роль. */
@@ -82,6 +84,8 @@ function createServer() {
     const r = c.room && rooms.get(c.room); if (!r) return sendJ(c, { t: 'error', msg: 'сначала join' });
     if (m.t === 'state' && r.host === c) r.peers.forEach(p => { if (p !== c) sendJ(p, { t: 'state', s: m.s, from: c.id }); });
     else if (m.t === 'input' && r.host !== c) sendJ(r.host, { t: 'input', i: m.i, from: c.id });
+    else if (m.t === 'rtc') { const to = r.peers.find(p => p.id === m.to); if (to && to !== c) sendJ(to, { t: 'rtc', from: c.id, data: m.data }); } // приглашения голосовой связи — только адресату
+    else if (m.t === 'talk') r.peers.forEach(p => { if (p !== c) sendJ(p, { t: 'talk', from: c.id, name: c.name, on: !!m.on }); });
     else if (m.t === 'role') {
       const role = ROLES.includes(m.role) ? m.role : '';
       if (role && r.peers.some(p => p !== c && p.role === role)) return sendJ(c, { t: 'error', msg: 'этот пост уже занят', role });

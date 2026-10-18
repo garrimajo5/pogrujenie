@@ -41,6 +41,7 @@
     hold('b-down', () => { C.btnVert = -1; }, () => { C.btnVert = 0; });
     hold('b-light', () => { C.lightPressed = true; }, () => {});
     hold('b-ping', () => { C.pingPressed = true; }, () => {});
+    hold('b-talk', () => { C.talkDown = true; }, () => { C.talkDown = false; }); // говорить, пока держишь
 
     /* обзор: перетаскивание по экрану (несколько пальцев независимо) */
     const view = document.getElementById('view'), looks = new Map();
@@ -56,10 +57,11 @@
       if (e.code === 'KeyF') C.lightPressed = true;
       if (e.code === 'KeyX') C.standPressed = true;
       if (e.code === 'KeyQ') C.pingPressed = true;
+      if (e.code === 'KeyV') C.talkDown = true;
       if (e.code === 'KeyJ' || e.code === 'Tab' || e.code === 'Escape') { C.journalPressed = true; e.preventDefault(); }
       if (e.code === 'Space') e.preventDefault();
     });
-    addEventListener('keyup', e => { C.keys[e.code] = false; if (e.code === 'KeyE' || e.code === 'Enter') C.actionDown = false; });
+    addEventListener('keyup', e => { C.keys[e.code] = false; if (e.code === 'KeyE' || e.code === 'Enter') C.actionDown = false; if (e.code === 'KeyV') C.talkDown = false; });
     addEventListener('blur', () => { C.keys = {}; C.actionDown = false; });
   };
 
