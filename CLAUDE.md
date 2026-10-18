@@ -17,9 +17,16 @@
 - Новые существа: запись в `G.SPECIES` (имя, падежи, описание, notes), поведение и взаимодействия через `E.emit(...)`, цель сканирования в `E.scanTargets()`.
 - Не подключать внешние библиотеки по сети. Если нужна библиотека — положить файл в `lib/`.
 
+## Тесты
+- Логические тесты лежат в `tests/*.test.js` и выполняются внутри настоящей игры (`tools/test.py`). Фреймворк: `tests/framework.js` (`T.describe`, `T.test`, `T.ok/eq/near/gt/lt`, `T.captureEvents()`).
+- Перед каждым тестом мир сбрасывается `G.Game.debug.reset()`. Время двигают `G.Game.debug.frame(n)` (полный кадр логики с вводом и взаимодействиями) или `G.Game.debug.step(n)` (только симуляция).
+- Ввод в тестах: `G.Ctl.padMove`, `G.Ctl.btnVert`, `G.Ctl.actionPressed/actionDown`, прицел: `G.Game.debug.lookAt(точка)`.
+- **Каждая новая фича или исправление приходит с тестами**: поведение существ и их связи, реакции на корабль, кнопки и посты, сохранение. Исправленный баг закрепляется тестом, который без исправления падает.
+
 ## Проверка перед PR
 1. `node --check js/*.js`
-2. `python3 tools/smoke.py --shots shots` — без ошибок, посмотреть скриншоты `shots/desktop.png` и `shots/phone.png`.
+2. `python3 tools/test.py` — все тесты зелёные.
+3. `python3 tools/smoke.py --shots shots` — без ошибок, посмотреть скриншоты `shots/desktop.png` и `shots/phone.png`.
 
 ## Процесс
 - Ветка `feat/<кратко>` или `fix/<кратко>` от свежего `main`.

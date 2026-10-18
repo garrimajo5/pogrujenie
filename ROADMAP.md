@@ -9,6 +9,7 @@
 ## Этап 0. Проверка идеи
 - [ ] Включить GitHub Pages (ждёт владельца: Settings → Pages → Deploy from a branch → main, / (root)). После включения добавить ссылку https://garrimajo5.github.io/pogrujenie/ в README
 - [x] GitHub Actions: смоук-тест `tools/smoke.py` на каждую PR
+- [x] Логические тесты в браузере (`tools/test.py`, `tests/*.test.js`) и прогон в CI
 - [ ] Отладочная панель по `#debug`: FPS, draw calls, треугольники, кнопка «телепорт к месту»
 - [ ] Сохранение журнала (виды, наблюдения, места) в localStorage, кнопка «сбросить прогресс»
 - [ ] Обучение: последовательные подсказки первых 5 минут (штурвал → сонар → сканирование → люк)
