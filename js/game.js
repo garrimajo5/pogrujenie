@@ -28,7 +28,7 @@
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
     G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Run.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
-    renderer.xr.enabled = true; G.AR.build(); G.AR.check();
+    renderer.xr.enabled = true; G.AR.build(); G.AR.check(); G.Net.auto();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
     else $('loading').hidden = true;
@@ -179,8 +179,10 @@
       if (Game.room !== 'cargo' || Game.piloting) G.Cargo.close();
     }
     updatePlayer(dt);
+    G.Net.beforeShip(); // ввод гостя экипажа — хосту
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); G.Run.update(dt); ambience(dt);
+    G.Net.update(dt); // хост рассылает корабль, гость тянется к нему
     G.Tutorial.update();
     G.Save.tick(dt);
   }
@@ -251,6 +253,7 @@
     if (!S.light && S.energy < 3) { Game.toast('Мало энергии', 'Прожектор не включить'); return; }
     if (!S.light && G.Power.k('lamp') <= 0) { Game.toast('Прожектор обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'Дайте ему энергию в машинном отделении'); return; }
     S.light = !S.light; G.Audio.beep(S.light ? 760 : 380);
+    if (G.Net.isGuest()) G.Net.pendingLight = Game.t; // попросить хоста переключить свет
     $('b-light').classList.toggle('lit', S.light);
   };
   Game.zap = function () {
