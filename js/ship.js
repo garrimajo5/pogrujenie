@@ -7,7 +7,7 @@
   const tv = new V3();
   const S = G.Ship = {
     start: new V3(0, -20, 95), pos: new V3(0, -20, 95), yaw: 0, speed: 0, vy: 0, turn: 0, roll: 0, pitch: 0,
-    hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 },
+    hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 }, cargo: [], tubeOrbs: [],
     windows: [], inter: [], doors: [], obst: [], lights: [],
     center: new V3(), front: new V3(), hitCd: 0, flicker: 0, depthLimit: 0, scrT: 0
   };
@@ -163,7 +163,8 @@
     [[-3.3, 13.3], [-2.5, 13.4], [3.3, 9.0]].forEach(([x, z], i) => {
       box(0.6, 0.3, 0.6, M.dark, x, 0.15, z);
       const t = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.6, 16, 1, true), tubeM); t.position.set(x, 1.1, z); g.add(t);
-      const o = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: [0xff7ad9, 0xffd36b, 0x7fe7ff][i] })); o.position.set(x, 1.1, z); g.add(o);
+      const o = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: [0xff7ad9, 0xffd36b, 0x7fe7ff][i] })); o.position.set(x, 1.1, z); g.add(o);
+      o.userData.dynamic = true; o.visible = false; S.tubeOrbs.push(o); // колба пуста, пока манипулятор не достанет образец
       S.obst.push({ x, z, r: 0.4 });
     });
 
@@ -275,7 +276,7 @@
     S.pos.copy(S.start); S.yaw = 0;
     S.pos.y = Math.min(-9, S.clearance(S.pos.x, S.pos.z, 0) + 9);
     S.speed = S.vy = S.turn = S.roll = S.pitch = 0;
-    S.hull = 100; S.energy = 100; S.light = true;
+    S.hull = 100; S.energy = 100; S.light = true; S.cargo.length = 0; if (S.showTubes && G.Manip.KIND) S.showTubes();
     S.input.thrust = S.input.turn = S.input.vert = 0;
     S.applyTransform();
   };
@@ -286,6 +287,11 @@
   };
 
   /* Можно ли стоять игроку в точке (x,z) корабельных координат */
+  /* в колбах лаборатории — три последних образца */
+  S.showTubes = function () {
+    const last = S.cargo.slice(-S.tubeOrbs.length);
+    S.tubeOrbs.forEach((o, i) => { const c = last[i]; o.visible = !!c; if (c) o.material.color.set(G.Manip.KIND[c.kind].color); });
+  };
   /* экран пульта энергии в машинном отделении */
   S.drawPower = function () {
     if (!S.powerScreen) return;
@@ -392,6 +398,7 @@
     const fl = (G.Eco.latched || S.flicker > 0) ? (G.rng() < 0.25 ? 0.15 : 1) : 1;
     S.lights.forEach(o => { o.l.intensity = o.base * fl; });
     G.Breach.update(dt, t); // пробоина: вода, сирена, красный свет поверх обычного
+    G.Manip.update(dt);
     const on = S.light && S.energy > 0.5;
     S.spot.intensity = on ? 2.8 * fl : 0;
     S.beam.visible = on;

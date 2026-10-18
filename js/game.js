@@ -24,7 +24,7 @@
     G.World.build(scene);
     G.Sonar.init();
     G.Ship.build(scene);
-    G.Eco.init(scene); G.Silt.build(scene);
+    G.Eco.init(scene); G.Silt.build(scene); G.Manip.build(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
     G.Ctl.init(); bindUI(); G.Power.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -296,7 +296,18 @@
       const dx = it.x - P.x, dy = 1.0 - 1.65, dz = it.z - P.z, d = Math.hypot(dx, dy, dz);
       if ((dx * ld.x + dy * ld.y + dz * ld.z) / d < 0.94) it = null;
     }
-    if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false, holdFn: it.holdFn, prog: it.prog };
+    /* манипулятор: образец на дне в прицеле сквозь стеклянный пол лаборатории */
+    let smp = null;
+    if (!it && Game.room === 'lab' && !Game.piloting) {
+      const cp = camera.getWorldPosition(tmp.v1), cd = camera.getWorldDirection(tmp.v2);
+      const ld = tmp.v3.copy(cd).applyQuaternion(tmp.q.copy(G.Ship.group.quaternion).invert());
+      if (G.Ship.throughWindow(camera.position, ld, 'lab')) smp = G.Manip.find(cp, cd);
+      if (smp && tgt && smp.score > 0.6) smp = null; // существо в прицеле точнее — сканируем его
+    }
+    if (G.Manip.state === 'reach' && !it && Game.room === 'lab') act = { label: 'Манипулятор: взять образец (держать)', holdFn: dt => G.Manip.hold(G.Manip.target, dt), prog: G.Manip.progress };
+    else if (G.Manip.state === 'back' && !it && Game.room === 'lab') act = { label: 'Манипулятор: образец в шлюз…', holdFn: () => {}, prog: G.Manip.progress };
+    else if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false, holdFn: it.holdFn, prog: it.prog };
+    else if (smp) { const s = smp.s; act = { label: 'Манипулятор: взять образец (держать)', holdFn: dt => G.Manip.hold(s, dt), prog: G.Manip.progress }; }
     else if (tgt) {
       const sp = SP[tgt.sp];
       act = sp.scanned ? { label: 'Сведения: ' + sp.name, fn: () => Game.openJournal(tgt.sp) } : { label: 'Сканировать (держать)', hold: tgt.sp };
