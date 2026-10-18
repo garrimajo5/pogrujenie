@@ -1,0 +1,361 @@
+'use strict';
+/* Батискаф «Ковчег-7»: отсеки, посты, люки, физика движения.
+   Корабльная система координат: нос смотрит в -Z, пол на y=0.
+   Мостик z[-6,2], коридор z[2,8], лаборатория z[8,14]. */
+(function (G) {
+  const V3 = THREE.Vector3;
+  const tv = new V3();
+  const S = G.Ship = {
+    start: new V3(0, -20, 95), pos: new V3(0, -20, 95), yaw: 0, speed: 0, vy: 0, turn: 0, roll: 0, pitch: 0,
+    hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 },
+    windows: [], inter: [], doors: [], obst: [], lights: [],
+    center: new V3(), front: new V3(), hitCd: 0, flicker: 0, depthLimit: 0, scrT: 0
+  };
+  let g, M;
+
+  function roundRectPath(p, x, y, w, h, r) {
+    p.moveTo(x - w / 2 + r, y - h / 2);
+    p.lineTo(x + w / 2 - r, y - h / 2); p.quadraticCurveTo(x + w / 2, y - h / 2, x + w / 2, y - h / 2 + r);
+    p.lineTo(x + w / 2, y + h / 2 - r); p.quadraticCurveTo(x + w / 2, y + h / 2, x + w / 2 - r, y + h / 2);
+    p.lineTo(x - w / 2 + r, y + h / 2); p.quadraticCurveTo(x - w / 2, y + h / 2, x - w / 2, y + h / 2 - r);
+    p.lineTo(x - w / 2, y - h / 2 + r); p.quadraticCurveTo(x - w / 2, y - h / 2, x - w / 2 + r, y - h / 2);
+    return p;
+  }
+  function panelGeo(w, h, holes, depth) {
+    const s = new THREE.Shape();
+    s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); s.lineTo(-w / 2, 0);
+    holes.forEach(o => {
+      const p = new THREE.Path();
+      if (!o.w) p.absarc(o.x, o.y, o.r, 0, Math.PI * 2, true); else roundRectPath(p, o.x, o.y, o.w, o.h, o.rr || 0.3);
+      s.holes.push(p);
+    });
+    const geo = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 20 });
+    geo.translate(0, 0, -depth / 2);
+    return geo;
+  }
+  function box(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; }
+  function rectFrame(w, h) {
+    const f = new THREE.Group();
+    [[0, h / 2, w + 0.14, 0.08], [0, -h / 2, w + 0.14, 0.08]].forEach(([x, y, ww, hh]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, 0.26), M.frame); b.position.set(x, y, 0); f.add(b); });
+    [[-w / 2, 0], [w / 2, 0]].forEach(([x, y]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, h, 0.26), M.frame); b.position.set(x, y, 0); f.add(b); });
+    return f;
+  }
+  function addWindow(m, o, room, roomC) {
+    let gGeo, frame;
+    if (!o.w) { gGeo = new THREE.CircleGeometry(o.r, 32); frame = new THREE.Mesh(new THREE.TorusGeometry(o.r + 0.02, 0.07, 8, 36), M.frame); }
+    else { gGeo = new THREE.ShapeGeometry(roundRectPath(new THREE.Shape(), 0, 0, o.w, o.h, o.rr || 0.3), 12); frame = rectFrame(o.w, o.h); }
+    const glass = new THREE.Mesh(gGeo, M.glass); glass.position.set(o.x, o.y, 0); glass.renderOrder = 2; m.add(glass);
+    frame.position.set(o.x, o.y, 0); m.add(frame);
+    const q = m.quaternion;
+    const c = new V3(o.x, o.y, 0).applyMatrix4(m.matrix);
+    const n = new V3(0, 0, 1).applyQuaternion(q);
+    if (n.dot(new V3().subVectors(roomC, c)) > 0) n.negate();
+    S.windows.push({ c, n, u: new V3(1, 0, 0).applyQuaternion(q), v: new V3(0, 1, 0).applyQuaternion(q), r: o.w ? 0 : o.r, hw: o.w ? o.w / 2 : 0, hh: o.h ? o.h / 2 : 0, room });
+  }
+  function wall(w, h, holes, mat, pos, rot, room, roomC) {
+    const m = new THREE.Mesh(panelGeo(w, h, holes, 0.2), mat);
+    m.position.copy(pos); m.rotation.copy(rot); g.add(m); m.updateMatrix();
+    holes.forEach(o => addWindow(m, o, room, roomC));
+    return m;
+  }
+  function plight(color, intensity, dist, x, y, z) {
+    const l = new THREE.PointLight(color, intensity, dist, 1); l.position.set(x, y, z); g.add(l);
+    S.lights.push({ l, base: intensity });
+    return l;
+  }
+  function screen(w, h, cw, ch, x, y, z, rx, ry) {
+    const tex = G.canvasTex(cw, ch, () => {});
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+    m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, 0, 'YXZ'); g.add(m);
+    return tex;
+  }
+
+  S.build = function (scene) {
+    g = S.group = new THREE.Group(); scene.add(g);
+
+    const panelTex = G.canvasTex(256, 256, (x, w, h) => {
+      x.fillStyle = '#62808b'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 300; i++) { x.fillStyle = `rgba(0,0,0,${G.rr(0, 0.05).toFixed(3)})`; x.fillRect(G.rr(0, w), G.rr(0, h), G.rr(2, 30), G.rr(2, 30)); }
+      x.strokeStyle = '#3c535c'; x.lineWidth = 3;
+      [0, 128].forEach(v => { x.beginPath(); x.moveTo(v, 0); x.lineTo(v, h); x.stroke(); x.beginPath(); x.moveTo(0, v); x.lineTo(w, v); x.stroke(); });
+      x.fillStyle = '#9fb4bb';
+      for (let i = 8; i < 256; i += 20) [6, 134].forEach(v => { x.fillRect(v, i, 3, 3); x.fillRect(i, v, 3, 3); });
+    });
+    panelTex.wrapS = panelTex.wrapT = THREE.RepeatWrapping; panelTex.repeat.set(0.5, 0.5);
+    const floorTex = G.canvasTex(128, 128, (x, w, h) => {
+      x.fillStyle = '#1b262b'; x.fillRect(0, 0, w, h);
+      x.strokeStyle = '#33444b'; x.lineWidth = 2;
+      for (let i = 0; i <= w; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); x.beginPath(); x.moveTo(0, i); x.lineTo(w, i); x.stroke(); }
+    });
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(6, 6);
+    const labFloorTex = floorTex.clone(); labFloorTex.needsUpdate = true; labFloorTex.repeat.set(0.75, 0.75);
+
+    M = {
+      wall: new THREE.MeshLambertMaterial({ color: 0xc4d6dc, map: panelTex }),
+      wall2: new THREE.MeshLambertMaterial({ color: 0xdfeef2, map: panelTex }),
+      floor: new THREE.MeshLambertMaterial({ map: floorTex }),
+      labFloor: new THREE.MeshLambertMaterial({ map: labFloorTex }),
+      ceil: new THREE.MeshLambertMaterial({ color: 0x2a3940 }),
+      frame: new THREE.MeshLambertMaterial({ color: 0x8aa0a8 }),
+      glass: new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide }),
+      dark: new THREE.MeshLambertMaterial({ color: 0x1f2b30 }),
+      door: new THREE.MeshLambertMaterial({ color: 0x7f949b }),
+      trim: new THREE.MeshBasicMaterial({ color: 0xffb259 }),
+      lamp: new THREE.MeshBasicMaterial({ color: 0xffe2b8 }),
+      cyan: new THREE.MeshBasicMaterial({ color: 0x5ef2d6 }),
+      red: new THREE.MeshBasicMaterial({ color: 0xff5d6c })
+    };
+    const bridgeC = new V3(0, 1.6, -2), corrC = new V3(0, 1.3, 5), labC = new V3(0, 1.7, 11);
+    const E0 = new THREE.Euler(0, 0, 0), EL = new THREE.Euler(0, Math.PI / 2, 0), ER = new THREE.Euler(0, -Math.PI / 2, 0);
+
+    /* ----- полы и потолки ----- */
+    box(10, 0.1, 8, M.floor, 0, -0.05, -2);
+    box(2.2, 0.1, 6, M.floor, 0, -0.05, 5);
+    wall(8, 6, [{ x: 0, y: 3, w: 3.2, h: 3.2, rr: 0.5 }], M.labFloor, new V3(0, -0.1, 14), new THREE.Euler(-Math.PI / 2, 0, 0), 'lab', labC);
+    box(10, 0.1, 8, M.ceil, 0, 3.25, -2);
+    box(2.2, 0.1, 6, M.ceil, 0, 2.65, 5);
+    box(8, 0.1, 6, M.ceil, 0, 3.45, 11);
+
+    /* ----- мостик ----- */
+    wall(10, 3.2, [{ x: 0, y: 1.75, w: 7.6, h: 1.9, rr: 0.5 }], M.wall, new V3(0, 0, -6), E0, 'bridge', bridgeC);
+    wall(8, 3.2, [{ x: 2.3, y: 1.65, r: 0.42 }], M.wall, new V3(-5, 0, -2), EL, 'bridge', bridgeC);
+    wall(8, 3.2, [{ x: -2.3, y: 1.65, r: 0.42 }, { x: 1.2, y: 1.65, r: 0.42 }], M.wall, new V3(5, 0, -2), ER, 'bridge', bridgeC);
+    box(4.2, 3.2, 0.2, M.wall, -2.9, 1.6, 2); box(4.2, 3.2, 0.2, M.wall, 2.9, 1.6, 2); box(1.6, 0.9, 0.2, M.wall, 0, 2.75, 2);
+    [-5.2, -3, -1, 1].forEach(z => { box(0.18, 3.2, 0.28, M.frame, -4.86, 1.6, z); box(0.18, 3.2, 0.28, M.frame, 4.86, 1.6, z); });
+    box(0.2, 0.04, 5, M.lamp, -2.5, 3.19, -2); box(0.2, 0.04, 5, M.lamp, 2.5, 3.19, -2);
+    box(9.6, 0.05, 0.08, M.trim, 0, 0.03, -5.85);
+
+    /* ----- коридор ----- */
+    wall(6, 2.6, [{ x: -1.5, y: 1.5, r: 0.32 }, { x: 1.5, y: 1.5, r: 0.32 }], M.wall, new V3(-1.1, 0, 5), EL, 'corr', corrC);
+    wall(6, 2.6, [{ x: -1.5, y: 1.5, r: 0.32 }, { x: 1.5, y: 1.5, r: 0.32 }], M.wall, new V3(1.1, 0, 5), ER, 'corr', corrC);
+    box(0.15, 0.03, 5.6, M.lamp, 0, 2.59, 5);
+    box(0.05, 0.02, 6, M.trim, -0.95, 0.01, 5); box(0.05, 0.02, 6, M.trim, 0.95, 0.01, 5);
+
+    /* ----- лаборатория ----- */
+    box(3.2, 3.4, 0.2, M.wall2, -2.4, 1.7, 8); box(3.2, 3.4, 0.2, M.wall2, 2.4, 1.7, 8); box(1.6, 1.1, 0.2, M.wall2, 0, 2.85, 8);
+    wall(6, 3.4, [{ x: 0, y: 1.75, w: 3.6, h: 1.6, rr: 0.4 }], M.wall2, new V3(-4, 0, 11), EL, 'lab', labC);
+    wall(6, 3.4, [{ x: 0, y: 1.75, w: 3.6, h: 1.6, rr: 0.4 }], M.wall2, new V3(4, 0, 11), ER, 'lab', labC);
+    wall(8, 3.4, [{ x: 0, y: 1.75, r: 1.25 }], M.wall2, new V3(0, 0, 14), E0, 'lab', labC);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.05, 6, 48), M.cyan); ring.rotation.x = Math.PI / 2; ring.position.set(0, 3.38, 11); g.add(ring);
+    // колбы с образцами
+    const tubeM = new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.18, depthWrite: false });
+    [[-3.3, 13.3], [-2.5, 13.4], [3.3, 9.0]].forEach(([x, z], i) => {
+      box(0.6, 0.3, 0.6, M.dark, x, 0.15, z);
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.6, 16, 1, true), tubeM); t.position.set(x, 1.1, z); g.add(t);
+      const o = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: [0xff7ad9, 0xffd36b, 0x7fe7ff][i] })); o.position.set(x, 1.1, z); g.add(o);
+      S.obst.push({ x, z, r: 0.4 });
+    });
+
+    /* ----- свет внутри ----- */
+    plight(0xffcf96, 1.1, 13, 0, 2.9, -2.5);
+    plight(0xffcf96, 0.7, 7, 0, 2.4, 5);
+    plight(0x9fe8ff, 1.0, 12, 0, 3.1, 11);
+
+    /* ----- пост пилота ----- */
+    box(1.9, 0.55, 0.55, M.dark, 0, 0.275, -5.6);
+    box(1.3, 0.66, 0.06, M.dark, 0, 0.7, -5.58).rotation.x = -1.1;
+    S.helmScreen = screen(1.15, 0.57, 256, 128, 0, 0.725, -5.56, -1.1, 0);
+    S.wheel = new THREE.Group();
+    const wr = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.035, 8, 28), M.frame); S.wheel.add(wr);
+    [0, Math.PI / 2].forEach(a => { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.03, 0.03), M.frame); sp.rotation.z = a; S.wheel.add(sp); });
+    S.wheel.position.set(0, 0.72, -5.05); S.wheel.rotation.x = -0.6; S.wheel.scale.setScalar(0.85); g.add(S.wheel);
+    [[-0.7, M.trim], [0.7, M.red]].forEach(([x, m]) => { box(0.05, 0.35, 0.05, M.frame, x, 0.7, -5.25); box(0.1, 0.1, 0.1, m, x, 0.88, -5.25); });
+    box(0.6, 0.1, 0.6, M.dark, 0, 0.5, -4.05); box(0.6, 0.7, 0.08, M.dark, 0, 0.9, -3.75); box(0.12, 0.5, 0.12, M.frame, 0, 0.25, -4.05);
+    S.obst.push({ x: 0, z: -5.5, r: 1.0 }, { x: 0, z: -3.95, r: 0.35 });
+    S.inter.push({ x: 0, z: -4.3, r: 1.7, label: () => 'Сесть за штурвал', fn: () => G.Game.toggleHelm() });
+
+    /* ----- голостол сонара ----- */
+    const tb = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.95, 28), M.dark); tb.position.set(0, 0.475, -1.2); g.add(tb);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.08, 0.035, 6, 48), M.cyan); rim.rotation.x = Math.PI / 2; rim.position.set(0, 0.96, -1.2); g.add(rim);
+    const holo = new THREE.Mesh(new THREE.CircleGeometry(1.02, 48), new THREE.MeshBasicMaterial({ map: G.Sonar.tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    holo.rotation.x = -Math.PI / 2; holo.position.set(0, 1.0, -1.2); g.add(holo);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.7, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    col.position.set(0, 1.36, -1.2); g.add(col);
+    S.obst.push({ x: 0, z: -1.2, r: 1.2 });
+    S.inter.push({ x: 0, z: -1.2, r: 2.2, label: () => (S.energy >= 6 ? 'Сонар: импульс' : 'Сонар: мало энергии'), ok: () => S.energy >= 6, fn: () => G.Sonar.ping() });
+
+    /* ----- пульт инженера (левый борт) ----- */
+    box(0.25, 1.6, 1.7, M.dark, -4.85, 1.35, -0.6);
+    S.engScreen = screen(1.15, 1.15, 256, 256, -4.71, 1.55, -0.6, 0, Math.PI / 2);
+    S.lever = new THREE.Group();
+    const lh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.45, 6), M.frame); lh.position.y = 0.22; S.lever.add(lh);
+    const lb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), M.red); lb.position.y = 0.45; S.lever.add(lb);
+    S.lever.position.set(-4.68, 0.75, 0.15); g.add(S.lever);
+    S.inter.push({ x: -4.2, z: -0.6, r: 1.5, label: () => 'Разряд по корпусу', ok: () => S.energy >= 15, fn: () => G.Game.zap() });
+
+    /* ----- пульт лаборатории ----- */
+    box(1.0, 0.95, 0.6, M.dark, 2.9, 0.475, 12.9);
+    const labTex = screen(0.9, 0.5, 256, 128, 2.9, 1.2, 12.75, -0.5, 0);
+    (function (x) { x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 128); x.fillStyle = '#5ef2d6'; x.font = '600 22px monospace'; x.textAlign = 'center'; x.fillText('ЖУРНАЛ', 128, 54); x.fillText('ЭКСПЕДИЦИИ', 128, 84); x.strokeStyle = '#5ef2d6'; x.strokeRect(6, 6, 244, 116); })(labTex.userData.ctx);
+    labTex.needsUpdate = true;
+    S.obst.push({ x: 2.9, z: 12.9, r: 0.65 });
+    S.inter.push({ x: 2.9, z: 12.6, r: 1.6, label: () => 'Открыть журнал', fn: () => G.Game.openJournal() });
+
+    /* ----- люки ----- */
+    [2, 8].forEach(z => {
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.3, 0.08), M.door); d.position.set(0, 1.15, z); g.add(d);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.1), M.trim); st.position.y = 0.2; d.add(st);
+      const wnd = new THREE.Mesh(new THREE.CircleGeometry(0.16, 20), M.cyan); wnd.position.set(0, 0.55, 0.05); d.add(wnd);
+      const wnd2 = wnd.clone(); wnd2.position.z = -0.05; wnd2.rotation.y = Math.PI; d.add(wnd2);
+      [-0.84, 0.84].forEach(x => box(0.06, 2.3, 0.26, M.trim, x, 1.15, z));
+      box(1.74, 0.06, 0.26, M.trim, 0, 2.33, z);
+      const door = { mesh: d, z, open: false, t: 0 };
+      S.doors.push(door);
+      S.inter.push({ x: 0, z, r: 1.5, label: () => (door.open ? 'Закрыть люк' : 'Открыть люк'), fn: () => { door.open = !door.open; G.Audio.door(); } });
+    });
+
+    /* ----- прожектор ----- */
+    S.spot = new THREE.SpotLight(0xe6fbff, 0, 120, 0.45, 0.6, 1);
+    S.spot.position.set(0, 0.8, -6.8); g.add(S.spot);
+    const tgt = new THREE.Object3D(); tgt.position.set(0, -10, -40); g.add(tgt); S.spot.target = tgt;
+    const bg = new THREE.CylinderGeometry(0.3, 13, 55, 24, 1, true); bg.translate(0, -27.5, 0);
+    const bp = bg.attributes.position, bc = new Float32Array(bp.count * 3);
+    for (let i = 0; i < bp.count; i++) { const k = 1 + bp.getY(i) / 55; const v = k * k * 0.9 + 0.1 * k; bc[i * 3] = bc[i * 3 + 1] = bc[i * 3 + 2] = v; }
+    bg.setAttribute('color', new THREE.BufferAttribute(bc, 3));
+    S.beam = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xcff6ff, vertexColors: true, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    S.beam.position.copy(S.spot.position);
+    S.beam.quaternion.setFromUnitVectors(new V3(0, -1, 0), new V3(0, -10, -40).sub(S.spot.position).normalize());
+    g.add(S.beam);
+
+    S.reset();
+  };
+
+  const FOOT = [[0, -6.6], [-5, -6], [5, -6], [-5, 2], [5, 2], [-1.1, 8], [1.1, 8], [-4, 14], [4, 14], [0, 11]];
+  S.clearance = function (px, pz, yaw) {
+    let m = -1e9; const c = Math.cos(yaw), s = Math.sin(yaw);
+    for (const [lx, lz] of FOOT) m = Math.max(m, G.World.height(px + lx * c + lz * s, pz - lx * s + lz * c));
+    return m;
+  };
+  S.reset = function () {
+    S.pos.copy(S.start); S.yaw = 0;
+    S.pos.y = Math.min(-9, S.clearance(S.pos.x, S.pos.z, 0) + 9);
+    S.speed = S.vy = S.turn = S.roll = S.pitch = 0;
+    S.hull = 100; S.energy = 100; S.light = true;
+    S.input.thrust = S.input.turn = S.input.vert = 0;
+    S.applyTransform();
+  };
+  S.applyTransform = function () {
+    g.position.copy(S.pos); g.rotation.set(S.pitch, S.yaw, S.roll, 'YXZ'); g.updateMatrixWorld(true);
+    S.center.set(0, 1.5, 4); g.localToWorld(S.center);
+    S.front.set(0, 1.8, -6.6); g.localToWorld(S.front);
+  };
+
+  /* Можно ли стоять игроку в точке (x,z) корабельных координат */
+  S.canStand = function (x, z) {
+    const r = 0.35; let ok = false;
+    if (x > -5 + r && x < 5 - r && z > -6 + r && z < 2 - r) ok = true;
+    else if (x > -1.1 + r && x < 1.1 - r) {
+      if (z >= 2.45 && z <= 7.55) ok = true;
+      else if (z > 1.4 && z < 2.6 && S.doors[0].t > 0.85) ok = true;
+      else if (z > 7.4 && z < 8.6 && S.doors[1].t > 0.85) ok = true;
+    }
+    if (!ok && x > -4 + r && x < 4 - r && z > 8 + r && z < 14 - r) ok = true;
+    if (!ok) return false;
+    for (const o of S.obst) if (Math.hypot(x - o.x, z - o.z) < o.r + r) return false;
+    return true;
+  };
+  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : 'lab');
+
+  /* Проходит ли взгляд (из точки p в направлении d, всё в координатах корабля) через иллюминатор */
+  S.throughWindow = function (p, d, room) {
+    for (const w of S.windows) {
+      if (w.room !== room) continue;
+      const dn = d.dot(w.n); if (dn <= 0.05) continue;
+      const t = tv.copy(w.c).sub(p).dot(w.n) / dn;
+      if (t < 0 || t > 14) continue;
+      const hx = p.x + d.x * t - w.c.x, hy = p.y + d.y * t - w.c.y, hz = p.z + d.z * t - w.c.z;
+      const a = hx * w.u.x + hy * w.u.y + hz * w.u.z, b = hx * w.v.x + hy * w.v.y + hz * w.v.z;
+      if (w.r ? a * a + b * b < w.r * w.r : Math.abs(a) < w.hw && Math.abs(b) < w.hh) return true;
+    }
+    return false;
+  };
+
+  S.update = function (dt, t) {
+    const inp = S.input, en = S.energy > 2, k = en ? 1 : 0.25;
+    S.speed += (inp.thrust * (inp.thrust < 0 ? 1.6 : 3.0) * k - S.speed * 0.45) * dt;
+    S.turn += (inp.turn - S.turn) * Math.min(1, dt * 2.5);
+    S.yaw -= S.turn * 0.42 * dt;
+    S.vy += (inp.vert * 2.6 * k - S.vy) * Math.min(1, dt * 1.6);
+    const px = S.pos.x, pz = S.pos.z;
+    S.pos.x += -Math.sin(S.yaw) * S.speed * dt;
+    S.pos.z += -Math.cos(S.yaw) * S.speed * dt;
+    S.pos.y += S.vy * dt;
+    S.pos.x = G.clamp(S.pos.x, -300, 300); S.pos.z = G.clamp(S.pos.z, -300, 300);
+    if (S.pos.y > -5) { S.pos.y = -5; if (S.vy > 0) S.vy = 0; }
+    if (S.pos.y < -96) { S.pos.y = -96; if (S.vy < 0) S.vy = 0; S.depthLimit = 1.5; }
+
+    S.hitCd -= dt;
+    let req = S.clearance(S.pos.x, S.pos.z, S.yaw) + 1.2;
+    if (req > -5) { // дальше не пролезть
+      S.pos.x = px; S.pos.z = pz;
+      if (Math.abs(S.speed) > 2 && S.hitCd <= 0) { S.hitCd = 1.2; G.Game.hullHit(Math.round(Math.abs(S.speed) * 1.4), 'scrape'); }
+      S.speed *= -0.2;
+      req = S.clearance(S.pos.x, S.pos.z, S.yaw) + 1.2;
+    }
+    if (S.pos.y < req) {
+      if (req - S.pos.y > 0.6 && Math.abs(S.speed) > 2.4 && S.hitCd <= 0) { S.hitCd = 1.2; G.Game.hullHit(Math.round(Math.abs(S.speed) * 1.4), 'scrape'); S.speed *= -0.25; }
+      S.pos.y = Math.min(req, -5); if (S.vy < 0) S.vy = 0;
+    }
+    for (const o of G.World.obstacles) {
+      const dx = S.pos.x - o.x, dz = S.pos.z - o.z, d = Math.hypot(dx, dz), minD = o.r + 6;
+      if (d < minD && S.pos.y < o.top && d > 0.01) {
+        S.pos.x = o.x + dx / d * minD; S.pos.z = o.z + dz / d * minD;
+        if (Math.abs(S.speed) > 2.4 && S.hitCd <= 0) { S.hitCd = 1.2; G.Game.hullHit(Math.round(Math.abs(S.speed) * 1.4), 'scrape'); }
+        S.speed *= 0.5;
+      }
+    }
+
+    S.roll += (-S.turn * 0.06 * Math.min(1, Math.abs(S.speed) / 3 + 0.3) - S.roll) * Math.min(1, dt * 2);
+    S.pitch += (S.vy * 0.012 - S.pitch) * Math.min(1, dt * 2);
+    S.applyTransform();
+
+    // энергия и корпус
+    let drain = Math.abs(inp.thrust) * 0.35 + Math.abs(inp.vert) * 0.15 + (S.light ? 0.22 : 0);
+    if (G.Eco.latched) drain += 3.2;
+    S.energy = G.clamp(S.energy + (1.1 - drain) * dt, 0, 100);
+    if (S.energy <= 0.5 && S.light) { S.light = false; G.Game.toast('Прожектор погас', 'Не хватает энергии'); }
+    if (S.hull > 0 && S.hull < 100) S.hull = Math.min(100, S.hull + dt * 0.15);
+
+    // свет
+    S.flicker = Math.max(0, S.flicker - dt);
+    const fl = (G.Eco.latched || S.flicker > 0) ? (G.rng() < 0.25 ? 0.15 : 1) : 1;
+    S.lights.forEach(o => { o.l.intensity = o.base * fl; });
+    const on = S.light && S.energy > 0.5;
+    S.spot.intensity = on ? 2.8 * fl : 0;
+    S.beam.visible = on;
+
+    // люки, штурвал, рычаг
+    S.doors.forEach(d => { d.t = G.clamp(d.t + (d.open ? 1 : -1) * dt * 1.8, 0, 1); d.mesh.position.x = G.smooth(0, 1, d.t) * 1.75; });
+    S.wheel.rotation.z = -S.turn * 1.4;
+    S.lever.rotation.z = S.flicker > 0 ? -0.9 : 0;
+
+    S.scrT -= dt;
+    if (S.scrT <= 0) { S.scrT = 0.25; drawScreens(); }
+  };
+
+  function drawScreens() {
+    let x = S.helmScreen.userData.ctx;
+    x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 128);
+    const hdg = Math.round(((-S.yaw * 180 / Math.PI) % 360 + 360) % 360);
+    x.strokeStyle = 'rgba(255,178,89,.6)'; x.lineWidth = 2; x.beginPath();
+    for (let a = -60; a <= 60; a += 10) { const deg = ((Math.round(hdg / 10) * 10 + a) % 360 + 360) % 360; const px = 128 + (deg - hdg + (Math.abs(deg - hdg) > 180 ? (deg > hdg ? -360 : 360) : 0)) * 1.8; x.moveTo(px, 10); x.lineTo(px, deg % 30 === 0 ? 26 : 18); }
+    x.stroke();
+    x.fillStyle = '#ffb259'; x.font = '600 20px monospace'; x.textAlign = 'center'; x.fillText(String(hdg).padStart(3, '0') + '°', 128, 48);
+    x.textAlign = 'left'; x.font = '600 17px monospace';
+    x.fillStyle = '#d8e8ea'; x.fillText('ГЛУБ ' + Math.round(-S.pos.y) + ' м', 12, 80); x.fillText('СКОР ' + Math.abs(S.speed).toFixed(1), 12, 108);
+    x.fillStyle = S.light ? '#5ef2d6' : '#86a3aa'; x.fillText(S.light ? 'СВЕТ ВКЛ' : 'СВЕТ ВЫКЛ', 150, 80);
+    x.fillStyle = S.energy < 20 ? '#ff5d6c' : '#5ef2d6'; x.fillText('ЭН ' + Math.round(S.energy), 150, 108);
+    S.helmScreen.needsUpdate = true;
+
+    x = S.engScreen.userData.ctx;
+    x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = '#ffb259'; x.font = '600 18px monospace'; x.textAlign = 'left'; x.fillText('РЕАКТОР И КОРПУС', 14, 30);
+    [['КОРПУС', S.hull], ['ЭНЕРГИЯ', S.energy]].forEach(([n, v], i) => {
+      const y = 62 + i * 52; x.fillStyle = '#86a3aa'; x.font = '600 15px monospace'; x.fillText(n + ' ' + Math.round(v) + '%', 14, y);
+      x.fillStyle = '#123240'; x.fillRect(14, y + 8, 228, 14); x.fillStyle = v < 25 ? '#ff5d6c' : v < 50 ? '#ffb259' : '#5ef2d6'; x.fillRect(14, y + 8, 228 * v / 100, 14);
+    });
+    x.font = '600 15px monospace'; x.fillStyle = '#d8e8ea'; x.fillText('РАЗРЯД: 15 ед.', 14, 186);
+    if (G.Eco.latched) { x.fillStyle = (Date.now() / 300 | 0) % 2 ? '#ff5d6c' : '#04141b'; x.fillRect(8, 200, 240, 44); x.fillStyle = '#fff'; x.fillText('СТЕКЛОУСТ НА КОРПУСЕ', 18, 228); }
+    S.engScreen.needsUpdate = true;
+  }
+})(window.G);

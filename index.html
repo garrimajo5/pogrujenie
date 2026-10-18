@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#04141b">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Погружение</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="fx-hit"></div>
+<div id="fx-danger"></div>
+
+<div id="hud" hidden>
+  <div id="stats">
+    <div class="row"><span class="k">ГЛУБИНА</span><b id="s-depth">0</b><span class="u">м</span><span class="k">КУРС</span><b id="s-head">000</b><span class="u">°</span></div>
+    <div class="row"><span class="k">СКОРОСТЬ</span><b id="s-speed">0.0</b><span class="u">м/с</span></div>
+    <div class="bar"><span class="k">КОРПУС</span><i><em id="s-hull"></em></i></div>
+    <div class="bar"><span class="k">ЭНЕРГИЯ</span><i><em id="s-energy"></em></i></div>
+    <div class="place" id="s-place">Мостик</div>
+  </div>
+  <div id="topbtns">
+    <button id="b-journal" class="chip">Журнал <span id="j-count">0/6 · 0/6</span></button>
+    <button id="b-gyro" class="chip" hidden>Гироскоп</button>
+    <button id="b-sound" class="chip">Звук</button>
+  </div>
+  <div id="warn"></div>
+  <div id="reticle"><div id="scanring"></div><i></i></div>
+  <div id="target"></div>
+  <div id="toast"></div>
+  <div id="feed"></div>
+  <div id="dpad" aria-label="Движение">
+    <button data-d="up" aria-label="Вперёд">▲</button>
+    <button data-d="left" aria-label="Влево">◀</button>
+    <button data-d="right" aria-label="Вправо">▶</button>
+    <button data-d="down" aria-label="Назад">▼</button>
+    <span class="hub"></span>
+  </div>
+  <div id="rightpad">
+    <div id="pilotbtns" hidden>
+      <button id="b-up" class="sq">Всплыть</button>
+      <button id="b-light" class="sq lit">Прожектор</button>
+      <button id="b-down" class="sq">Вниз</button>
+      <button id="b-ping" class="sq">Сонар</button>
+    </div>
+    <button id="b-action"><span id="act-label">Действие</span></button>
+  </div>
+</div>
+
+<div id="journal" hidden><div id="journal-body"></div></div>
+
+<div id="lost" hidden>
+  <div class="card">
+    <div class="tag">Авария</div>
+    <h2>Корпус не выдержал</h2>
+    <p>«Ковчег-7» дал течь, и экипаж поднялся на аварийной капсуле. Журнал экспедиции сохранился.</p>
+    <button id="b-restart" class="big">Новое погружение</button>
+  </div>
+</div>
+
+<div id="intro">
+  <div class="card">
+    <div class="tag">Батискаф «Ковчег-7» · Талассия-IV</div>
+    <h1>Погру<span>жение</span></h1>
+    <p class="lead">Под ледяной коркой лежит отмель с рифами, где кипит своя жизнь. Изучите шесть существ и найдите шесть необычных мест.</p>
+    <div class="how">
+      <div><b>Телефон</b><ul><li>Кнопки слева — ходить по кораблю или вести его</li><li>Свайп по экрану — осмотреться; «Гироскоп» — смотреть, поворачивая телефон</li><li>Круглая кнопка — действие. Удерживайте, чтобы сканировать существо</li></ul></div>
+      <div><b>Компьютер</b><ul><li>WASD — движение, мышь с зажатой кнопкой — обзор</li><li>E — действие, F — прожектор, Q — сонар, X — встать</li><li>Пробел / Shift — всплыть / погрузиться, J — журнал</li></ul></div>
+    </div>
+    <p class="hint">Серпохвосты нападают на корабль со светом. Стеклоусты присасываются к стеклу. На мостике есть сонар и пульт разряда.</p>
+    <div id="loading">Собираю риф…</div>
+    <button id="b-start" class="big" hidden>Начать погружение</button>
+  </div>
+</div>
+<div id="errbox" hidden></div>
+
+<script src="lib/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/sonar.js"></script>
+<script src="js/ship.js"></script>
+<script src="js/creatures.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
