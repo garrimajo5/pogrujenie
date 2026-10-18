@@ -26,7 +26,7 @@
   <div id="topbtns">
     <button id="b-journal" class="chip">Журнал <span id="j-count">0/6 · 0/6</span></button>
     <button id="b-gyro" class="chip" hidden>Гироскоп</button>
-    <button id="b-sound" class="chip">Звук</button>
+    <button id="b-settings" class="chip">Настройки</button>
   </div>
   <div id="tut" hidden><b></b><span></span><button type="button">Пропустить</button></div>
   <div id="warn"></div>
@@ -74,7 +74,22 @@
     </div>
     <p class="hint">Серпохвосты нападают на корабль со светом. Стеклоусты присасываются к стеклу. На мостике есть сонар и пульт разряда.</p>
     <div id="loading">Собираю риф…</div>
-    <button id="b-start" class="big" hidden>Начать погружение</button>
+    <div class="intro-btns"><button id="b-start" class="big" hidden>Начать погружение</button><button id="b-intro-settings" class="chip" type="button">Настройки</button></div>
+  </div>
+</div>
+
+<div id="settings" hidden>
+  <div class="card">
+    <div class="j-head"><div><div class="tag">Ковчег-7 · бортовой терминал</div><h2>Настройки</h2></div><button class="chip" data-a="close" type="button">Закрыть</button></div>
+    <div class="set-row"><div><b>Чувствительность обзора</b><small>Свайп по экрану</small></div>
+      <div class="step"><button class="chip" data-a="sens-" type="button" aria-label="Меньше">−</button><output data-v="sens">1.0×</output><button class="chip" data-a="sens+" type="button" aria-label="Больше">+</button></div></div>
+    <div class="set-row"><div><b>Инверсия по вертикали</b><small>Свайп вверх — взгляд вниз</small></div>
+      <div class="step"><button class="chip" data-a="invert" type="button">Выкл</button></div></div>
+    <div class="set-row"><div><b>Громкость</b><small>0 — звук выключен</small></div>
+      <div class="step"><button class="chip" data-a="vol-" type="button" aria-label="Тише">−</button><output data-v="volume">70%</output><button class="chip" data-a="vol+" type="button" aria-label="Громче">+</button></div></div>
+    <div class="set-row"><div><b>Качество графики</b><small id="set-qhint"></small></div>
+      <div class="step seg"><button class="chip" data-q="auto" type="button">Авто</button><button class="chip" data-q="low" type="button">Низкое</button><button class="chip" data-q="mid" type="button">Среднее</button><button class="chip" data-q="high" type="button">Высокое</button></div></div>
+    <div class="j-foot"><button class="chip" data-a="defaults" type="button">По умолчанию</button><span>Настройки сохраняются на устройстве и не стираются вместе с журналом.</span></div>
   </div>
 </div>
 <div id="errbox" hidden></div>
@@ -88,6 +103,7 @@
 <script src="js/creatures.js"></script>
 <script src="js/controls.js"></script>
 <script src="js/save.js"></script>
+<script src="js/settings.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/debugpanel.js"></script>
 <script src="js/game.js"></script>
