@@ -8,9 +8,13 @@
      вокруг «Ковчега». Стол задаёт оси корабля: от стола вперёд — нос. Если телефон не находит стен,
      через несколько секунд иллюминаторы сами встают вокруг стола. Океан рисуется в текстуру
      с камеры на мостике, по одному иллюминатору за кадр. */
+  /* Общий маркер (js/marker.js): чтобы у двух телефонов стол стоял в одном месте и нос смотрел в одну сторону.
+     С image-tracking телефон сам ставит голостол на маркер. Без него — касание по центру креста ставит стол,
+     касание по столу рядом (по стрелке «НОС») поворачивает его носом туда. */
   const WIN_MAX = 4, WIN_R = 0.35, WIN_AUTO = 8, RT = 256;
   const AR = G.AR = { supported: false, active: false, placed: false, session: null, hitSource: null, scene: null, reticle: null, holo: null,
-    windows: [], autoT: 0, winIdx: 0, viewer: new THREE.Vector3() };
+    windows: [], autoT: 0, winIdx: 0, viewer: new THREE.Vector3(), yaw: 0, nosed: false, anchor: '' };
+  const UP = new THREE.Vector3(0, 1, 0), NOSE_MIN = 0.04, NOSE_MAX = 1.2, NOSE_DY = 0.15;
 
   /* поддерживает ли браузер AR — показать кнопку */
   AR.check = async function (xr) {
@@ -58,13 +62,16 @@
   /* если стен не нашлось — три иллюминатора вокруг стола на уровне глаз */
   AR.autoWindows = function () {
     const c = AR.holo.position;
-    [[-1, 0], [1, 0], [0, -1]].forEach(([x, z]) => { const p = new THREE.Vector3(c.x + x * 1.8, c.y + 0.6, c.z + z * 1.8); AR.addWindow(p, new THREE.Vector3(-x, 0, -z)); });
+    [[-1, 0], [1, 0], [0, -1]].forEach(([x, z]) => { // слева, справа и впереди по носу стола
+      const o = new THREE.Vector3(x, 0, z).applyAxisAngle(UP, AR.yaw);
+      AR.addWindow(new THREE.Vector3(c.x + o.x * 1.8, c.y + 0.6, c.z + o.z * 1.8), o.clone().negate());
+    });
     G.Game.toast('Иллюминаторы', 'Стен не нашлось — иллюминаторы встали вокруг стола. Подойдите и загляните в них.');
   };
   /* куда смотреть с мостика: от глаз игрока к иллюминатору, в осях корабля (оси комнаты = оси стола) */
   AR.windowDir = function (w, viewer, out) {
     out.copy(w.pos).sub(viewer); out.y *= 0.6; if (out.lengthSq() < 1e-6) out.copy(w.n).negate();
-    return out.normalize().applyQuaternion(G.Ship.group.quaternion);
+    return out.applyAxisAngle(UP, -AR.yaw).normalize().applyQuaternion(G.Ship.group.quaternion); // из осей комнаты в оси стола
   };
   const tdir = new THREE.Vector3(), tpos = new THREE.Vector3();
   /* нарисовать океан в иллюминаторы: по одному за кадр, XR на это время выключаем */
@@ -84,13 +91,38 @@
   AR.onHit = function (m16) {
     if (!m16) { AR.reticle.visible = false; return; }
     AR.reticle.matrix.fromArray(m16);
-    AR.reticle.visible = !AR.placed || (AR.isWall() && AR.windows.length < WIN_MAX); // после стола прицел ищет стены
+    AR.reticle.visible = !AR.placed || (AR.isWall() && AR.windows.length < WIN_MAX) || AR.noseSpot(); // после стола — стены и стрелка «НОС»
+  };
+  /* прицел на столе рядом с голостолом — туда можно указать нос */
+  AR.noseSpot = function () {
+    if (!AR.placed || AR.isWall()) return false;
+    const e = AR.reticle.matrix.elements, c = AR.holo.position, d = Math.hypot(e[12] - c.x, e[14] - c.z);
+    return Math.abs(e[13] - c.y) < NOSE_DY && d > NOSE_MIN && d < NOSE_MAX;
+  };
+  /* повернуть стол: yaw 0 — нос к −Z комнаты; forward — направление носа в комнате */
+  AR.setYaw = function (yaw) { AR.yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw)); AR.holo.rotation.y = AR.yaw; };
+  const yawOf = (fx, fz) => Math.atan2(-fx, -fz);
+  /* маркер найден камерой: поза картинки (ось Y — нормаль, верх картинки со стрелкой — к −Z) */
+  AR.fromImage = function (m16) {
+    const e = m16, first = AR.anchor !== 'image';
+    AR.holo.position.set(e[12], e[13], e[14]);
+    AR.setYaw(yawOf(-e[8], -e[10]));
+    AR.holo.visible = true; AR.placed = true; AR.nosed = true; AR.anchor = 'image';
+    if (first) { G.Game.toast('Стол по маркеру', 'Телефон узнал маркер: голостол стоит на нём, нос — по стрелке. У всех телефонов стол теперь в одном месте.'); G.Audio.beep(760); }
+    return true;
   };
   /* поверхность под прицелом вертикальная: ось Y позы hit-test — нормаль поверхности */
   AR.isWall = function () { const e = AR.reticle.matrix.elements; return Math.abs(e[5]) < 0.5; };
   /* касание экрана — поставить голостол туда, где прицел */
   AR.onSelect = function () {
     if (!AR.reticle || !AR.reticle.visible) return false;
+    if (AR.placed && AR.noseSpot()) { // касание по стрелке «НОС»: поворачиваем стол
+      const e = AR.reticle.matrix.elements, c = AR.holo.position;
+      AR.setYaw(yawOf(e[12] - c.x, e[14] - c.z)); AR.nosed = true;
+      if (AR.anchor !== 'image') AR.anchor = 'taps';
+      G.Audio.beep(900); G.Game.toast('Нос по стрелке', 'Голостол повёрнут. Если другой телефон коснулся тех же точек маркера, стол у вас общий.');
+      return true;
+    }
     if (AR.placed) { // стол уже стоит — вешаем иллюминатор на стену
       if (!AR.isWall()) return false;
       const e = AR.reticle.matrix.elements, n = new THREE.Vector3(e[4], e[5], e[6]);
@@ -99,8 +131,8 @@
       return !!w;
     }
     AR.holo.position.setFromMatrixPosition(AR.reticle.matrix);
-    AR.holo.visible = true; AR.placed = true; AR.reticle.visible = false;
-    G.Game.toast('Голостол на месте', 'Крестовина ведёт корабль, «Сонар» показывает, что вокруг. Чтобы переставить стол, выйдите из AR и войдите снова.');
+    AR.holo.visible = true; AR.placed = true; AR.reticle.visible = false; AR.setYaw(0); AR.nosed = false; AR.anchor = 'taps';
+    G.Game.toast('Голостол на месте', 'Теперь коснитесь стрелки «НОС» на маркере — туда повернётся нос корабля. Крестовина ведёт корабль, «Сонар» показывает, что вокруг.');
     G.Audio.beep(760);
     return true;
   };
@@ -108,16 +140,29 @@
     if (camera) camera.getWorldPosition(AR.viewer); // где глаза игрока в комнате
     if (AR.placed && !AR.windows.length) { AR.autoT += dt || 0; if (AR.autoT > WIN_AUTO) AR.autoWindows(); }
     if (!frame || !AR.hitSource) return;
+    if (frame.getImageTrackingResults) { // маркер в камере — стол встаёт на него
+      for (const r of frame.getImageTrackingResults()) {
+        if (r.trackingState !== 'tracked') continue;
+        const p = frame.getPose(r.imageSpace, refSpace); if (p) AR.fromImage(p.transform.matrix);
+      }
+    }
     const res = frame.getHitTestResults(AR.hitSource);
     const pose = res.length ? res[0].getPose(refSpace) : null;
     AR.onHit(pose ? pose.transform.matrix : null);
   };
 
+  /* что просим у браузера: hit-test обязательно, интерфейс поверх и отслеживание маркера — если умеет */
+  AR.sessionInit = function (bmp) {
+    const o = { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: document.getElementById('hud') } };
+    if (bmp) { o.optionalFeatures.push('image-tracking'); o.trackedImages = [{ image: bmp, widthInMeters: G.Marker.SIZE_M }]; }
+    return o;
+  };
   AR.start = async function (renderer) {
     if (AR.active || !navigator.xr) return false;
     let s;
     try {
-      s = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: document.getElementById('hud') } });
+      let bmp = null; try { bmp = await createImageBitmap(G.Marker.canvas(512)); } catch (_) { bmp = null; }
+      s = await navigator.xr.requestSession('immersive-ar', AR.sessionInit(bmp));
     } catch (e) { G.Game.toast('AR недоступен', 'Браузер не дал включить AR: ' + (e && e.message || e)); return false; }
     AR.session = s; renderer.xr.setReferenceSpaceType('local');
     await renderer.xr.setSession(s);
@@ -131,7 +176,7 @@
     return true;
   };
   AR.onEnd = function () {
-    AR.active = false; AR.placed = false; AR.session = null;
+    AR.active = false; AR.placed = false; AR.session = null; AR.nosed = false; AR.anchor = ''; if (AR.holo) AR.setYaw(0);
     if (AR.hitSource) { try { AR.hitSource.cancel(); } catch (_) {} AR.hitSource = null; }
     if (AR.holo) AR.holo.visible = false; if (AR.reticle) AR.reticle.visible = false;
     if (AR.scene) AR.clearWindows();

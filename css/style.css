@@ -151,6 +151,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .set-row small { font-size: 11px; color: var(--dim); }
 .step { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .step .chip { min-width: 44px; min-height: 40px; }
+a.chip { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .step output { min-width: 56px; text-align: center; font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; }
 .step .chip:disabled { opacity: .35; }
 .intro-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
