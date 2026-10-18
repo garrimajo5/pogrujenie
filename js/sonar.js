@@ -81,6 +81,15 @@
       c.beginPath(); c.moveTo(x, y - 11); c.lineTo(x + 11, y); c.lineTo(x, y + 11); c.lineTo(x - 11, y); c.closePath(); c.fill();
       if (!p.found) { c.fillStyle = '#021218'; c.fillText('?', x, y + 1); }
     });
+    if (G.Run && G.Run.route) { // маршрут забега: пунктир по точкам, следующая — в кольце
+      const pts = G.Run.route.pois.map(k => G.World.pois.find(p => p.key === k)).filter(Boolean), nx = G.Run.next();
+      c.save(); c.beginPath(); c.arc(256, 256, R, 0, 7); c.clip();
+      c.setLineDash([10, 8]); c.strokeStyle = 'rgba(255,178,89,.8)'; c.lineWidth = 3; c.beginPath();
+      [{ pos: S.pos }].concat(pts.filter(p => !G.Run.visited.has(p.key))).forEach((p, i) => { const [x, y] = toC(p.pos.x, p.pos.z); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+      c.stroke(); c.setLineDash([]);
+      if (nx) { let [x, y] = toC(nx.pos.x, nx.pos.z); const dx = x - 256, dy = y - 256, d = Math.hypot(dx, dy); if (d > R - 18) { x = 256 + dx / d * (R - 18); y = 256 + dy / d * (R - 18); } c.strokeStyle = '#ffb259'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, 18 + Math.sin(t * 4) * 3, 0, 7); c.stroke(); }
+      c.restore();
+    }
     c.fillStyle = '#5ef2d6'; c.beginPath(); c.moveTo(256, 238); c.lineTo(267, 270); c.lineTo(245, 270); c.closePath(); c.fill();
     c.strokeStyle = 'rgba(94,242,214,0.75)'; c.lineWidth = 3; c.beginPath(); c.arc(256, 256, R, 0, 7); c.stroke();
     c.fillStyle = '#5ef2d6'; c.fillText('НОС', 256, 36);

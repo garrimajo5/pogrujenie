@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene); G.Silt.build(scene); G.Manip.build(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Run.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -162,6 +162,11 @@
       if (C.actionPressed) { C.actionPressed = false; G.Power.close(); }
       if (Game.room !== 'eng' || Game.piloting) G.Power.close();
     }
+    if (G.Run.isOpen()) { // брифинг на голостоле
+      G.Run.nav(C.move.x, C.move.y); C.move.x = C.move.y = 0;
+      if (C.actionPressed) { C.actionPressed = false; G.Run.close(); }
+      if (Game.room !== 'bridge' || Game.piloting) G.Run.close();
+    }
     if (G.Cargo.isOpen()) { // терминал трюма: тот же принцип, что у пульта энергии
       G.Cargo.nav(C.move.x, C.move.y); C.move.x = C.move.y = 0;
       if (C.actionPressed) { C.actionPressed = false; G.Cargo.close(); }
@@ -169,7 +174,7 @@
     }
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
-    handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
+    handleEvents(); updateInteraction(dt); updateDiscover(); G.Run.update(dt); ambience(dt);
     G.Tutorial.update();
     G.Save.tick(dt);
   }
