@@ -82,6 +82,38 @@
     A.sir.g.gain.setTargetAtTime(on ? (Math.sin((t || 0) * 6) > 0 ? 0.05 : 0.012) : 0, now, 0.02);
     if (on) A.sir.o.frequency.setTargetAtTime(Math.sin((t || 0) * 3) > 0 ? 620 : 780, now, 0.01);
   };
+  /* песня ледокрыла: ноты с глиссандо, слева или справа, тише издалека */
+  A.raySong = (notes, d, pan) => {
+    if (!ok()) return;
+    const c = A.ctx, t0 = now(), v = 0.22 * Math.max(0.12, 1 - d / 160);
+    const p = c.createStereoPanner ? c.createStereoPanner() : null; if (p) { p.pan.value = pan || 0; p.connect(A.master); p.connect(A.wet); }
+    notes.forEach((f, i) => {
+      const o = c.createOscillator(), g = c.createGain(), t = t0 + i * 0.9;
+      o.type = 'sine'; o.frequency.setValueAtTime(f * 1.06, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.25); o.frequency.exponentialRampToValueAtTime(f * 0.92, t + 1.3);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+      o.connect(g); g.connect(p || A.master); if (!p) g.connect(A.wet); o.start(t); o.stop(t + 1.5);
+    });
+  };
+  /* гул рифа: мягкий аккорд и шорох, громкость 0..1 */
+  A.reefHum = l => {
+    if (!A.on) return;
+    if (!A.reef) {
+      const c = A.ctx, g = c.createGain(); g.gain.value = 0; g.connect(A.master);
+      [82.4, 123.5, 164.8].forEach((f, i) => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f; const og = c.createGain(); og.gain.value = [0.5, 0.3, 0.2][i]; const lfo = c.createOscillator(); lfo.frequency.value = 0.11 + i * 0.07; const lg = c.createGain(); lg.gain.value = og.gain.value * 0.5; lfo.connect(lg); lg.connect(og.gain); lfo.start(); o.connect(og); og.connect(g); o.start(); });
+      const s = c.createBufferSource(); s.buffer = A.white; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.8; const sg = c.createGain(); sg.gain.value = 0.08; s.connect(f); f.connect(sg); sg.connect(g); s.start();
+      A.reef = g;
+    }
+    A.reef.gain.setTargetAtTime(A.muted ? 0 : l * 0.09, A.ctx.currentTime, 0.6);
+  };
+  /* короткие сигналы тревоги на разные беды */
+  A.alarmCue = name => {
+    if (!ok()) return; const t = now();
+    if (name === 'hull') { osc('square', 440, 440, t, 0.12, 0.05); osc('square', 330, 330, t + 0.18, 0.14, 0.05); }
+    else if (name === 'charge') osc('sawtooth', 520, 900, t, 0.35, 0.04);
+    else if (name === 'latch') noise(t, 0.25, 0.12, 'highpass', 4000, 2500, 2);
+    else if (name === 'energy') osc('sine', 660, 520, t, 0.25, 0.04);
+    else if (name === 'heat') { osc('triangle', 880, 880, t, 0.1, 0.05); osc('triangle', 880, 880, t + 0.16, 0.1, 0.05); }
+  };
   A.alarm = () => { if (!ok()) return; osc('square', 880, 660, now(), 0.35, 0.05); };
   A.toggleMute = () => { A.muted = !A.muted; if (A.master) A.master.gain.value = A.muted ? 0 : A.vol; return A.muted; };
   /* громкость 0..1 из настроек; 0 — звук выключен */
