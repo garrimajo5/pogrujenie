@@ -27,20 +27,30 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
-        public IEnumerator КрестовинаВедётКамеруКНосу()
+        public IEnumerator КрестовинаВедётКамеру()
         {
             var cam = boot.Cam.transform;
-            float z0 = cam.localPosition.z;
+            float x0 = cam.localPosition.x;
             Assert.AreEqual(Walker.Eye, cam.localPosition.y, 0.01f, "камера на высоте глаз");
             Assert.Less(cam.forward.z, -0.9f, "смотрим на нос");
-            boot.Controls.PadOverride = new Vector2Int(0, 1);
+            // вправо от взгляда (лицом к носу правый борт — −X); вперёд мешает кресло пилота
+            boot.Controls.PadOverride = new Vector2Int(1, 0);
             yield return new WaitForSeconds(0.5f);
             boot.Controls.PadOverride = null;
-            Assert.Less(cam.localPosition.z, z0 - 0.5f, "прошли к носу");
-            float z1 = cam.localPosition.z;
+            Assert.Less(cam.localPosition.x, x0 - 0.5f, "отошли к правому борту");
+            float x1 = cam.localPosition.x;
             yield return null;
             yield return null;
-            Assert.AreEqual(z1, cam.localPosition.z, 0.01f, "отпустили крестовину — стоим");
+            Assert.AreEqual(x1, cam.localPosition.x, 0.01f, "отпустили крестовину — стоим");
+        }
+
+        [UnityTest]
+        public IEnumerator КреслоПилотаНеПропускает()
+        {
+            boot.Controls.PadOverride = new Vector2Int(0, 1);
+            yield return new WaitForSeconds(0.6f);
+            boot.Controls.PadOverride = null;
+            Assert.Greater(boot.Player.Walker.Z, -3.95f + 0.7f - 0.01f, "кресло на z=−3,95 стоит на пути");
         }
 
         [UnityTest]
@@ -61,12 +71,12 @@ namespace Pogrujenie.Tests
             yield return null;
             Assert.IsFalse(boot.LampOn);
             Assert.IsFalse(boot.Lamp.enabled, "прожектор погас");
-            Assert.AreEqual("Свет", boot.Controls.ActionLabel);
+            Assert.AreEqual("Включить прожектор", boot.Controls.ActionLabel);
             boot.Controls.PressAction();
             yield return null;
             yield return null;
             Assert.IsTrue(boot.Lamp.enabled, "снова светит");
-            Assert.AreEqual("Погасить", boot.Controls.ActionLabel);
+            Assert.AreEqual("Погасить прожектор", boot.Controls.ActionLabel);
         }
 
         [UnityTest]

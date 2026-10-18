@@ -20,7 +20,9 @@ namespace Pogrujenie.Game
         public Vector2 Look { get; private set; } // в «точках» экрана (1/160 дюйма)
         public bool ActionDown { get; private set; }
         public bool ActionPressed { get; private set; }
-        public string ActionLabel = "Действие";
+        public string ActionLabel = "";
+        /// <summary>Рядом есть пост — кнопка горит ярче и подписана.</summary>
+        public bool ActionEnabled;
 
         public Circle PadCircle => Router.Pad;
         public Circle ActionCircle => Router.Action;
@@ -141,7 +143,8 @@ namespace Pogrujenie.Game
                 GUI.DrawTexture(r, arrow);
                 GUI.matrix = old;
             }
-            DrawTex(disc, act.C, act.R, ActionDown ? lit : dim);
+            var idle = new Color(0.75f, 0.95f, 1f, 0.12f);
+            DrawTex(disc, act.C, act.R, !ActionEnabled ? idle : ActionDown ? lit : new Color(0.75f, 0.95f, 1f, 0.5f));
             GUI.color = Color.white;
             var style = new GUIStyle(GUI.skin.label)
             {
