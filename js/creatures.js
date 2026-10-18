@@ -3,10 +3,11 @@
    Пищевые связи: серпохвосты охотятся на светляков; вуали жалят рыб, хищники их обходят;
    скребуны пасутся на мху; стеклоусты подстерегают скребунов и рыб; за ледокрылами ходят стаи;
    огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников;
-   хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки. */
+   хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки;
+   светляки прячутся в ленточнике, шипоежи объедают его до стеблей, кольчужники раскалывают ежей. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -14,7 +15,7 @@
   const SP = G.SPECIES = {
     fish: { name: 'Светляк-полосник', acc: 'светляка-полосника', unom: 'мелкая рыба', uacc: 'мелкую рыбу',
       desc: 'Мелкая рыба с полосами живого света. Держится стаями у кораллов и светится ярче, когда стая напугана.',
-      notes: { flee: 'Завидев хищника, стая ныряет в заросли кораллов.', follow: 'Стаи сопровождают ледокрылов и подбирают всё, что те взбаламутили.' } },
+      notes: { flee: 'Завидев хищника, стая ныряет в заросли кораллов.', kelp: 'В густом ленточнике хищник теряет напуганную стаю из виду.', follow: 'Стаи сопровождают ледокрылов и подбирают всё, что те взбаламутили.' } },
     pred: { name: 'Серпохвост', acc: 'серпохвоста', unom: 'крупный хищник', uacc: 'крупного хищника',
       desc: 'Хищник рифа длиной около шести метров. Глаза светятся красным, по бокам тянется цепочка огней. Хвост-серп глушит добычу.',
       notes: { catch: 'Охотится на светляков, вырывая рыб из стаи.', avoid: 'Обходит фонарные вуали стороной.', ping: 'Слышит сонар и плывёт проверить источник звука.', ship: 'Идёт на таран, если у корабля горит прожектор.', zap: 'Разряд по корпусу отпугивает его.' } },
@@ -41,9 +42,15 @@
       notes: { catch: 'Ловит светляков, подплывших к щупальцам в темноте.', hide: 'Прячет щупальца от луча прожектора и раскрывает их снова только в темноте.' } },
     pestr: { name: 'Пестрянка', acc: 'пестрянку', unom: 'пёстрая рыбка', uacc: 'пёструю рыбку',
       desc: 'Рыбка длиной около 12 см в оранжево-белую полоску. Живёт среди щупалец хватня и не боится его стрекал.',
-      notes: { lure: 'Выплывает к стае светляков и заманивает рыб в щупальца хозяина.', leftovers: 'Доедает остатки добычи хватня.', immune: 'Прячется в сжатых щупальцах: стрекала её не трогают.' } }
+      notes: { lure: 'Выплывает к стае светляков и заманивает рыб в щупальца хозяина.', leftovers: 'Доедает остатки добычи хватня.', immune: 'Прячется в сжатых щупальцах: стрекала её не трогают.' } },
+    ezh: { name: 'Шипоёж', acc: 'шипоежа', gen: 'шипоежа', unom: 'морской ёж', uacc: 'морского ежа', ugen: 'морского ежа',
+      desc: 'Морской ёж размером около 50 см. Длинные иглы светятся на концах. Ползает по дну стадами и пасётся на ленточнике.',
+      notes: { graze: 'Объедает ленточник до голых стеблей.', bare: 'Где ленточник объеден, стае негде спрятаться от хищника.' } },
+    krab: { name: 'Кольчужник', acc: 'кольчужника', gen: 'кольчужника', unom: 'донный краб', uacc: 'донного краба', ugen: 'донного краба',
+      desc: 'Краб шириной около метра. Раскалывает морских ежей и носит их иглы на панцире как броню. Живёт в каменной норе.',
+      notes: { hunt: 'Выходит из норы и раскалывает шипоежей. Возле его норы ленточник остаётся густым.', armor: 'Вплетает иглы съеденных ежей в панцирь.', guard: 'Охраняет нору: корабль у самого дна хватает клешнёй.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -81,7 +88,7 @@
   }
   function nearestFish(p, R) {
     let best = null, bd = R;
-    for (const f of E.fish) { if (!f.alive || nearStation(f.p)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
+    for (const f of E.fish) { if (!f.alive || nearStation(f.p) || kelpShelter(f)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
     return best;
   }
   function updateFish(dt, t) {
@@ -237,10 +244,18 @@
           if (pr.truceCd <= 0) { pr.truceCd = 40; E.emit('ognevka', 'truce', pr.p, () => `${cap(G.nm('pred'))} бросил охоту у станции чистки`); }
           break;
         }
+        { const gr = kelpShelter(pr.target); // стая нырнула в густой ленточник
+          if (gr) {
+            pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
+            if (gr.msgCd <= 0) { gr.msgCd = 40; E.emit('fish', 'kelp', gr.c, () => `${cap(G.nm('fish'))}: стая спряталась в ленточнике, ${G.nm('pred')} её потерял`); }
+            break;
+          } }
         pr.goal.copy(pr.target.v).multiplyScalar(0.4).add(pr.target.p);
         if (pr.p.distanceTo(pr.target.p) < 1.6) {
+          const bare = groveOf(pr.target.p);
           killFish(pr.target); pr.hunger = 0; pr.state = 'eat'; pr.timer = 5; pr.target = null;
           E.emit('pred', 'catch', pr.p, () => `${cap(G.nm('pred'))} поймал ${G.nm('fish', 'acc')}`);
+          if (bare && bare.cover < COVER_MIN && bare.msgCd <= 0) { bare.msgCd = 40; E.emit('ezh', 'bare', bare.c, () => `Ленточник объеден ${SP.ezh.scanned ? 'шипоежами' : 'морскими ежами'}: стае негде спрятаться`); }
         } else if (canAttack && pr.hunger > 0.6) startCharge(pr);
         break;
       case 'eat': speed = 1; if (pr.timer <= 0) { pr.state = 'patrol'; pr.timer = 0; } break;
@@ -753,8 +768,218 @@
     hv.pc.divideScalar(HV_PESTR);
   }
 
+  /* ======================= ЛЕНТОЧНИК, ШИПОЕЖИ И КОЛЬЧУЖНИК ======================= */
+  /* Заросли ленточника у двух стай: напуганные светляки прячутся в них, и хищник их теряет.
+     Шипоежи объедают ленточник до голых стеблей — тогда стае негде спрятаться.
+     Кольчужник сидит в норе у второй рощи, раскалывает ежей и носит их иглы на панцире. Нору охраняет. */
+  const KELP_N = 34, KELP_R = 7, URCH_N = 7, COVER_MIN = 0.45, CRAB_R = 16, SPINE_MAX = 10;
+  function spineGeo(n, len, base, tip, r0) {
+    const parts = [{ g: new THREE.IcosahedronGeometry(r0, 0), c: base }];
+    for (let k = 0; k < n; k++) {
+      const y = 1 - (k + 0.5) / n * 1.2, rr = Math.sqrt(Math.max(0, 1 - y * y)), a = k * 2.39996;
+      const dir = new V3(Math.cos(a) * rr, Math.max(y, -0.15), Math.sin(a) * rr).normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), dir);
+      const c = new THREE.ConeGeometry(0.02, len, 4); c.translate(0, len / 2 + r0 * 0.8, 0);
+      parts.push({ g: c, m: new THREE.Matrix4().makeRotationFromQuaternion(q), c: base });
+      const tp = new THREE.OctahedronGeometry(0.03, 0); tp.translate(0, len + r0 * 0.8, 0);
+      parts.push({ g: tp, m: new THREE.Matrix4().makeRotationFromQuaternion(q), c: tip });
+    }
+    return G.merge(parts);
+  }
+  function setKelp(gr, k) {
+    const s = gr.stalks[k], f = s.f;
+    dummy.position.copy(s.p); dummy.rotation.set(s.tx, s.yaw, s.tz);
+    dummy.scale.set(0.12 + 0.88 * f, s.h * (0.35 + 0.65 * f), 1); dummy.updateMatrix();
+    E.kelpIM.setMatrixAt(gr.i * KELP_N + k, dummy.matrix);
+    E.kelpIM.setColorAt(gr.i * KELP_N + k, tv3.set(0, 0, 0).lerpVectors(gr.bare, s.col, f));
+  }
+  function initKelp(scene) {
+    const G2 = Math.min(2, Math.max(0, E.shoals.length - 1));
+    if (!G2) return;
+    const kg = new THREE.PlaneGeometry(0.45, 1, 1, 7); kg.translate(0, 0.5, 0);
+    E.kelpIM = new THREE.InstancedMesh(kg, G.sway(new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide, emissive: 0x0b1a10 }), 0.9), G2 * KELP_N);
+    E.urchBodyIM = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.2, 1), new THREE.MeshLambertMaterial({ color: 0x3a1f4a, emissive: 0x12061a }), G2 * URCH_N);
+    E.urchSpIM = new THREE.InstancedMesh(spineGeo(18, 0.32, new THREE.Color(0.25, 0.12, 0.35), new THREE.Color(0.55, 0.95, 1), 0.18), new THREE.MeshBasicMaterial({ vertexColors: true }), G2 * URCH_N);
+    [E.kelpIM, E.urchBodyIM, E.urchSpIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    const pal = [0x5f9a4a, 0x8aa83c, 0x3f8f7a].map(c => new THREE.Color(c));
+    for (let gi = 0; gi < G2; gi++) {
+      const sh = E.shoals[gi + 1], c = new V3(sh.home.x, 0, sh.home.z); c.y = H(c.x, c.z);
+      const gr = { i: gi, c, sh, cover: 1, msgCd: 0, grazeCd: 0, bare: new V3(0.32, 0.26, 0.16), stalks: [] };
+      for (let k = 0; k < KELP_N; k++) {
+        const a = k * 2.39996, r = Math.sqrt((k + 0.5) / KELP_N) * KELP_R;
+        const p = new V3(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r); p.y = H(p.x, p.z) - 0.1;
+        const col = G.pick(pal);
+        gr.stalks.push({ p, h: G.rr(3, 5.5), f: 1, tx: G.rr(-0.08, 0.08), tz: G.rr(-0.08, 0.08), yaw: G.rr(0, 6.283), col: new V3(col.r, col.g, col.b), eater: null, drawn: 1 });
+        setKelp(gr, k);
+      }
+      E.groves.push(gr);
+      for (let k = 0; k < URCH_N; k++) {
+        const u = { i: gi * URCH_N + k, gr, alive: true, t: 0, p: new V3(), goal: null, wander: new V3(), wt: 0, grazeCd: 0, ph: G.rr(0, 6) };
+        urchSpawn(u); E.urchins.push(u);
+      }
+    }
+    E.kelpIM.instanceMatrix.needsUpdate = true; E.kelpIM.instanceColor.needsUpdate = true;
+    /* кольчужник: нора у края второй рощи */
+    const gr = E.groves[G2 - 1], out = new V3(1, 0, 0.4).normalize();
+    const den = gr.c.clone().addScaledVector(out, KELP_R + 3); den.y = H(den.x, den.z);
+    const rocks = [];
+    [[-1.3, 0.3, -0.4], [1.3, 0.3, -0.4], [0, 0.8, -1.1], [-0.6, 1.3, -0.9], [0.7, 0.2, -1.6]].forEach(([x, y, z]) => {
+      const g = new THREE.DodecahedronGeometry(G.rr(0.8, 1.1), 0); g.scale(1, 0.6, 1);
+      rocks.push({ g, m: new THREE.Matrix4().makeTranslation(x, y, z), c: new THREE.Color(0x4f4a5c) });
+    });
+    const denM = new THREE.Mesh(G.merge(rocks), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+    denM.position.copy(den); denM.lookAt(den.x + out.x, den.y, den.z + out.z); scene.add(denM);
+    const legs = [{ g: new THREE.SphereGeometry(1, 10, 6), m: new THREE.Matrix4().makeScale(0.55, 0.22, 0.42).setPosition(0, 0.35, 0), c: new THREE.Color(0x8a4a2e) }];
+    [-1, 1].forEach(sx => [-0.25, 0, 0.25].forEach(z => {
+      const lg = new THREE.BoxGeometry(0.55, 0.05, 0.06); lg.translate(0.27, 0, 0);
+      const m = new THREE.Matrix4().makeRotationY(sx > 0 ? -z * 1.5 : Math.PI + z * 1.5).multiply(new THREE.Matrix4().makeRotationZ(-0.5));
+      m.setPosition(sx * 0.4, 0.33, z); legs.push({ g: lg, m, c: new THREE.Color(0x6a3a26) });
+    }));
+    const body = new THREE.Mesh(G.merge(legs), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x1a0804 }));
+    const cl = [];
+    [-1, 1].forEach(sx => {
+      const arm = new THREE.BoxGeometry(0.08, 0.08, 0.4); arm.translate(sx * 0.22, 0, 0.2);
+      const pin = new THREE.SphereGeometry(1, 8, 5); pin.scale(0.11, 0.08, 0.2); pin.translate(sx * 0.24, 0, 0.5);
+      cl.push({ g: arm, c: new THREE.Color(0x7a4028) }, { g: pin, c: new THREE.Color(0xc06a3a) });
+    });
+    const claws = new THREE.Mesh(G.merge(cl), body.material); claws.position.set(0, 0.35, 0.3); body.add(claws);
+    const spIM = new THREE.InstancedMesh((() => { const c = new THREE.ConeGeometry(0.025, 0.3, 4); c.translate(0, 0.15, 0); const tp = new THREE.OctahedronGeometry(0.03, 0); tp.translate(0, 0.3, 0); return G.merge([{ g: c, c: new THREE.Color(0.3, 0.15, 0.4) }, { g: tp, c: new THREE.Color(0.55, 0.95, 1) }]); })(), E.urchSpIM.material, SPINE_MAX);
+    spIM.frustumCulled = false; body.add(spIM);
+    const spines = Array.from({ length: SPINE_MAX }, (_, k) => {
+      const a = k / SPINE_MAX * 6.283 + 0.3;
+      dummy.position.set(Math.cos(a) * 0.38, 0.45, Math.sin(a) * 0.3); dummy.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9); dummy.scale.setScalar(1); dummy.updateMatrix();
+      return dummy.matrix.clone();
+    });
+    body.scale.setScalar(1.25); scene.add(body);
+    E.crab = { den, out, body, claws, spIM, spineM: spines, p: den.clone(), dir: out.clone(), state: 'den', hunger: 0.3, target: null, timer: 0, spines: 3, guardCd: 0, pinchCd: 0, raise: 0, gr };
+    crabSpines(E.crab);
+  }
+  function urchSpawn(u) {
+    const gr = u.gr, a = G.rr(0, 6.283), r = G.rr(KELP_R * 0.6, KELP_R + 2);
+    u.p.set(gr.c.x + Math.cos(a) * r, 0, gr.c.z + Math.sin(a) * r); u.p.y = H(u.p.x, u.p.z) + 0.15;
+    u.alive = true; u.goal = null; u.wt = 0; u.grazeCd = 0;
+  }
+  function crabSpines(cr) {
+    for (let k = 0; k < SPINE_MAX; k++) {
+      if (k < cr.spines) cr.spIM.setMatrixAt(k, cr.spineM[k]);
+      else { dummy.position.set(0, 0, 0); dummy.scale.setScalar(0.0001); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); cr.spIM.setMatrixAt(k, dummy.matrix); }
+    }
+    cr.spIM.instanceMatrix.needsUpdate = true;
+  }
+  /* роща, в которой прячется светляк, если ленточник ещё цел */
+  function kelpShelter(f) {
+    if (!(f.s.alarm > 0)) return null;
+    for (const gr of E.groves) {
+      if (gr.sh !== f.s || gr.cover < COVER_MIN) continue;
+      if (Math.hypot(f.p.x - gr.c.x, f.p.z - gr.c.z) < KELP_R + 1 && f.p.y < gr.c.y + 5) return gr;
+    }
+    return null;
+  }
+  E.kelpShelter = kelpShelter;
+  function groveOf(p) { return E.groves.find(gr => Math.hypot(p.x - gr.c.x, p.z - gr.c.z) < KELP_R + 1.5); }
+  function urchinUpdate(u, dt, t) {
+    if (!u.alive) { u.t -= dt; if (u.t <= 0) urchSpawn(u); return; }
+    const gr = u.gr; u.grazeCd -= dt;
+    if (u.goal && u.goal.f <= 0.15) { u.goal.eater = null; u.goal = null; }
+    if (!u.goal) {
+      let best = null, bd = 1e9;
+      for (const s of gr.stalks) { if (s.f <= 0.3 || (s.eater && s.eater !== u)) continue; const d = s.p.distanceToSquared(u.p); if (d < bd) { bd = d; best = s; } }
+      if (best) { u.goal = best; best.eater = u; }
+    }
+    let speed = 0.3;
+    if (u.goal) tv.copy(u.goal.p);
+    else { u.wt -= dt; if (u.wt <= 0) { u.wt = G.rr(6, 12); u.wander.set(gr.c.x + G.rr(-KELP_R, KELP_R), 0, gr.c.z + G.rr(-KELP_R, KELP_R)); } tv.copy(u.wander); speed = 0.15; }
+    tv.sub(u.p).setY(0); const d = tv.length();
+    if (u.goal && d < 0.45) {
+      u.goal.f = Math.max(0.15, u.goal.f - dt * 0.035);
+      if (u.grazeCd <= 0) { u.grazeCd = 60; const say = gr.grazeCd <= 0; if (say) gr.grazeCd = 90; E.emit('ezh', 'graze', u.p, say ? () => `${cap(G.nm('ezh'))} объедает ленточник до стеблей` : null); }
+    } else if (d > 0.05) u.p.addScaledVector(tv, Math.min(d, speed * dt) / d);
+    u.p.y = H(u.p.x, u.p.z) + 0.15;
+  }
+  function urchinRender(u, t) {
+    if (u.alive) { dummy.position.copy(u.p); dummy.rotation.set(0, t * 0.1 + u.ph, 0); dummy.scale.setScalar(1 + Math.sin(t * 1.5 + u.ph) * 0.04); }
+    else { dummy.position.set(0, -999, 0); dummy.scale.setScalar(0.001); }
+    dummy.updateMatrix(); E.urchBodyIM.setMatrixAt(u.i, dummy.matrix); E.urchSpIM.setMatrixAt(u.i, dummy.matrix);
+  }
+  function crabUpdate(cr, dt, t) {
+    const S = G.Ship;
+    cr.hunger = Math.min(1.5, cr.hunger + dt / 30); cr.timer -= dt; cr.guardCd -= dt; cr.pinchCd -= dt;
+    const dShip = S.center.distanceTo(cr.den);
+    let speed = 0, goal = null, raise = 0;
+    if (dShip < 12 && S.hull > 0 && cr.state !== 'crack') {
+      if (cr.state === 'hunt' && cr.target) cr.target = null;
+      cr.state = 'guard';
+    }
+    switch (cr.state) {
+      case 'den':
+        if (cr.hunger > 1) {
+          let best = null, bd = CRAB_R;
+          for (const u of E.urchins) { if (!u.alive) continue; const d = u.p.distanceTo(cr.den); if (d < bd) { bd = d; best = u; } }
+          if (best) { cr.state = 'hunt'; cr.target = best; cr.timer = 60; }
+        }
+        break;
+      case 'hunt': {
+        const u = cr.target;
+        if (!u || !u.alive || cr.timer <= 0) { cr.state = 'home'; cr.target = null; break; }
+        goal = u.p; speed = 0.9;
+        if (cr.p.distanceTo(u.p) < 0.7) { cr.state = 'crack'; cr.timer = 3; }
+        break;
+      }
+      case 'crack': {
+        raise = 0.6 + Math.sin(t * 14) * 0.3;
+        const u = cr.target;
+        if (cr.timer <= 0) {
+          if (u && u.alive) {
+            u.alive = false; u.t = G.rr(80, 120); if (u.goal) { u.goal.eater = null; u.goal = null; }
+            cr.hunger = 0; cr.spines = Math.min(SPINE_MAX, cr.spines + 2); crabSpines(cr);
+            E.emit('krab', 'hunt', cr.p, () => `${cap(G.nm('krab'))} расколол ${G.nm('ezh', 'acc')}`);
+            E.emit('krab', 'armor', cr.p, () => `${cap(G.nm('krab'))} вплетает иглы ${G.nm('ezh', 'gen')} в панцирь`);
+          }
+          cr.state = 'home'; cr.target = null;
+        }
+        break;
+      }
+      case 'home':
+        goal = cr.den; speed = 0.8;
+        if (cr.p.distanceTo(cr.den) < 0.4) { cr.state = 'den'; cr.dir.copy(cr.out); }
+        break;
+      case 'guard':
+        raise = 1; goal = cr.p.distanceTo(cr.den) > 0.4 ? cr.den : null; speed = 1.2;
+        tv2.copy(S.center).sub(cr.p).setY(0); if (tv2.lengthSq() > 0.01) cr.dir.lerp(tv2.normalize(), Math.min(1, dt * 3)).normalize();
+        if (cr.guardCd <= 0) { cr.guardCd = 40; E.emit('krab', 'guard', cr.p, () => `${cap(G.nm('krab'))} поднял клешни: корабль слишком близко к норе`); }
+        if (dShip < 7 && cr.pinchCd <= 0) {
+          cr.pinchCd = 8; G.Game.hullHit(3, 'pinch');
+          E.emit('krab', 'guard', cr.p, () => `${cap(G.nm('krab'))} зажал корпус клешнёй`);
+        }
+        if (dShip > 14) cr.state = 'home';
+        break;
+    }
+    if (goal) {
+      tv.copy(goal).sub(cr.p).setY(0); const d = tv.length();
+      if (d > 0.05) { cr.p.addScaledVector(tv, Math.min(d, speed * dt) / d); if (cr.state !== 'guard') cr.dir.lerp(tv.normalize(), Math.min(1, dt * 4)).normalize(); }
+    }
+    cr.p.y = H(cr.p.x, cr.p.z);
+    cr.raise += (raise - cr.raise) * Math.min(1, dt * 5);
+    cr.body.position.copy(cr.p); cr.body.position.y += Math.abs(Math.sin(t * 8)) * 0.03 * (goal ? 1 : 0);
+    cr.body.rotation.set(0, Math.atan2(cr.dir.x, cr.dir.z), 0);
+    cr.claws.rotation.x = -cr.raise * 0.9;
+  }
+  function kelpUpdate(dt) {
+    let dirty = false;
+    for (const gr of E.groves) {
+      let sum = 0; gr.msgCd -= dt; gr.grazeCd -= dt;
+      gr.stalks.forEach((s, k) => {
+        if (!s.eater) s.f = Math.min(1, s.f + dt * 0.005); // объеденный ленточник медленно отрастает
+        if (Math.abs(s.f - s.drawn) > 0.01) { s.drawn = s.f; setKelp(gr, k); dirty = true; }
+        sum += s.f;
+      });
+      gr.cover = (sum / KELP_N - 0.15) / 0.85;
+    }
+    if (dirty) { E.kelpIM.instanceMatrix.needsUpdate = true; E.kelpIM.instanceColor.needsUpdate = true; }
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -763,6 +988,11 @@
     stationsUpdate(dt, t);
     updateBeam(); E.anemones.forEach(hv => anemoneUpdate(hv, dt, t));
     if (E.hvTentIM) { E.hvTentIM.instanceMatrix.needsUpdate = true; E.pestrIM.instanceMatrix.needsUpdate = true; }
+    if (E.kelpIM) {
+      E.urchins.forEach(u => { urchinUpdate(u, dt, t); urchinRender(u, t); });
+      E.urchBodyIM.instanceMatrix.needsUpdate = true; E.urchSpIM.instanceMatrix.needsUpdate = true;
+      kelpUpdate(dt); if (E.crab) crabUpdate(E.crab, dt, t);
+    }
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -782,6 +1012,8 @@
     E.rays.forEach(r => L.push({ sp: 'ray', pos: r.p, r: 7 }));
     E.stations.forEach(st => L.push({ sp: 'ognevka', pos: st.top, r: 1.6 }));
     E.preds.forEach(p => { if (p.leech) L.push({ sp: 'leech', pos: p.leechP, r: 0.7 }); });
+    E.urchins.forEach(u => { if (u.alive) L.push({ sp: 'ezh', pos: u.p, r: 0.6 }); });
+    if (E.crab) L.push({ sp: 'krab', pos: E.crab.p, r: 0.9 });
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
@@ -817,5 +1049,10 @@
     E.preds.forEach((pr, i) => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; });
     E.stations.forEach(st => { st.busy = null; st.work = 0; });
     E.anemones.forEach(hv => { hv.open = 1; hv.lit = false; hv.digest = 0; hv.lure = null; hv.lureT = 0; hv.lureCd = G.rr(4, 12); hv.leftT = 0; hv.hideCd = 0; hv.msgCd = 0; });
+    E.groves.forEach(gr => { gr.msgCd = 0; gr.grazeCd = 0; gr.stalks.forEach((s, k) => { s.f = 1; s.eater = null; s.drawn = 1; setKelp(gr, k); }); gr.cover = 1; });
+    if (E.kelpIM) { E.kelpIM.instanceMatrix.needsUpdate = true; E.kelpIM.instanceColor.needsUpdate = true; }
+    E.urchins.forEach(urchSpawn);
+    const cr = E.crab;
+    if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
   };
 })(window.G);

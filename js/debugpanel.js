@@ -6,8 +6,10 @@
 
   P.teleport = function (key) {
     const st = /^station(\d)$/.exec(key || ''), hv = /^hvaten(\d)$/.exec(key || '');
+    if (key === 'krab' && !G.Eco.crab) return false;
     const p = st ? (G.Eco.stations[+st[1]] && { pos: G.Eco.stations[+st[1]].top })
-      : hv ? (G.Eco.anemones[+hv[1]] && { pos: G.Eco.anemones[+hv[1]].top }) : G.World.pois.find(x => x.key === key);
+      : hv ? (G.Eco.anemones[+hv[1]] && { pos: G.Eco.anemones[+hv[1]].top })
+      : key === 'krab' ? { pos: G.Eco.crab.den } : G.World.pois.find(x => x.key === key);
     if (!p) return false;
     const S = G.Ship;
     S.pos.set(p.pos.x + 18, -12, p.pos.z + 18);
@@ -39,6 +41,7 @@
     G.World.pois.forEach(p => { const b = document.createElement('button'); b.dataset.tp = p.key; b.textContent = '→ ' + p.name; tp.appendChild(b); });
     G.Eco.stations.forEach((s, i) => { const b = document.createElement('button'); b.dataset.tp = 'station' + i; b.textContent = '→ Станция чистки ' + (i + 1); tp.appendChild(b); });
     if (G.Eco.anemones.length) { const b = document.createElement('button'); b.dataset.tp = 'hvaten0'; b.textContent = '→ Хватень'; tp.appendChild(b); }
+    if (G.Eco.crab) { const b = document.createElement('button'); b.dataset.tp = 'krab'; b.textContent = '→ Нора кольчужника'; tp.appendChild(b); }
     el.addEventListener('pointerdown', e => e.stopPropagation());
     el.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
