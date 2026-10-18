@@ -102,6 +102,26 @@
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
+  /* Повторяющиеся детали существ одним InstancedMesh на деталь: экономия вызовов отрисовки.
+     parts: [{ g, mat, m: локальная матрица, per: сколько штук на существо }] */
+  const MZ = new THREE.Matrix4().makeScale(0, 0, 0), tm = new THREE.Matrix4();
+  function partsIM(scene, parts, N) {
+    return parts.map(pt => { const im = new THREE.InstancedMesh(pt.g, pt.mat, Math.max(1, N * (pt.per || 1))); im.frustumCulled = false; scene.add(im); return { im, m: pt.m, per: pt.per || 1 }; });
+  }
+  /* поставить детали существа i по его базовой матрице; locals — свои локальные матрицы для подвижных деталей */
+  function placeParts(set, i, base, hide, locals) {
+    set.forEach((pt, j) => {
+      const L = (locals && locals[j]) || pt.m;
+      for (let k = 0; k < pt.per; k++) {
+        if (hide) pt.im.setMatrixAt(i * pt.per + k, MZ);
+        else pt.im.setMatrixAt(i * pt.per + k, tm.multiplyMatrices(base, Array.isArray(L) ? L[k] : L));
+      }
+      pt.im.instanceMatrix.needsUpdate = true;
+    });
+  }
+  const mT = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
+  const mTRS = (x, y, z, rx, ry, rz, sx, sy, sz) => new THREE.Matrix4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
+
   E.emit = (sp, note, pos, msg) => { E.events.push({ sp, note, pos: pos.clone(), msg }); };
   function killFish(f) { f.alive = false; f.t = G.rr(25, 40); }
   function clampArea(p) { p.x = G.clamp(p.x, -290, 290); p.z = G.clamp(p.z, -290, 290); }
@@ -216,20 +236,17 @@
     E.predDotIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff9a3c }), N * (PSEG - 1) * 2);
     [E.predSegIM, E.predDotIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
     const starts = [[-60, 20], [70, -20], [10, -110]];
+    E.predHeadParts = partsIM(scene, [
+      { g: new THREE.SphereGeometry(1, 12, 8), mat: new THREE.MeshLambertMaterial({ color: 0x3a5272 }), m: new THREE.Matrix4().makeScale(0.55, 0.5, 1.3) },
+      { g: new THREE.ConeGeometry(0.35, 1.1, 8), mat: new THREE.MeshLambertMaterial({ color: 0x1d2838 }), m: mTRS(0, -0.22, 0.95, Math.PI / 2, 0, 0, 1, 1, 1) },
+      { g: new THREE.SphereGeometry(0.1, 8, 6), mat: new THREE.MeshBasicMaterial({ color: 0xff3b4e }), m: [mT(-0.33, 0.16, 0.72), mT(0.33, 0.16, 0.72)], per: 2 }
+    ], N);
+    E.predLeechParts = partsIM(scene, [{ g: leechGeo(), mat: new THREE.MeshLambertMaterial({ color: 0x8a2f3c, emissive: 0x3a0a12 }), m: mTRS(0.5, -0.05, 0.25, 0, 0.4, -0.5, 1, 1, 1) }], N);
+    E.predTailParts = partsIM(scene, [{ g: new THREE.TorusGeometry(1.1, 0.08, 5, 18, Math.PI * 0.95), mat: new THREE.MeshLambertMaterial({ color: 0x5a7394, emissive: 0x140c1c }), m: mTRS(0, 0, -0.9, 0, Math.PI / 2, -Math.PI / 2, 1, 1, 1) }], N);
     for (let i = 0; i < N; i++) {
       const p = new V3(starts[i][0], 0, starts[i][1]); p.y = Math.min(H(p.x, p.z) + 8, -6);
-      const head = new THREE.Group();
-      const skull = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshLambertMaterial({ color: 0x3a5272 })); skull.scale.set(0.55, 0.5, 1.3); head.add(skull);
-      const jaw = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 8), new THREE.MeshLambertMaterial({ color: 0x1d2838 })); jaw.rotation.x = Math.PI / 2; jaw.position.set(0, -0.22, 0.95); head.add(jaw);
-      const eyeM = new THREE.MeshBasicMaterial({ color: 0xff3b4e });
-      [-1, 1].forEach(s => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), eyeM); e.position.set(0.33 * s, 0.16, 0.72); head.add(e); });
-      const tailG = new THREE.Group();
-      const tail = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.08, 5, 18, Math.PI * 0.95), new THREE.MeshLambertMaterial({ color: 0x5a7394, emissive: 0x140c1c }));
-      tail.rotation.set(0, Math.PI / 2, -Math.PI / 2); tail.position.z = -0.9; tailG.add(tail);
-      const leechM = new THREE.Mesh(leechGeo(), new THREE.MeshLambertMaterial({ color: 0x8a2f3c, emissive: 0x3a0a12 }));
-      leechM.position.set(0.5, -0.05, 0.25); leechM.rotation.set(0, 0.4, -0.5); head.add(leechM);
-      scene.add(head); scene.add(tailG);
-      const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], head, tailG, cd: 20, avoidCd: 0, i,
+      const leechM = { visible: false }; // пиявник рисуется общим InstancedMesh, тут только видимость
+      const pr = { p, v: new V3(0, 0, 1), state: 'patrol', hunger: G.rr(0.1, 0.5), timer: 0, target: null, goal: p.clone(), segs: [], cd: 20, avoidCd: 0, i,
         leech: false, leechCd: 0, angryCd: 0, truceCd: 0, flareCd: 0, station: null, leechM, leechP: new V3(), p0: p.clone() };
       setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160);
       for (let k = 0; k < PSEG; k++) pr.segs.push(p.clone().add(new V3(0, 0, -k * 0.6)));
@@ -382,8 +399,12 @@
   function predRender(pr, idx, t) {
     const segs = pr.segs; segs[0].copy(pr.p);
     for (let k = 1; k < segs.length; k++) { tv.copy(segs[k]).sub(segs[k - 1]); const L = tv.length(); if (L > 0.62) segs[k].copy(segs[k - 1]).addScaledVector(tv, 0.62 / L); }
-    pr.head.position.copy(pr.p);
-    pr.head.lookAt(tv.copy(pr.p).add(pr.v.lengthSq() > 0.01 ? tv3.copy(pr.v) : tv3.set(0, 0, 1)));
+    dummy.position.copy(pr.p); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1);
+    dummy.lookAt(tv.copy(pr.p).add(pr.v.lengthSq() > 0.01 ? tv3.copy(pr.v) : tv3.set(0, 0, 1))); dummy.updateMatrix();
+    const headM = pr.headM = (pr.headM || new THREE.Matrix4()).copy(dummy.matrix);
+    placeParts(E.predHeadParts, idx, headM, false);
+    placeParts(E.predLeechParts, idx, headM, !pr.leechM.visible);
+    pr.leechP.set(0, 0, 0).applyMatrix4(tm.multiplyMatrices(headM, E.predLeechParts[0].m));
     const freq = 3 + pr.v.length() * 0.6;
     const base = idx * (PSEG - 1);
     let lastPos = null;
@@ -401,11 +422,10 @@
         const m = new THREE.Matrix4().makeTranslation(tv3.x, tv3.y, tv3.z);
         E.predDotIM.setMatrixAt((base + k - 1) * 2 + j, m);
       });
-      lastPos = dummy.position;
+      lastPos = (pr.lastPos = pr.lastPos || new V3()).copy(dummy.position);
     }
-    pr.head.updateMatrixWorld(); pr.leechM.getWorldPosition(pr.leechP);
-    pr.tailG.position.copy(lastPos);
-    pr.tailG.lookAt(segs[segs.length - 2]);
+    dummy.position.copy(lastPos); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.lookAt(segs[segs.length - 2]); dummy.updateMatrix();
+    placeParts(E.predTailParts, idx, dummy.matrix, false);
   }
 
   /* ======================= ФОНАРНЫЕ ВУАЛИ ======================= */
@@ -458,22 +478,31 @@
   }
 
   /* ======================= СКРЕБУНЫ ======================= */
-  function makeGrazer() {
-    const g = new THREE.Group();
-    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.8, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x7b6a8c, emissive: 0x120a18 }));
-    shell.scale.set(1, 0.6, 1.3); g.add(shell);
+  /* светящиеся точки на панцире: генератор тратится как раньше (по 20 чисел на скребуна), чтобы не сдвинуть мир */
+  function grazerDots() {
     const dp = [];
-    for (let k = 0; k < 10; k++) {
-      const a = G.rr(0, 6.28), b = G.rr(0.25, 1.25);
-      dp.push({ g: new THREE.SphereGeometry(0.07, 6, 4), m: new THREE.Matrix4().makeTranslation(Math.cos(a) * Math.sin(b) * 0.8, Math.cos(b) * 0.48, Math.sin(a) * Math.sin(b) * 1.04) });
-    }
-    g.add(new THREE.Mesh(G.merge(dp), new THREE.MeshBasicMaterial({ color: 0xffb259 })));
+    for (let k = 0; k < 10; k++) { const a = G.rr(0, 6.28), b = G.rr(0.25, 1.25); dp.push(new V3(Math.cos(a) * Math.sin(b) * 0.8, Math.cos(b) * 0.48, Math.sin(a) * Math.sin(b) * 1.04)); }
+    return dp;
+  }
+  function grazerParts(scene, dots, N) {
+    const shell = new THREE.SphereGeometry(0.8, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2); shell.scale(1, 0.6, 1.3);
+    const dg = G.merge(dots.map(d => ({ g: new THREE.SphereGeometry(0.07, 6, 4), m: mT(d.x, d.y, d.z) })));
     const lp = [];
     [-1, 1].forEach(s => { for (let k = 0; k < 3; k++) { const geo = new THREE.CylinderGeometry(0.035, 0.03, 0.6, 4); geo.translate(0, -0.3, 0); lp.push({ g: geo, m: new THREE.Matrix4().makeTranslation(s * 0.6, 0.15, (k - 1) * 0.45).multiply(new THREE.Matrix4().makeRotationZ(s * 0.9)) }); } });
-    const legs = new THREE.Mesh(G.merge(lp), new THREE.MeshLambertMaterial({ color: 0x3a2f45 }));
-    g.add(legs); g.userData.legs = legs; g.userData.shell = shell;
-    return g;
+    return partsIM(scene, [
+      { g: shell, mat: new THREE.MeshLambertMaterial({ color: 0x7b6a8c, emissive: 0x120a18 }), m: new THREE.Matrix4() },
+      { g: dg, mat: new THREE.MeshBasicMaterial({ color: 0xffb259 }), m: new THREE.Matrix4() },
+      { g: G.merge(lp), mat: new THREE.MeshLambertMaterial({ color: 0x3a2f45 }), m: new THREE.Matrix4() }
+    ], N);
   }
+  const gzShellL = new THREE.Matrix4(), gzLegL = new THREE.Matrix4(), gzBase = new THREE.Matrix4();
+  function grazerRender(gz) {
+    if (!gz.visible) { placeParts(E.grazerParts, gz.i, gzBase, true); return; }
+    gzBase.compose(gz.p, tq.setFromAxisAngle(tv.set(0, 1, 0), gz.dir), tv2.set(1, 1, 1));
+    gzShellL.makeRotationX(gz.shellRot || 0); gzLegL.makeRotationX(gz.legRot || 0);
+    placeParts(E.grazerParts, gz.i, gzBase, false, [gzShellL, null, gzLegL]);
+  }
+  const tq = new THREE.Quaternion();
   function pickPatch(gz) {
     let best = null, bs = -1;
     for (const pt of G.World.patches) {
@@ -487,18 +516,19 @@
     const P = G.World.patches; if (!P.length) return;
     for (let i = 0; i < 10; i++) {
       const pt = P[(i * 2) % P.length];
-      const gz = { p: new V3(pt.x + G.rr(-3, 3), pt.y, pt.z + G.rr(-3, 3)), dir: G.rr(0, 6.28), state: 'walk', patch: null, timer: 0, alive: true, t: 0, gcd: G.rr(0, 20), mesh: makeGrazer() };
-      gz.patch = pickPatch(gz); scene.add(gz.mesh); E.grazers.push(gz);
+      const gz = { i, p: new V3(pt.x + G.rr(-3, 3), pt.y, pt.z + G.rr(-3, 3)), dir: G.rr(0, 6.28), state: 'walk', patch: null, timer: 0, alive: true, t: 0, gcd: G.rr(0, 20), dots: grazerDots(), visible: true, legRot: 0, shellRot: 0 };
+      gz.patch = pickPatch(gz); E.grazers.push(gz);
     }
+    E.grazerParts = grazerParts(scene, E.grazers[0].dots, E.grazers.length);
+    E.grazers.forEach(grazerRender);
   }
   function grazerUpdate(gz, dt, t) {
     if (!gz.alive) {
       gz.t -= dt;
-      if (gz.t <= 0) { const pt = G.pick(G.World.patches); gz.p.set(pt.x + G.rr(-3, 3), 0, pt.z + G.rr(-3, 3)); gz.patch = pickPatch(gz); gz.state = 'walk'; gz.alive = true; gz.mesh.visible = true; }
-      else return;
+      if (gz.t <= 0) { const pt = G.pick(G.World.patches); gz.p.set(pt.x + G.rr(-3, 3), 0, pt.z + G.rr(-3, 3)); gz.patch = pickPatch(gz); gz.state = 'walk'; gz.alive = true; gz.visible = true; }
+      else { grazerRender(gz); return; }
     }
     gz.gcd -= dt;
-    const legs = gz.mesh.userData.legs;
     if (gz.state === 'walk') {
       const tp = gz.patch; if (!tp) { gz.patch = pickPatch(gz); return; }
       const dx = tp.x - gz.p.x, dz = tp.z - gz.p.z, d = Math.hypot(dx, dz);
@@ -510,14 +540,14 @@
         gz.dir += da * Math.min(1, dt * 1.5);
         gz.p.x += Math.sin(gz.dir) * 0.9 * dt; gz.p.z += Math.cos(gz.dir) * 0.9 * dt;
       }
-      legs.rotation.x = Math.sin(t * 7 + gz.dir) * 0.18;
+      gz.legRot = Math.sin(t * 7 + gz.dir) * 0.18;
     } else {
       gz.patch.food = Math.max(0, gz.patch.food - dt * 0.05); gz.timer -= dt;
-      gz.mesh.userData.shell.rotation.x = Math.sin(t * 3) * 0.05;
+      gz.shellRot = Math.sin(t * 3) * 0.05;
       if (gz.timer <= 0 || gz.patch.food < 0.08) { gz.patch = pickPatch(gz); gz.state = 'walk'; }
     }
     gz.p.y = H(gz.p.x, gz.p.z) + 0.1;
-    gz.mesh.position.copy(gz.p); gz.mesh.rotation.y = gz.dir;
+    grazerRender(gz);
   }
 
   /* ======================= СТЕКЛОУСТЫ ======================= */
@@ -527,14 +557,13 @@
     E.eelIM = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshLambertMaterial({ color: 0xc8f8ff, emissive: 0x2a6f7d, transparent: true, opacity: 0.4, depthWrite: false }), Math.max(1, N * (ESEG - 1)));
     E.eelDotIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.06, 6, 4), new THREE.MeshBasicMaterial({ color: 0xfff0a0 }), Math.max(1, N * (ESEG - 1)));
     [E.eelIM, E.eelDotIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    E.eelHeadParts = partsIM(scene, [
+      { g: new THREE.SphereGeometry(0.3, 12, 8), mat: new THREE.MeshLambertMaterial({ color: 0xd8fbff, emissive: 0x2a6f7d, transparent: true, opacity: 0.55, depthWrite: false }), m: new THREE.Matrix4().makeScale(1, 0.8, 1.6) },
+      { g: new THREE.SphereGeometry(0.09, 8, 6), mat: new THREE.MeshBasicMaterial({ color: 0xff3b4e }), m: mT(0, 0.13, 0.3) },
+      { g: new THREE.TorusGeometry(0.17, 0.03, 6, 16), mat: new THREE.MeshBasicMaterial({ color: 0xffe2b8 }), m: mT(0, 0, 0.48) }
+    ], N);
     L.forEach((lr, i) => {
-      const head = new THREE.Group();
-      const hs = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), new THREE.MeshLambertMaterial({ color: 0xd8fbff, emissive: 0x2a6f7d, transparent: true, opacity: 0.55, depthWrite: false }));
-      hs.scale.set(1, 0.8, 1.6); head.add(hs);
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3b4e })); eye.position.set(0, 0.13, 0.3); head.add(eye);
-      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.03, 6, 16), new THREE.MeshBasicMaterial({ color: 0xffe2b8 })); mouth.position.z = 0.48; head.add(mouth);
-      scene.add(head);
-      const el = { lair: lr.mouth.clone(), out: lr.out.clone(), state: 'hide', p: lr.mouth.clone(), target: null, kind: null, timer: 0, cd: G.rr(10, 25), segs: [], head, i };
+      const el = { lair: lr.mouth.clone(), out: lr.out.clone(), state: 'hide', p: lr.mouth.clone(), target: null, kind: null, timer: 0, cd: G.rr(10, 25), segs: [], i };
       for (let k = 0; k < ESEG; k++) el.segs.push(lr.mouth.clone().addScaledVector(lr.out, -k * 0.45));
       E.eels.push(el);
     });
@@ -564,7 +593,7 @@
         if (!el.target.alive || el.timer <= 0) { el.state = 'return'; el.cd = 8; break; }
         if (el.p.distanceTo(goal) < 1.3) {
           if (el.kind === 'grazer') {
-            el.target.alive = false; el.target.t = G.rr(40, 60); el.target.mesh.visible = false;
+            el.target.alive = false; el.target.t = G.rr(40, 60); el.target.visible = false;
             E.emit('eel', 'eelcatch', el.p, () => `${cap(G.nm('eel'))} утащил ${G.nm('grazer', 'acc')} в расщелину`);
           } else {
             killFish(el.target);
@@ -612,8 +641,9 @@
       E.eelIM.setMatrixAt(base + k - 1, dummy.matrix);
       E.eelDotIM.setMatrixAt(base + k - 1, new THREE.Matrix4().makeTranslation(dummy.position.x, dummy.position.y, dummy.position.z));
     }
-    el.head.position.copy(segs[0]);
-    el.head.lookAt(tv.copy(segs[0]).multiplyScalar(2).sub(segs[1]));
+    dummy.position.copy(segs[0]); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1);
+    dummy.lookAt(tv.copy(segs[0]).multiplyScalar(2).sub(segs[1])); dummy.updateMatrix();
+    placeParts(E.eelHeadParts, idx, dummy.matrix, false);
   }
 
   /* ======================= ЛЕДОКРЫЛЫ ======================= */

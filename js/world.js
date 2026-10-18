@@ -221,6 +221,7 @@
     inst(scene, crystalGeo, crystalMat, mats(placeMany(60, 30, -170, 80, -80, -10, 4), () => G.rr(0.8, 2.2), 0.25));
 
     /* ---------- пятна светящегося мха (еда скребунов) ---------- */
+    const mossPos = [], mossCol = [], mossIdx = []; // все пятна мха — один меш, яркость пятна в альфе вершин
     placeMany(22, -10, 30, 170, -56, -12, 18).forEach(p => {
       const pg = new THREE.PlaneGeometry(7, 7, 8, 8); pg.rotateX(-Math.PI / 2);
       const pp = pg.attributes.position, col = new Float32Array(pp.count * 4);
@@ -230,11 +231,21 @@
         const a = G.smooth(3.4, 1.0, Math.hypot(lx, lz)) * (0.55 + G.noise(lx * 1.3 + p.x, lz * 1.3) * 0.6);
         col.set([0.45, 1, 0.75, a], i * 4);
       }
-      pg.setAttribute('color', new THREE.BufferAttribute(col, 4));
-      const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0x9dffd0, vertexColors: true, transparent: true, depthWrite: false }));
-      m.position.copy(p); scene.add(m);
-      W.patches.push({ x: p.x, y: p.y, z: p.z, food: G.rr(0.6, 1), mesh: m });
+      const v0 = mossPos.length / 3, base = new Float32Array(pp.count);
+      for (let i = 0; i < pp.count; i++) { mossPos.push(pp.getX(i) + p.x, pp.getY(i) + p.y, pp.getZ(i) + p.z); mossCol.push(col[i * 4], col[i * 4 + 1], col[i * 4 + 2], col[i * 4 + 3]); base[i] = col[i * 4 + 3]; }
+      for (let i = 0; i < pg.index.count; i++) mossIdx.push(pg.index.array[i] + v0);
+      pg.dispose();
+      W.patches.push({ x: p.x, y: p.y, z: p.z, food: G.rr(0.6, 1), v0, base, alpha: -1 });
     });
+    {
+      const mg = new THREE.BufferGeometry();
+      mg.setAttribute('position', new THREE.Float32BufferAttribute(mossPos, 3));
+      mg.setAttribute('color', new THREE.Float32BufferAttribute(mossCol, 4));
+      mg.setIndex(mossIdx);
+      W.moss = new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ color: 0x9dffd0, vertexColors: true, transparent: true, depthWrite: false }));
+      W.moss.frustumCulled = false; scene.add(W.moss);
+      W.patches.forEach(mossAlpha);
+    }
 
     /* ---------- логова стеклоустов ---------- */
     [[28, 52], [-62, -8], [62, -45]].forEach(([x, z]) => {
@@ -359,12 +370,24 @@
     }
   };
 
+  /* яркость пятна мха: 0.15 у объеденного, 1 у нетронутого */
+  function mossAlpha(p) {
+    const a = 0.15 + 0.85 * p.food;
+    if (Math.abs(a - p.alpha) < 0.002) return false;
+    p.alpha = a;
+    const arr = W.moss.geometry.attributes.color.array;
+    for (let i = 0; i < p.base.length; i++) arr[(p.v0 + i) * 4 + 3] = p.base[i] * a;
+    return true;
+  }
+  W.mossAlpha = mossAlpha;
   const mod = (a, b) => ((a % b) + b) % b;
   W.update = function (dt, t) {
     W.caust.offset.set(t * 0.012, t * 0.007);
     W.shafts.forEach(s => { s.material.opacity = s.userData.op * (0.75 + 0.25 * Math.sin(t * 0.4 + s.userData.ph)); });
     W.anim.forEach(f => f(dt, t));
-    W.patches.forEach(p => { p.food = Math.min(1, p.food + dt * 0.012); p.mesh.material.opacity = 0.15 + 0.85 * p.food; });
+    let mossDirty = false;
+    W.patches.forEach(p => { p.food = Math.min(1, p.food + dt * 0.012); if (mossAlpha(p)) mossDirty = true; });
+    if (mossDirty) W.moss.geometry.attributes.color.needsUpdate = true;
     const s = W.snow, c = G.Ship.pos, B = s.B, h = B / 2;
     for (let i = 0; i < s.N; i++) {
       const k = i * 3;
