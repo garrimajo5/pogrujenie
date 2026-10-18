@@ -74,6 +74,14 @@
     }
     A.org.gain.setTargetAtTime(A.muted ? 0 : l * l * 0.12, A.ctx.currentTime, 0.5);
   };
+  /* сирена пробоины: два тона, пока level > 0 */
+  A.siren = (level, t) => {
+    if (!A.on) return;
+    if (!A.sir) { const c = A.ctx, o = c.createOscillator(), g = c.createGain(); o.type = 'square'; o.frequency.value = 620; g.gain.value = 0; o.connect(g); g.connect(A.master); o.start(); A.sir = { o, g }; }
+    const on = level > 0 && !A.muted, now = A.ctx.currentTime;
+    A.sir.g.gain.setTargetAtTime(on ? (Math.sin((t || 0) * 6) > 0 ? 0.05 : 0.012) : 0, now, 0.02);
+    if (on) A.sir.o.frequency.setTargetAtTime(Math.sin((t || 0) * 3) > 0 ? 620 : 780, now, 0.01);
+  };
   A.alarm = () => { if (!ok()) return; osc('square', 880, 660, now(), 0.35, 0.05); };
   A.toggleMute = () => { A.muted = !A.muted; if (A.master) A.master.gain.value = A.muted ? 0 : A.vol; return A.muted; };
   /* громкость 0..1 из настроек; 0 — звук выключен */

@@ -156,6 +156,8 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .pw-bar i { display: block; height: 100%; background: var(--amber); }
 .pw-row output { text-align: right; color: var(--amber); font-variant-numeric: tabular-nums; }
 .pw-foot { font-size: 11px; color: var(--dim); }
+#alert { position: absolute; left: 50%; top: calc(var(--st) + 8px); transform: translateX(-50%); padding: 6px 14px; font: 700 13px var(--mono); letter-spacing: .08em; color: #fff; background: rgba(160, 20, 34, .85); border: 1px solid var(--alarm); animation: alertBlink 1s steps(2) infinite; z-index: 5; white-space: nowrap; }
+@keyframes alertBlink { 50% { background: rgba(80, 8, 16, .85); } }
 #errbox { position: fixed; left: 8px; right: 8px; bottom: 8px; background: #400; color: #fff; font-size: 11px; padding: 8px; z-index: 99; }
 
 @media (max-height: 460px) {
@@ -173,6 +175,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   #feed { bottom: calc(var(--sb) + 150px); }
   #toast { top: 14%; }
   #power { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
+  #alert { left: calc(var(--sl) + 200px); transform: none; font-size: 11px; padding: 4px 10px; } /* между приборами и кнопками сверху */
   .pw-row { padding: 1px 4px; }
   .pw-row .chip { min-height: 28px; }
   .pw-name small { display: none; }
