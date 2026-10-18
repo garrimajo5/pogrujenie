@@ -120,6 +120,10 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .j-card.focus { border-color: var(--amber); }
 .j-prog { font-size: 10px; color: var(--dim); letter-spacing: .08em; }
 
+#dbg { position: absolute; left: var(--sl); top: calc(var(--st) + 120px); width: min(420px, 70vw); background: rgba(0, 0, 0, .78); border: 1px solid var(--amber); padding: 8px; display: grid; gap: 6px; pointer-events: auto; z-index: 5; }
+#dbg pre { margin: 0; font: 11px/1.45 var(--mono); color: var(--amber); white-space: pre-wrap; }
+#dbg .dbg-row { display: flex; flex-wrap: wrap; gap: 4px; }
+#dbg button { font: 600 10px var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); padding: 5px 7px; }
 #errbox { position: fixed; left: 8px; right: 8px; bottom: 8px; background: #400; color: #fff; font-size: 11px; padding: 8px; z-index: 99; }
 
 @media (max-height: 460px) {

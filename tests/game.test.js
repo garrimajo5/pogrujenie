@@ -32,30 +32,37 @@ T.describe('Кнопка действия', () => {
 
 T.describe('Сканирование', () => {
   const D = () => G.Game.debug;
-  function aimAtSomething() {
-    for (const tg of G.Eco.scanTargets().sort((a, b) => b.r - a.r)) {
-      if (tg.pos.distanceTo(G.Ship.center) > 75) continue;
-      D().lookAt(tg.pos); D().frame(1);
-      if (D().actionLabel().startsWith('Сканировать')) return tg.sp;
-    }
-    return null;
-  }
   T.test('удержание кнопки заносит вид в журнал', () => {
-    G.Game.toggleHelm();
-    let sp = aimAtSomething();
-    if (!sp) { G.Ship.pos.set(G.Eco.veils[0].p.x, G.Eco.veils[0].p.y - 6, G.Eco.veils[0].p.z + 30); D().frame(2); sp = aimAtSomething(); }
-    T.ok(sp, 'в окне нет ни одного существа');
+    const vl = G.Eco.veils[0];
+    vl.p.copy(G.Ship.front).add(T.V(0, 2, -30)); vl.home.copy(vl.p);
+    G.Game.toggleHelm(); D().frame(1);
+    D().lookAt(vl.scanP); D().frame(1);
+    T.eq(D().actionLabel(), 'Сканировать (держать)');
     G.Ctl.actionDown = true;
-    for (let i = 0; i < 80 && !G.SPECIES[sp].scanned; i++) { D().lookAt(G.Eco.scanTargets().find(t => t.sp === sp).pos); D().frame(1); }
+    for (let i = 0; i < 40 && !G.SPECIES.veil.scanned; i++) { D().lookAt(vl.scanP); D().frame(1); }
     G.Ctl.actionDown = false;
-    T.ok(G.SPECIES[sp].scanned, 'вид не отсканирован: ' + sp);
+    T.ok(G.SPECIES.veil.scanned, 'вуаль не отсканирована');
     T.ok(document.getElementById('j-count').textContent.startsWith('1/6'));
+    D().lookAt(vl.scanP); D().frame(1);
+    T.eq(D().actionLabel(), 'Сведения: Фонарная вуаль');
   });
-  T.test('сквозь стену не сканируется', () => {
-    const P = G.Game.player; P.x = 0; P.z = 5;
-    const tg = G.Eco.scanTargets()[0];
-    D().lookAt(tg.pos); D().frame(1);
-    T.ok(!D().actionLabel().startsWith('Сканировать'));
+  T.test('сканирование сбрасывается, если отпустить кнопку', () => {
+    const vl = G.Eco.veils[0];
+    vl.p.copy(G.Ship.front).add(T.V(0, 2, -30)); vl.home.copy(vl.p);
+    G.Game.toggleHelm(); D().lookAt(vl.scanP); D().frame(1);
+    G.Ctl.actionDown = true; for (let i = 0; i < 15; i++) { D().lookAt(vl.scanP); D().frame(1); }
+    G.Ctl.actionDown = false; for (let i = 0; i < 15; i++) { D().lookAt(vl.scanP); D().frame(1); }
+    G.Ctl.actionDown = true; for (let i = 0; i < 15; i++) { D().lookAt(vl.scanP); D().frame(1); }
+    G.Ctl.actionDown = false;
+    T.ok(!G.SPECIES.veil.scanned, 'отсканировалось по кусочкам');
+  });
+  T.test('сквозь стену не сканируется, через окно — да', () => {
+    const vl = G.Eco.veils[0], P = G.Game.player;
+    vl.p.copy(G.Ship.front).add(T.V(0, 2, -30)); vl.home.copy(vl.p);
+    P.x = 0; P.z = 5; D().frame(1); D().lookAt(vl.scanP); D().frame(1);
+    T.ok(!D().actionLabel().startsWith('Сканировать'), 'из коридора сквозь переборку');
+    P.x = 0; P.z = -3; D().lookAt(vl.scanP); D().frame(1);
+    T.ok(D().actionLabel().startsWith('Сканировать'), 'с мостика через носовое окно');
   });
 });
 

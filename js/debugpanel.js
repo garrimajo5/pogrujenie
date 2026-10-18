@@ -1,0 +1,78 @@
+'use strict';
+/* Отладочная панель: FPS, нагрузка на видеокарту, состояние экосистемы, телепорт к местам.
+   Включается адресом с #debug или тройным касанием по панели приборов. */
+(function (G) {
+  const P = G.DebugPanel = { on: false, fps: 0, frames: 0, acc: 0, el: null };
+
+  P.teleport = function (key) {
+    const p = G.World.pois.find(x => x.key === key);
+    if (!p) return false;
+    const S = G.Ship;
+    S.pos.set(p.pos.x + 18, -12, p.pos.z + 18);
+    S.speed = 0; S.vy = 0;
+    S.pos.y = Math.max(-90, Math.min(-6, S.clearance(S.pos.x, S.pos.z, S.yaw) + 6));
+    S.applyTransform();
+    return true;
+  };
+
+  P.stats = function () {
+    const E = G.Eco, st = {};
+    E.preds.forEach(p => { st[p.state] = (st[p.state] || 0) + 1; });
+    const r = G.Game.debug.info();
+    return {
+      fps: Math.round(P.fps), calls: r.calls, tris: r.tris,
+      fish: E.fish.filter(f => f.alive).length + '/' + E.fish.length,
+      grazers: E.grazers.filter(g => g.alive).length + '/' + E.grazers.length,
+      preds: Object.entries(st).map(([k, v]) => k + ':' + v).join(' '),
+      latched: !!E.latched, hidden: E.shipHidden,
+      pos: G.Ship.pos.toArray().map(v => Math.round(v)).join(', ')
+    };
+  };
+
+  function build() {
+    const el = P.el = document.createElement('div');
+    el.id = 'dbg';
+    el.innerHTML = '<pre id="dbg-text"></pre><div class="dbg-row" id="dbg-tp"></div><div class="dbg-row"><button data-a="energy">Энергия 100</button><button data-a="hull">Корпус 100</button><button data-a="close">Скрыть</button></div>';
+    const tp = el.querySelector('#dbg-tp');
+    G.World.pois.forEach(p => { const b = document.createElement('button'); b.dataset.tp = p.key; b.textContent = '→ ' + p.name; tp.appendChild(b); });
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    el.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.tp) P.teleport(b.dataset.tp);
+      else if (b.dataset.a === 'energy') G.Ship.energy = 100;
+      else if (b.dataset.a === 'hull') G.Ship.hull = 100;
+      else if (b.dataset.a === 'close') P.set(false);
+    });
+    document.getElementById('hud').appendChild(el);
+  }
+
+  P.set = function (on) {
+    P.on = !!on;
+    if (P.on && !P.el) build();
+    if (P.el) P.el.hidden = !P.on;
+  };
+
+  P.tick = function (raw) {
+    P.frames++; P.acc += raw;
+    if (P.acc >= 0.5) { P.fps = P.frames / P.acc; P.frames = 0; P.acc = 0; if (P.on) render(); }
+  };
+  function render() {
+    const s = P.stats();
+    P.el.querySelector('#dbg-text').textContent =
+      `FPS ${s.fps}  вызовы ${s.calls}  треуг. ${(s.tris / 1000).toFixed(0)} тыс.\n` +
+      `рыбы ${s.fish}  скребуны ${s.grazers}\nхищники ${s.preds}\n` +
+      `стеклоуст на корпусе: ${s.latched ? 'да' : 'нет'}  под вуалью: ${s.hidden ? 'да' : 'нет'}\nкорабль ${s.pos}`;
+  }
+
+  P.init = function () {
+    if (location.hash === '#debug') P.set(true);
+    addEventListener('hashchange', () => P.set(location.hash === '#debug'));
+    const stats = document.getElementById('stats');
+    let taps = [];
+    stats.style.pointerEvents = 'auto';
+    stats.addEventListener('pointerdown', () => {
+      const now = performance.now(); taps = taps.filter(t => now - t < 900); taps.push(now);
+      if (taps.length >= 3) { taps = []; P.set(!P.on); }
+    });
+  };
+})(window.G);
