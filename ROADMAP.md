@@ -7,7 +7,7 @@
 Полный поэтапный план: этапы 0–8 (см. `docs/plan.md`). Сейчас идут этапы 0–1.
 
 ## Этап 0. Проверка идеи
-- [ ] Включить GitHub Pages и добавить ссылку на игру в README
+- [ ] Включить GitHub Pages (ждёт владельца: Settings → Pages → Deploy from a branch → main, / (root)). После включения добавить ссылку https://garrimajo5.github.io/pogrujenie/ в README
 - [x] GitHub Actions: смоук-тест `tools/smoke.py` на каждую PR
 - [ ] Отладочная панель по `#debug`: FPS, draw calls, треугольники, кнопка «телепорт к месту»
 - [ ] Сохранение журнала (виды, наблюдения, места) в localStorage, кнопка «сбросить прогресс»
