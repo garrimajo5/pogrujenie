@@ -9,10 +9,11 @@
    мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника;
    монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке;
    гротовик носит на спине риф, где живёт и прячется одна из стай светляков;
-   скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору. */
+   скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору;
+   присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -71,9 +72,12 @@
       notes: { drift: 'Неспешно бредёт по отмели, на спине растёт риф.', hide: 'Напуганная стая прячется в рифе на его спине — хищник её теряет.', shy: 'Если задеть его корпусом, прячет ноги под панцирь и замирает.' } },
     skalnik: { name: 'Скальник', acc: 'скальника', gen: 'скальника', unom: 'живой камень', uacc: 'живой камень', ugen: 'живого камня',
       desc: 'Рогатый спрут около 2 метров. Меняет цвет и рисунок кожи под окружающие камни и часами сидит неподвижно у нор.',
-      notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } }
+      notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } },
+    prisoska: { name: 'Присоска', acc: 'присосок', gen: 'присосок', unom: 'рыба-прилипала', uacc: 'рыб-прилипал', ugen: 'рыб-прилипал',
+      desc: 'Рыба-прилипала около 35 см. Держится присоской на темени за крупных существ — и за корпус «Ковчега».',
+      notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -516,7 +520,12 @@
           for (const gz of E.grazers) if (gz.alive && gz.p.distanceTo(el.lair) < 9) { prey = gz; kind = 'grazer'; break; }
           if (!prey) for (const f of E.fish) if (f.alive && f.p.distanceTo(el.lair) < 6) { prey = f; kind = 'fish'; break; }
           if (prey && G.rng() < dt * 0.6) { el.state = 'strike'; el.target = prey; el.kind = kind; el.timer = 3; }
-          else if (!E.latched && S.hull > 0 && S.front.distanceTo(el.lair) < 28 && G.rng() < dt * 0.5) { el.state = 'toShip'; el.timer = 6; }
+          else if (!E.latched && S.hull > 0 && S.front.distanceTo(el.lair) < 28 && G.rng() < dt * 0.5) {
+            if (E.hullRemoras > 0) { // на корпусе уже кто-то есть — стеклоуст не садится
+              el.cd = 15;
+              if (E.rmEelCd <= 0) { E.rmEelCd = 40; E.emit('prisoska', 'eel', el.lair, () => `${cap(G.nm('eel'))} выглянул из расщелины, но не сел на корпус: там уже прилипалы`); }
+            } else { el.state = 'toShip'; el.timer = 6; }
+          }
         }
         break;
       case 'strike':
@@ -1468,8 +1477,76 @@
     sk.arms.instanceMatrix.needsUpdate = true;
   }
 
+  /* ======================= ПРИСОСКИ ======================= */
+  /* Рыбы-прилипалы катаются на ледокрылах. Если корабль подойдёт к ледокрылу, они перебираются на корпус.
+     Стеклоуст не садится туда, где уже кто-то есть, — прилипалы на корпусе его отпугивают.
+     Зато каждая немного тормозит корабль. Разряд по корпусу их сбрасывает, и они уплывают к ледокрылам. */
+  const RM_PER_RAY = 3, RM_HOP_R = 16, RM_DRAG = 0.025;
+  const RM_SLOTS = [[-3.3, 0.85, -6.14], [3.4, 0.85, -6.14], [-2.5, 3.25, -3], [2.5, 3.25, -3.6], [0, 3.25, 0.5], [-5.05, 0.7, -0.9], [5.05, 0.7, -3.2], [0, 2.65, 4.2], [-4.05, 0.6, 9.5], [4.05, 0.6, 8.6]];
+  const RM_ON_RAY = [[-0.9, 0.55, 0.6], [1.0, 0.5, -0.4], [0.2, 0.6, -1.6]];
+  function initRemoras(scene) {
+    if (!E.rays.length) return;
+    const body = new THREE.SphereGeometry(1, 8, 5); body.scale(0.07, 0.05, 0.2);
+    const disc = new THREE.SphereGeometry(1, 8, 4); disc.scale(0.05, 0.015, 0.09); disc.translate(0, 0.045, 0.06);
+    const tail = new THREE.ConeGeometry(0.05, 0.1, 4); tail.rotateX(Math.PI / 2); tail.translate(0, 0, -0.24);
+    E.rmIM = new THREE.InstancedMesh(G.merge([{ g: body, c: new THREE.Color(0x55606a) }, { g: disc, c: new THREE.Color(0xd8e6ea) }, { g: tail, c: new THREE.Color(0x3a444c) }]),
+      new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x0c1418 }), E.rays.length * RM_PER_RAY);
+    E.rmIM.frustumCulled = false; scene.add(E.rmIM);
+    E.rays.forEach((ry, ri) => { for (let k = 0; k < RM_PER_RAY; k++) E.remoras.push({ i: E.remoras.length, state: 'ray', ray: ry, spot: k, slot: -1, p: new V3(), v: new V3(), dir: new V3(0, 0, 1), cd: 0, ph: k * 1.7 + ri }); });
+    E.remoras.forEach(rm => rmAnchor(rm, rm.p));
+  }
+  function rmAnchor(rm, out) { // точка, где прилипала держится сейчас
+    if (rm.state === 'hull' || (rm.state === 'swim' && rm.slot >= 0)) { const s = RM_SLOTS[rm.slot]; return G.Ship.group.localToWorld(out.set(s[0], s[1], s[2])); }
+    const o = RM_ON_RAY[rm.spot % RM_ON_RAY.length]; rm.ray.mesh.updateMatrixWorld(); return rm.ray.mesh.localToWorld(out.set(o[0], o[1], o[2]));
+  }
+  function freeSlot() { for (let s = 0; s < RM_SLOTS.length; s++) if (!E.remoras.some(r => r.slot === s)) return s; return -1; }
+  function remorasUpdate(dt, t) {
+    const S = G.Ship;
+    E.rmHopCd -= dt; E.rmEelCd -= dt; E.rmRideCd -= dt;
+    if (E.rmRideCd <= 0) for (const ry of E.rays) if (ry.p.distanceTo(S.center) < 40 && E.remoras.some(r => r.state === 'ray' && r.ray === ry)) {
+      E.rmRideCd = 120; E.emit('prisoska', 'ride', ry.p, () => `На спине ${G.nm('ray', 'gen')} катаются ${SP.prisoska.scanned ? 'присоски' : 'рыбы-прилипалы'}`); break;
+    }
+    for (const rm of E.remoras) {
+      rm.cd -= dt;
+      if (rm.state === 'ray') {
+        rmAnchor(rm, rm.p); rm.dir.copy(rm.ray.dir);
+        if (rm.cd <= 0 && E.rmHopCd <= 0 && S.hull > 0 && rm.ray.p.distanceTo(S.center) < RM_HOP_R) {
+          const s = freeSlot(); if (s >= 0) { rm.state = 'swim'; rm.slot = s; E.rmHopCd = 1.5; }
+        }
+      } else if (rm.state === 'swim') {
+        rmAnchor(rm, tv); tv2.copy(tv).sub(rm.p); const d = tv2.length();
+        if (d < 0.3) {
+          if (rm.slot >= 0) {
+            rm.state = 'hull';
+            const n = E.remoras.filter(r => r.state === 'hull').length;
+            E.emit('prisoska', 'hop', rm.p, n === 1 ? () => `${cap(G.nm('prisoska'))} перебралась с ${G.nm('ray', 'gen')} на корпус корабля` : null);
+            if (n === 3) E.emit('prisoska', 'drag', rm.p, () => `${cap(G.nm('prisoska', 'gen'))} на корпусе уже три — корабль идёт тяжелее`);
+          } else { rm.state = 'ray'; rm.cd = 60; }
+        } else { rm.p.addScaledVector(tv2, Math.min(1, 8 * dt / d)); rm.dir.copy(tv2).normalize(); }
+      } else if (rm.state === 'hull') { rmAnchor(rm, rm.p); tv.set(0, 0, -1).applyQuaternion(S.group.quaternion); rm.dir.copy(tv); }
+    }
+    E.hullRemoras = E.remoras.filter(r => r.state === 'hull').length;
+    E.remoras.forEach(rm => {
+      dummy.position.copy(rm.p); dummy.lookAt(tv.copy(rm.p).add(rm.dir));
+      if (rm.state === 'swim') dummy.rotateY(Math.sin(t * 14 + rm.ph) * 0.3);
+      dummy.scale.setScalar(1.6); dummy.updateMatrix(); E.rmIM.setMatrixAt(rm.i, dummy.matrix);
+    });
+    E.rmIM.instanceMatrix.needsUpdate = true;
+  }
+  /* разряд: прилипалы отцепляются и уплывают к ближайшему ледокрылу */
+  function remorasZap() {
+    let n = 0;
+    for (const rm of E.remoras) {
+      if (rm.state !== 'hull' && !(rm.state === 'swim' && rm.slot >= 0)) continue;
+      let best = E.rays[0], bd = 1e9; for (const ry of E.rays) { const d = ry.p.distanceTo(rm.p); if (d < bd) { bd = d; best = ry; } }
+      rm.ray = best; rm.slot = -1; rm.state = 'swim'; rm.cd = 60; n++;
+    }
+    E.hullRemoras = 0;
+    if (n) E.emit('prisoska', 'zap', G.Ship.center, () => `Разряд сбросил ${G.nm('prisoska', 'acc')} с корпуса`);
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1504,6 +1581,7 @@
     E.eels.forEach((el, i) => { eelUpdate(el, dt, t); eelRender(el, i, t); });
     E.eelIM.instanceMatrix.needsUpdate = true; E.eelDotIM.instanceMatrix.needsUpdate = true;
     E.rays.forEach(r => rayUpdate(r, dt, t));
+    if (E.rmIM) remorasUpdate(dt, t);
   };
 
   E.scanTargets = function () {
@@ -1522,6 +1600,7 @@
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
     if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
+    E.remoras.forEach(rm => L.push({ sp: 'prisoska', pos: rm.p, r: 0.4, noSonar: true }));
     if (E.skalnik) { const h = E.skalnik.camo >= 0.5; L.push({ sp: 'skalnik', pos: E.skalnik.p, r: 1, hidden: h, noSonar: h }); } // замаскированного не видно ни в прицеле, ни на сонаре
     E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
@@ -1541,6 +1620,7 @@
 
   E.onZap = function () {
     const S = G.Ship;
+    remorasZap();
     if (E.latched) {
       const el = E.latched; el.state = 'flee'; el.cd = 40; E.latched = null;
       E.emit('eel', 'zap', S.front, () => `Разряд сбросил ${G.nm('eel', 'acc')} с корпуса`);
@@ -1580,5 +1660,7 @@
     E.shoals.forEach(sh => { sh.alarm = 0; sh.follow = null; sh.followT = 0; sh.gt = 0; sh.fleeCd = 0; sh.threat = null; sh.goal.copy(sh.home); sh.c.copy(sh.home); });
     E.fish.forEach(f => { f.alive = true; f.t = 0; f.p.copy(f.s.home).add(f.o); f.v.copy(f.v0); });
     E.rays.forEach(r => { r.ang = r.ang0; r.init = false; r.fcd = 10; r.nT = 0; });
+    E.remoras.forEach(rm => { rm.state = 'ray'; rm.ray = E.rays[Math.floor(rm.i / RM_PER_RAY)]; rm.slot = -1; rm.cd = 0; });
+    E.hullRemoras = 0; E.rmHopCd = 0; E.rmEelCd = 0; E.rmRideCd = 0;
   };
 })(window.G);

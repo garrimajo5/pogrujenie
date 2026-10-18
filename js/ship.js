@@ -290,7 +290,8 @@
 
   S.update = function (dt, t) {
     const inp = S.input, en = S.energy > 2, k = en ? 1 : 0.25;
-    S.speed += (inp.thrust * (inp.thrust < 0 ? 1.6 : 3.0) * k - S.speed * 0.45) * dt;
+    const drag = 0.45 + 0.025 * (G.Eco.hullRemoras || 0); // прилипалы на корпусе тормозят
+    S.speed += (inp.thrust * (inp.thrust < 0 ? 1.6 : 3.0) * k - S.speed * drag) * dt;
     S.turn += (inp.turn - S.turn) * Math.min(1, dt * 2.5);
     S.yaw -= S.turn * 0.42 * dt;
     S.vy += (inp.vert * 2.6 * k - S.vy) * Math.min(1, dt * 1.6);
