@@ -32,11 +32,13 @@ T.describe('Гротовик', () => {
     quiet();
     const p0 = gr().p.clone(), sh = gr().sh;
     S().pos.copy(gr().p).add(T.V(0, 14, 20)); S().speed = S().vy = 0; S().applyTransform();
-    eco(1200, 0.1); // 2 минуты
+    eco(1000, 0.1); // почти 2 минуты
+    let sum = 0, n = 0; // стая кружит у рифа — меряем среднее расстояние за последние 20 с
+    for (let i = 0; i < 20; i++) { eco(10, 0.1); sum += Math.hypot(sh.c.x - gr().back.x, sh.c.z - gr().back.z); n++; }
     T.gt(Math.hypot(gr().p.x - p0.x, gr().p.z - p0.z), 30, 'гротовик стоит на месте');
     T.near(gr().p.y, G.World.height(gr().p.x, gr().p.z), 0.01, 'ноги не по дну');
     T.lt(sh.home.distanceTo(gr().back), 1);
-    T.lt(Math.hypot(sh.c.x - gr().back.x, sh.c.z - gr().back.z), 8, 'стая отстала от гротовика');
+    T.lt(sum / n, 7, 'стая отстала от гротовика');
     T.near(gr().ob.x, gr().p.x, 0.01); T.near(gr().ob.z, gr().p.z, 0.01);
     T.ok(ev.some(e => e.sp === 'grot' && e.note === 'drift'), 'нет наблюдения «бредёт»');
   });
