@@ -2,7 +2,7 @@
 /* Экосистема: виды, связи между ними, реакции на корабль */
 T.describe('Виды', () => {
   T.test('у каждого вида полное описание', () => {
-    T.eq(G.SPECIES_ORDER.length, 6);
+    T.eq(G.SPECIES_ORDER.length, 8);
     G.SPECIES_ORDER.forEach(k => {
       const s = G.SPECIES[k];
       ['name', 'acc', 'unom', 'uacc', 'desc'].forEach(f => T.ok(typeof s[f] === 'string' && s[f].length > 1, `${k}.${f}`));
@@ -20,7 +20,7 @@ T.describe('Виды', () => {
     T.gt(new Set(ev.map(e => e.sp + ':' + e.note)).size, 2, 'за 2 минуты почти ничего не произошло');
     ev.forEach(e => T.ok(G.SPECIES[e.sp] && G.SPECIES[e.sp].notes[e.note], 'неизвестное наблюдение ' + e.sp + ':' + e.note));
   });
-  T.test('сканируемые цели есть у всех шести видов', () => {
+  T.test('сканируемые цели есть у всех видов', () => {
     const sp = new Set(G.Eco.scanTargets().map(t => t.sp));
     G.SPECIES_ORDER.forEach(k => T.ok(sp.has(k), 'нет цели для ' + k));
   });
