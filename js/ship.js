@@ -292,7 +292,7 @@
     const x = S.powerScreen.userData.ctx, P = G.Power;
     x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 192);
     x.strokeStyle = '#5ef2d6'; x.strokeRect(4, 4, 248, 184);
-    x.fillStyle = '#5ef2d6'; x.font = '600 16px monospace'; x.textAlign = 'left'; x.fillText('РЕАКТОР ' + P.used() + '/' + P.TOTAL, 14, 26);
+    x.fillStyle = P.hot ? '#ff5d6c' : '#5ef2d6'; x.font = '600 16px monospace'; x.textAlign = 'left'; x.fillText(P.scram > 0 ? 'АВАРИЙНЫЙ СБРОС' : P.hot ? 'ПЕРЕГРЕВ ' + Math.round(P.heat) + '° · ' + P.used() + '/' + P.SAFE : 'РЕАКТОР ' + P.used() + '/' + P.TOTAL, 14, 26);
     P.KEYS.forEach((k, i) => {
       const y = 46 + i * 28;
       x.fillStyle = '#9fb4bb'; x.font = '13px monospace'; x.fillText(P.NAME[k].slice(0, 12).toUpperCase(), 14, y + 12);
@@ -378,8 +378,13 @@
     if (G.Eco.latched) drain += 3.2;
     S.energy = G.clamp(S.energy + (1.1 - drain) * dt, 0, 100);
     if (S.energy <= 0.5 && S.light) { S.light = false; G.Game.toast('Прожектор погас', 'Не хватает энергии'); }
-    if (S.light && G.Power.v.lamp <= 0) { S.light = false; G.Game.toast('Прожектор обесточен', 'В машинном отделении у прожектора 0 единиц'); }
-    if (S.reactorCore) { const pulse = 0.75 + 0.25 * Math.sin(t * 2.2); S.reactorCore.material.color.setRGB(0.3 * pulse, 0.8 * pulse + 0.1, 0.95); S.reactorLight.intensity = 0.7 + 0.3 * pulse; }
+    if (S.light && G.Power.k('lamp') <= 0) { S.light = false; G.Game.toast('Прожектор обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'В машинном отделении у прожектора 0 единиц'); }
+    G.Power.update(dt, t);
+    if (S.reactorCore) { // стержень краснеет от перегрева и гаснет при аварийном сбросе
+      const P = G.Power, h = P.heat / 100, pulse = 0.75 + 0.25 * Math.sin(t * (2.2 + h * 6)), off = P.scram > 0 ? 0.15 : 1;
+      S.reactorCore.material.color.setRGB((0.3 + 0.7 * h) * pulse * off, (0.8 - 0.6 * h) * pulse * off + 0.05, (0.95 - 0.8 * h) * off);
+      S.reactorLight.color.setRGB(0.4 + 0.6 * h, 0.9 - 0.6 * h, 1 - 0.8 * h); S.reactorLight.intensity = (0.7 + 0.3 * pulse) * off;
+    }
     if (S.hull > 0 && S.hull < 100) S.hull = Math.min(100, S.hull + dt * 0.15 * G.Power.k('life')); // жизнеобеспечение чинит корпус
 
     // свет

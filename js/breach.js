@@ -135,6 +135,7 @@
     W.visible = B.water > 0.005 && !!room;
     if (W.visible) { W.position.set(room.floor.x, B.water, room.floor.z); W.scale.set(room.floor.w - 0.1, room.floor.d - 0.1, 1); }
     B.msgCd -= dt;
-    if (sp && B.msgCd <= 0) { B.msgCd = 0.25; B.alert(true); } else if (!sp) B.alert(false);
+    if (sp && B.msgCd <= 0) { B.msgCd = 0.25; B.alert(true); } else if (!sp && B.wasActive) B.alert(false); // табло отдаём перегреву
+    B.wasActive = !!sp;
   };
 })(window.G);
