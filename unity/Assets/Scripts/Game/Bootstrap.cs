@@ -21,6 +21,11 @@ namespace Pogrujenie.Game
         public Transform Ship { get; private set; }
         public Light Lamp { get; private set; }
         public Transform[] Fireflies { get; private set; }
+        public TouchInput Controls { get; private set; }
+        public Player Player { get; private set; }
+
+        /// <summary>Прожектор включён (кнопкой действия). Светит, только если у него есть энергия.</summary>
+        public bool LampOn = true;
 
         string lastMsg = "";
 
@@ -86,14 +91,29 @@ namespace Pogrujenie.Game
             var hull = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             hull.name = "Корпус";
             hull.transform.SetParent(ship, false);
+            hull.transform.localPosition = new Vector3(0, 1.5f, 9f);
             hull.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            hull.transform.localScale = new Vector3(3f, 6f, 3f); // 12 м в длину
+            hull.transform.localScale = new Vector3(11f, 16f, 5f); // 32 м: от носа z=−7 до кормы; изнутри не виден
             Paint(hull, new Color(0.55f, 0.5f, 0.42f));
             Destroy(hull.GetComponent<Collider>());
 
+            // палуба мостика (z от −6 до 2) и пульт штурвала у носа — пока вместо отсеков
+            var deck = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            deck.name = "Палуба мостика";
+            deck.transform.SetParent(ship, false);
+            deck.transform.localPosition = new Vector3(0, -0.05f, -2f);
+            deck.transform.localScale = new Vector3(10f, 0.1f, 8f);
+            Paint(deck, new Color(0.22f, 0.25f, 0.27f));
+            var helm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            helm.name = "Пульт штурвала";
+            helm.transform.SetParent(ship, false);
+            helm.transform.localPosition = new Vector3(0, 0.5f, -5.3f);
+            helm.transform.localScale = new Vector3(1.6f, 1f, 0.6f);
+            Paint(helm, new Color(0.3f, 0.45f, 0.5f));
+
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
-            lampGo.transform.localPosition = new Vector3(0, -0.5f, -6.5f);
+            lampGo.transform.localPosition = new Vector3(0, -0.5f, -7.2f);
             lampGo.transform.localRotation = Quaternion.Euler(15, 180, 0);
             Lamp = lampGo.AddComponent<Light>();
             Lamp.type = LightType.Spot;
@@ -115,8 +135,10 @@ namespace Pogrujenie.Game
             }
 
             Cam.transform.SetParent(ship, false);
-            Cam.transform.localPosition = new Vector3(0, 3f, 12f);
-            Cam.transform.localRotation = Quaternion.Euler(8, 180, 0); // смотрим вперёд, в −Z
+            Cam.nearClipPlane = 0.05f;
+            Controls = gameObject.AddComponent<TouchInput>();
+            Player = gameObject.AddComponent<Player>();
+            Player.Init(this);
             ApplyPower();
         }
 
@@ -130,12 +152,21 @@ namespace Pogrujenie.Game
         public void ApplyPower()
         {
             float k = Reactor.K(ShipSystem.Lamp);
-            Lamp.enabled = k > 0f;
+            Lamp.enabled = LampOn && k > 0f;
             Lamp.range = LampRange * k;
+        }
+
+        /// <summary>Кнопка действия на мостике: включить или погасить прожектор.</summary>
+        public void ToggleLamp()
+        {
+            LampOn = !LampOn;
+            if (LampOn && Reactor.K(ShipSystem.Lamp) <= 0f) lastMsg = "Прожектор обесточен";
+            ApplyPower();
         }
 
         void Update()
         {
+            Controls.ActionLabel = LampOn ? "Погасить" : "Свет";
             // перегрев реактора (Reactor.Update) включится вместе с машинным отделением
             ApplyPower();
             float t = Time.time;
