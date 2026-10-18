@@ -1,6 +1,6 @@
 'use strict';
 /* Тесты сервера синхронизации: node server/test.js. Клиент WebSocket написан тут же, без библиотек. */
-const http = require('http'), crypto = require('crypto'), assert = require('assert');
+const http = require('http'), https = require('https'), crypto = require('crypto'), assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
 const { createServer } = require('./server');
 
 function client(port) {
@@ -108,6 +108,28 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       const e = await extra.next('error'); assert.ok(e.msg.includes('пять'));
       crew.concat(extra).forEach(x => x.close()); await wait(50);
       assert.ok(!srv.rooms.has('ПОЛНЫЙ'), 'пустая комната не удалена');
+    });
+    await t('папку сервера не отдаёт: ключ сертификата не утечёт', async () => {
+      for (const p of ['/server/cert/key.pem', '/server/server.js', '/server']) {
+        const code = await new Promise(res => http.get({ host: '127.0.0.1', port, path: p }, r => { r.resume(); res(r.statusCode); }));
+        assert.notStrictEqual(code, 200, 'отдал ' + p);
+      }
+    });
+    await t('HTTPS: свой сертификат с адресами в сети, браузерный клиент ему верит', async () => {
+      const { generate, load } = require('./cert');
+      const g = generate(['192.168.1.50'], 30), x = new crypto.X509Certificate(g.cert);
+      assert.ok(x.checkIP('192.168.1.50') && x.checkIP('127.0.0.1') && x.checkHost('localhost'), 'нет адресов в сертификате');
+      assert.ok(x.verify(x.publicKey), 'подпись не сходится'); assert.ok(!x.ca, 'сертификат центра сертификации');
+      const s2 = createServer({ tls: g }); await new Promise(r => s2.listen(0, '127.0.0.1', r)); const p2 = s2.address().port;
+      const code = await new Promise((res, rej) => https.get({ host: '127.0.0.1', port: p2, path: '/', ca: g.cert }, r => { r.resume(); res(r.statusCode); }).on('error', rej)); // проверка по имени и цепочке включена
+      assert.strictEqual(code, 200);
+      const up = await new Promise((res, rej) => { const q = https.request({ host: '127.0.0.1', port: p2, path: '/ws', ca: g.cert, headers: { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64'), 'Sec-WebSocket-Version': '13' } }); q.on('upgrade', (r, sock) => { sock.destroy(); res(r.statusCode); }); q.on('error', rej); q.end(); });
+      assert.strictEqual(up, 101, 'нет WebSocket по wss');
+      s2.close();
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pogr-cert-'));
+      const l1 = load(dir), l2 = load(dir);
+      assert.ok(l1.made && !l2.made, 'сертификат пересоздаётся каждый запуск'); assert.strictEqual(l1.cert, l2.cert);
+      fs.rmSync(dir, { recursive: true, force: true });
     });
     b.close(); c.close();
     console.log(`\nТестов сервера: ${ok}, все прошли`);

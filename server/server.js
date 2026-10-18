@@ -13,27 +13,29 @@
      любой  → {t:'role', role}                  → всем в комнате {t:'peer', ev:'role', id, name, role}
      сервер → {t:'peer', ev:'join'|'leave', id, name}, {t:'host', id}, {t:'error', msg}
    Роли: pilot, sonar, eng, bio — у каждой роли один хозяин; пустая строка снимает роль. */
-const http = require('http'), crypto = require('crypto'), fs = require('fs'), path = require('path');
+const http = require('http'), https = require('https'), crypto = require('crypto'), fs = require('fs'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.md': 'text/markdown; charset=utf-8' };
 const MAX_MSG = 64 * 1024, RATE = 60, ROOM_MAX = 5;
 
-function createServer() {
+function createServer(opts) {
+  opts = opts || {};
   const ROLES = ['pilot', 'sonar', 'eng', 'bio'];
   const rooms = new Map(); // room → { peers: [client], host: client }
   let nextId = 1;
 
-  const srv = http.createServer((req, res) => { // статика: index.html, js, css, lib, docs
+  const handler = (req, res) => { // статика: index.html, js, css, lib, docs
     let p = decodeURIComponent((req.url || '/').split('?')[0]);
     if (p === '/') p = '/index.html';
     const file = path.resolve(ROOT, '.' + p);
-    if (!file.startsWith(ROOT + path.sep) || /[\\/]\./.test(p)) { res.writeHead(403); res.end('нельзя'); return; }
+    if (!file.startsWith(ROOT + path.sep) || /[\\/]\./.test(p) || /^\/server(\/|$)/.test(p)) { res.writeHead(403); res.end('нельзя'); return; } // папку сервера (ключ сертификата) не отдаём
     fs.readFile(file, (err, data) => {
       if (err) { res.writeHead(404); res.end('не найдено'); return; }
       res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' }); res.end(data);
     });
-  });
+  };
+  const srv = opts.tls ? https.createServer({ key: opts.tls.key, cert: opts.tls.cert }, handler) : http.createServer(handler); // HTTPS — для микрофона и AR на телефоне
 
   srv.on('upgrade', (req, sock) => {
     const key = req.headers['sec-websocket-key'];
@@ -116,6 +118,16 @@ function createServer() {
 
 module.exports = { createServer };
 if (require.main === module) {
-  const port = +process.argv[2] || +process.env.PORT || 8787;
-  createServer().listen(port, () => console.log(`Погружение: http://localhost:${port}/  ·  WebSocket ws://localhost:${port}/ws`));
+  /* node server/server.js [порт] [--https] */
+  const args = process.argv.slice(2), secure = args.includes('--https');
+  const port = +args.find(a => /^\d+$/.test(a)) || +process.env.PORT || 8787;
+  let tls = null;
+  if (secure) { tls = require('./cert').load(); if (tls.made) console.log('Создан сертификат: server/cert/cert.pem'); }
+  const proto = secure ? 'https' : 'http';
+  createServer({ tls }).listen(port, () => {
+    console.log(`Погружение: ${proto}://localhost:${port}/`);
+    require('./cert').lanAddrs().forEach(ip => console.log(`  в Wi‑Fi: ${proto}://${ip}:${port}/index.html?room=КОВЧЕГ&name=Имя`));
+    if (secure) console.log('  Браузер один раз предупредит о сертификате: «Дополнительно» → «Перейти на сайт».');
+    else console.log('  Микрофон и AR на телефоне работают только по HTTPS: запустите с --https');
+  });
 }
