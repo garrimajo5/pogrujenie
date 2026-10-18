@@ -22,7 +22,9 @@
 
   So.ping = function () {
     const S = G.Ship;
+    if (G.Power.v.son <= 0) { G.Game.toast('Сонар обесточен', 'В машинном отделении у сонара 0 единиц'); G.Audio.beep(220); return; }
     if (S.energy < 6) { G.Game.toast('Мало энергии', 'Для импульса нужно 6 единиц'); return; }
+    So.range = 110 * G.Power.k('son'); // дальность импульса — от доли сонара в реакторе
     S.energy -= 6; So.pingT = G.Game.t; G.Audio.ping();
     So.blips = G.Eco.scanTargets()
       .filter(tg => !tg.noSonar && Math.hypot(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z) < So.range)

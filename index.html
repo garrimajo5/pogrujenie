@@ -16,6 +16,11 @@
 <div id="fx-danger"></div>
 
 <div id="hud" hidden>
+  <div id="power" hidden>
+    <div class="pw-head"><div><div class="tag">Машинное отделение</div><b>Энергия реактора</b></div><button class="chip" data-a="close" type="button">Готово</button></div>
+    <div class="pw-rows"></div>
+    <div class="pw-foot" id="pw-free"></div>
+  </div>
   <div id="stats">
     <div class="row"><span class="k">ГЛУБИНА</span><b id="s-depth">0</b><span class="u">м</span><span class="k">КУРС</span><b id="s-head">000</b><span class="u">°</span></div>
     <div class="row"><span class="k">СКОРОСТЬ</span><b id="s-speed">0.0</b><span class="u">м/с</span></div>
@@ -72,7 +77,7 @@
       <div><b>Телефон</b><ul><li>Кнопки слева — ходить по кораблю или вести его</li><li>Свайп по экрану — осмотреться; «Гироскоп» — смотреть, поворачивая телефон</li><li>Круглая кнопка — действие. Удерживайте, чтобы сканировать существо</li></ul></div>
       <div><b>Компьютер</b><ul><li>WASD — движение, мышь с зажатой кнопкой — обзор</li><li>E — действие, F — прожектор, Q — сонар, X — встать</li><li>Пробел / Shift — всплыть / погрузиться, J — журнал</li></ul></div>
     </div>
-    <p class="hint">Серпохвосты нападают на корабль со светом. Стеклоусты присасываются к стеклу. На мостике есть сонар и пульт разряда.</p>
+    <p class="hint">Серпохвосты нападают на корабль со светом. Стеклоусты присасываются к стеклу. На мостике есть сонар и пульт разряда, в машинном отделении — пульт энергии реактора.</p>
     <div id="loading">Собираю риф…</div>
     <div class="intro-btns"><button id="b-start" class="big" hidden>Начать погружение</button><button id="b-intro-settings" class="chip" type="button">Настройки</button></div>
   </div>
@@ -104,6 +109,7 @@
 <script src="js/controls.js"></script>
 <script src="js/save.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/power.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/debugpanel.js"></script>
 <script src="js/game.js"></script>

@@ -774,7 +774,7 @@
     if (fresh) updateBeam();
     if (!S.light || S.energy <= 0.5) return false;
     tv.copy(p).sub(beamO); const d = tv.length();
-    if (d > BEAM_R || d < 0.01) return false;
+    if (d > BEAM_R * Math.sqrt(G.Power.k('lamp')) || d < 0.01) return false; // луч длиннее при большей доле прожектора
     return tv.dot(beamD) / d > Math.cos(BEAM_ANG);
   }
   E.inBeam = p => inBeam(p, true);
@@ -2055,7 +2055,7 @@
       E.emit('eel', 'zap', S.front, () => `Разряд сбросил ${G.nm('eel', 'acc')} с корпуса`);
     }
     E.preds.forEach(pr => {
-      if (pr.p.distanceTo(S.center) < 20) {
+      if (pr.p.distanceTo(S.center) < 20 * G.Power.k('zap')) { // радиус разряда — от доли в реакторе
         pr.state = 'flee'; pr.timer = 8; pr.cd = 30;
         tv.copy(pr.p).sub(S.center); if (tv.lengthSq() < 0.01) tv.set(1, 0, 0);
         pr.goal.copy(pr.p).add(tv.normalize().multiplyScalar(50)); pr.goal.y = Math.min(pr.goal.y, -6);
