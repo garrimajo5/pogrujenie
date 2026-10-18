@@ -10,10 +10,11 @@
    монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке;
    гротовик носит на спине риф, где живёт и прячется одна из стай светляков;
    скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору;
-   присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста. */
+   присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста;
+   каменщики прячут венчики, когда рядом крупный, а гул трубного органа заглушает двигатели корабля. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, masons: [], organs: [], shipMasked: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -24,7 +25,7 @@
       notes: { flee: 'Завидев хищника, стая ныряет в заросли кораллов.', kelp: 'В густом ленточнике хищник теряет напуганную стаю из виду.', follow: 'Стаи сопровождают ледокрылов и подбирают всё, что те взбаламутили.' } },
     pred: { name: 'Серпохвост', acc: 'серпохвоста', unom: 'крупный хищник', uacc: 'крупного хищника',
       desc: 'Хищник рифа длиной около шести метров. Глаза светятся красным, по бокам тянется цепочка огней. Хвост-серп глушит добычу.',
-      notes: { catch: 'Охотится на светляков, вырывая рыб из стаи.', avoid: 'Обходит фонарные вуали стороной.', ping: 'Слышит сонар и плывёт проверить источник звука.', ship: 'Идёт на таран, если у корабля горит прожектор.', zap: 'Разряд по корпусу отпугивает его.' } },
+      notes: { catch: 'Охотится на светляков, вырывая рыб из стаи.', avoid: 'Обходит фонарные вуали стороной.', ping: 'Слышит сонар и плывёт проверить источник звука.', ship: 'Идёт на таран, если у корабля горит прожектор.', hear: 'Слышит быстрый ход двигателей поблизости.', zap: 'Разряд по корпусу отпугивает его.' } },
     veil: { name: 'Фонарная вуаль', acc: 'фонарную вуаль', unom: 'колония медуз', uacc: 'колонию медуз',
       desc: 'Колония медуз размером с автобус. Дрейфует по течению, свет мерцает в общем ритме.',
       notes: { sting: 'Жалит рыб, которые подплывают к щупальцам.', hide: 'Под её куполом хищники теряют корабль из виду.' } },
@@ -75,9 +76,15 @@
       notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } },
     prisoska: { name: 'Присоска', acc: 'присосок', gen: 'присосок', unom: 'рыба-прилипала', uacc: 'рыб-прилипал', ugen: 'рыб-прилипал',
       desc: 'Рыба-прилипала около 35 см. Держится присоской на темени за крупных существ — и за корпус «Ковчега».',
-      notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } }
+      notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } },
+    kamen: { name: 'Каменщик', acc: 'каменщиков', gen: 'каменщиков', unom: 'трубчатые черви', uacc: 'трубчатых червей', ugen: 'трубчатых червей',
+      desc: 'Трубчатые черви около 30 см. Строят известковые трубки у огнецвета; за десятилетия их арки срастаются в рифы. Наружу выставляют яркие венчики.',
+      notes: { hide: 'Прячут венчики в трубки от вибрации, когда рядом проходит кто-то крупный.', warn: 'По спрятавшимся рядам видно, где идёт хищник.' } },
+    organ: { name: 'Трубный орган', acc: 'трубный орган', gen: 'трубного органа', unom: 'гудящая губка', uacc: 'гудящую губку', ugen: 'гудящей губки',
+      desc: 'Губка высотой около 2,5 метра из толстых труб. Течение проходит сквозь трубы, и губка гудит, как орган.',
+      notes: { hum: 'Гудит в течении низким голосом.', mask: 'Гул заглушает двигатели: рядом можно проскользнуть мимо серпохвоста.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -219,15 +226,18 @@
   function setLeech(pr, on) { pr.leech = on; pr.leechM.visible = on; if (!on) pr.station = null; }
   function startCharge(pr) {
     pr.state = 'charge'; pr.timer = 10;
-    if (!G.Ship.light && G.Game.t - E.lastPing >= 12 && E.shipWake > 0.5) E.emit('plankton', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил светящийся след ${G.nm('plankton', 'gen')} и разворачивается к кораблю`);
-    else E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`);
+    const ping = G.Game.t - E.lastPing < 12;
+    if (G.Ship.light) E.emit('pred', 'ship', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк свет`);
+    else if (ping) E.emit('pred', 'ping', pr.p, () => `${cap(G.nm('pred'))} разворачивается к кораблю — его привлёк сонар`);
+    else if (E.shipWake > 0.5) E.emit('plankton', 'betray', pr.p, () => `${cap(G.nm('pred'))} заметил светящийся след ${G.nm('plankton', 'gen')} и разворачивается к кораблю`);
+    else E.emit('pred', 'hear', pr.p, () => `${cap(G.nm('pred'))} услышал двигатели и разворачивается к кораблю`);
   }
   function predUpdate(pr, dt) {
     const S = G.Ship;
     pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt;
     const dShip = pr.p.distanceTo(S.center), atStation = nearStation(pr.p);
     const reach = pr.leech ? 48 : 32; // заражённый пиявником замечает корабль издалека
-    const lured = dShip < reach && (S.light || G.Game.t - E.lastPing < 12 || E.shipWake > 0.5) && !E.shipHidden && S.hull > 0;
+    const lured = ((dShip < reach && (S.light || G.Game.t - E.lastPing < 12 || E.shipWake > 0.5)) || hearsShip(pr, dShip)) && !E.shipHidden && S.hull > 0;
     const canAttack = pr.cd <= 0 && pr.hunger > (pr.leech ? 0.1 : 0.2) && lured && !E.shipSheltered && !atStation;
     /* вспышка радужников выдаёт корабль издалека: хищник плывёт проверить */
     if (E.flare > 0.5 && dShip >= reach && dShip < FLARE_REACH && !E.shipHidden && !E.shipSheltered && S.hull > 0 && pr.cd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
@@ -1545,8 +1555,123 @@
     if (n) E.emit('prisoska', 'zap', G.Ship.center, () => `Разряд сбросил ${G.nm('prisoska', 'acc')} с корпуса`);
   }
 
+  /* ======================= КАМЕНЩИКИ И ТРУБНЫЙ ОРГАН ======================= */
+  /* Каменщики — ряды трубчатых червей у огнецвета. Венчики прячутся в трубки, когда рядом проходит
+     что-то крупное: корабль на ходу, серпохвост, гротовик. По рядам видно, где идёт хищник.
+     Трубный орган — губка из толстых труб, гудит в течении. Гул заглушает двигатели: рядом с ним
+     серпохвост не слышит быстрый ход корабля. */
+  const KM_N = 16, KM_LEN = 7, KM_BIG_SHIP = 9, KM_BIG_PRED = 7, ORG_R = 22, HEAR_R = 24, HEAR_SPEED = 3;
+  function initMasons(scene) {
+    if (!E.stations.length) return;
+    const tg = new THREE.CylinderGeometry(0.05, 0.07, 0.35, 6); tg.translate(0, 0.17, 0);
+    const cg = new THREE.ConeGeometry(0.16, 0.14, 8, 1, true); cg.rotateX(Math.PI); cg.translate(0, 0.07, 0);
+    const N = E.stations.length * KM_N;
+    E.kmTubeIM = new THREE.InstancedMesh(tg, new THREE.MeshLambertMaterial({ color: 0xd8d0c0 }), N);
+    E.kmCrownIM = new THREE.InstancedMesh(cg, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), N);
+    [E.kmTubeIM, E.kmCrownIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    const pal = [0xff5f7a, 0xffb347, 0x6fe3ff, 0xc38cff].map(c => new THREE.Color(c));
+    E.stations.forEach((st, si) => {
+      const a = si * 2.1 + 0.5, dir = new V3(Math.cos(a), 0, Math.sin(a)), side = new V3(-dir.z, 0, dir.x);
+      const c0 = st.base.clone().addScaledVector(dir, 5);
+      const col = { i: si, st, c: c0.clone(), worms: [], hideCd: 0, warnCd: 0 };
+      for (let k = 0; k < KM_N; k++) {
+        const p = c0.clone().addScaledVector(side, (k / (KM_N - 1) - 0.5) * KM_LEN).addScaledVector(dir, Math.sin(k * 1.7) * 0.25);
+        p.y = H(p.x, p.z) - 0.02;
+        const w = { j: si * KM_N + k, p, top: p.clone().add(new V3(0, 0.35, 0)), ext: 1, quiet: 0 };
+        dummy.position.copy(p); dummy.rotation.set(Math.sin(k) * 0.12, k, Math.cos(k) * 0.12); dummy.scale.setScalar(1); dummy.updateMatrix();
+        E.kmTubeIM.setMatrixAt(w.j, dummy.matrix);
+        E.kmCrownIM.setColorAt(w.j, pal[(k + si) % pal.length]);
+        col.worms.push(w);
+      }
+      col.c.y = H(col.c.x, col.c.z);
+      E.masons.push(col);
+    });
+    E.kmTubeIM.instanceMatrix.needsUpdate = true; E.kmCrownIM.instanceColor.needsUpdate = true;
+  }
+  /* кто «крупный и шумный» рядом с точкой: 'ship', 'pred', 'grot' или null */
+  function bigNear(p) {
+    const S = G.Ship;
+    if ((Math.abs(S.speed) > 0.6 || Math.abs(S.vy) > 0.6) && S.center.distanceTo(p) < KM_BIG_SHIP) return 'ship';
+    for (const pr of E.preds) if (pr.p.distanceTo(p) < KM_BIG_PRED) return 'pred';
+    if (E.grot && E.grot.shy <= 0 && Math.hypot(E.grot.p.x - p.x, E.grot.p.z - p.z) < KM_BIG_PRED) return 'grot';
+    return null;
+  }
+  function masonsUpdate(dt, t) {
+    const S = G.Ship;
+    for (const col of E.masons) {
+      col.hideCd -= dt; col.warnCd -= dt;
+      let hidden = 0, why = null;
+      for (const w of col.worms) {
+        const b = bigNear(w.top);
+        if (b) { w.quiet = 3; why = why || b; }
+        w.quiet -= dt;
+        const want = w.quiet > 0 ? 0 : 1;
+        w.ext = want < w.ext ? Math.max(0, w.ext - dt * 6) : Math.min(1, w.ext + dt * 0.5); // прячутся мгновенно, раскрываются не спеша
+        if (w.ext < 0.3) hidden++;
+        dummy.position.copy(w.top); dummy.position.y -= (1 - w.ext) * 0.3;
+        dummy.rotation.set(0, t * 0.2 + w.j, 0);
+        const sc = 0.15 + 0.85 * w.ext; dummy.scale.set(sc, 0.3 + 0.7 * w.ext + Math.sin(t * 3 + w.j) * 0.05 * w.ext, sc); dummy.updateMatrix();
+        E.kmCrownIM.setMatrixAt(w.j, dummy.matrix);
+      }
+      col.hidden = hidden;
+      if (hidden >= 4 && col.hideCd <= 0) {
+        col.hideCd = 50;
+        E.emit('kamen', 'hide', col.c, () => `${cap(G.nm('kamen'))} прячут венчики в трубки${why === 'ship' ? ' — корабль идёт слишком близко' : ''}`);
+      }
+      if (hidden >= 4 && why === 'pred' && col.warnCd <= 0 && S.center.distanceTo(col.c) < 45) {
+        col.warnCd = 60;
+        E.emit('kamen', 'warn', col.c, () => `Ряд ${G.nm('kamen', 'gen')} у огнецвета спрятался — рядом проходит ${G.nm('pred')}`);
+      }
+    }
+    E.kmCrownIM.instanceMatrix.needsUpdate = true;
+  }
+  function organGeo(pos) { // губка из толстых труб, все органы — в одном меше
+    const parts = [], c1 = new THREE.Color(0x9a7f6a), c2 = new THREE.Color(0x6f5b4c), rim = new THREE.Color(0xffd9a0);
+    pos.forEach(o => {
+      for (let k = 0; k < 7; k++) {
+        const a = k * 2.39996, r = k ? 0.75 + (k % 2) * 0.35 : 0, L = 3.4 - r * 1.2 + (k % 3) * 0.4;
+        const x = o.x + Math.cos(a) * r, z = o.z + Math.sin(a) * r, y = H(x, z) - 0.1;
+        const tb = new THREE.CylinderGeometry(0.32, 0.42, L, 10, 1, true); tb.translate(x, y + L / 2, z);
+        parts.push({ g: tb, c: k % 2 ? c1 : c2 });
+        const ring = new THREE.TorusGeometry(0.32, 0.05, 4, 10); ring.rotateX(Math.PI / 2); ring.translate(x, y + L, z);
+        parts.push({ g: ring, c: rim });
+      }
+    });
+    return G.merge(parts);
+  }
+  function initOrgans(scene) {
+    const spots = [[-38, 78], [52, 30]].map(([x, z]) => new V3(x, H(x, z), z));
+    E.organMesh = new THREE.Mesh(organGeo(spots), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x1a1008 }));
+    scene.add(E.organMesh);
+    spots.forEach((p, i) => E.organs.push({ i, p, top: p.clone().add(new V3(0, 3.2, 0)), maskCd: 0, humCd: 0 }));
+  }
+  function organsUpdate(dt, t) {
+    const S = G.Ship;
+    let best = 1e9;
+    E.shipMasked = null;
+    for (const og of E.organs) {
+      og.maskCd -= dt; og.humCd -= dt;
+      const d = S.center.distanceTo(og.p); best = Math.min(best, d);
+      if (d < ORG_R) E.shipMasked = og;
+      if (d < 30 && og.humCd <= 0) { og.humCd = 120; E.emit('organ', 'hum', og.top, () => `${cap(G.nm('organ'))} гудит в течении, как орган`); }
+    }
+    E.organMesh.material.emissive.setRGB(0.1 + 0.05 * Math.sin(t * 1.7), 0.06, 0.03);
+    if (G.Audio.organ) G.Audio.organ(Math.max(0, 1 - best / 45));
+  }
+  /* серпохвост слышит быстрый ход корабля поблизости, если его не заглушает трубный орган */
+  function hearsShip(pr, dShip) {
+    const S = G.Ship;
+    if (dShip >= HEAR_R || Math.abs(S.speed) <= HEAR_SPEED || S.hull <= 0) return false;
+    if (E.shipMasked) {
+      const og = E.shipMasked;
+      if (og.maskCd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) { og.maskCd = 40; E.emit('organ', 'mask', og.top, () => `Гул ${G.nm('organ', 'gen')} заглушает двигатели — ${G.nm('pred')} не слышит корабль`); }
+      return false;
+    }
+    return true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initMasons(scene); initOrgans(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1574,6 +1699,7 @@
     }
     if (E.coinIM) { coinsUpdate(dt, t); coinsRender(t); }
     if (E.grot) grotUpdate(E.grot, dt, t);
+    if (E.organMesh) organsUpdate(dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1581,6 +1707,7 @@
     E.eels.forEach((el, i) => { eelUpdate(el, dt, t); eelRender(el, i, t); });
     E.eelIM.instanceMatrix.needsUpdate = true; E.eelDotIM.instanceMatrix.needsUpdate = true;
     E.rays.forEach(r => rayUpdate(r, dt, t));
+    if (E.kmCrownIM) masonsUpdate(dt, t);
     if (E.rmIM) remorasUpdate(dt, t);
   };
 
@@ -1600,6 +1727,8 @@
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
     if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
+    E.masons.forEach(col => L.push({ sp: 'kamen', pos: col.worms[KM_N >> 1].top, r: 1.5 }));
+    E.organs.forEach(og => L.push({ sp: 'organ', pos: og.top, r: 1.6 }));
     E.remoras.forEach(rm => L.push({ sp: 'prisoska', pos: rm.p, r: 0.4, noSonar: true }));
     if (E.skalnik) { const h = E.skalnik.camo >= 0.5; L.push({ sp: 'skalnik', pos: E.skalnik.p, r: 1, hidden: h, noSonar: h }); } // замаскированного не видно ни в прицеле, ни на сонаре
     E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
@@ -1662,5 +1791,7 @@
     E.rays.forEach(r => { r.ang = r.ang0; r.init = false; r.fcd = 10; r.nT = 0; });
     E.remoras.forEach(rm => { rm.state = 'ray'; rm.ray = E.rays[Math.floor(rm.i / RM_PER_RAY)]; rm.slot = -1; rm.cd = 0; });
     E.hullRemoras = 0; E.rmHopCd = 0; E.rmEelCd = 0; E.rmRideCd = 0;
+    E.masons.forEach(col => { col.hideCd = 0; col.warnCd = 0; col.hidden = 0; col.worms.forEach(w => { w.ext = 1; w.quiet = 0; }); });
+    E.organs.forEach(og => { og.maskCd = 0; og.humCd = 0; }); E.shipMasked = null;
   };
 })(window.G);

@@ -64,6 +64,16 @@
   A.whale = d => { if (!ok()) return; const t = now(), v = 0.25 * Math.max(0.15, 1 - d / 120); osc('sine', 210, 120, t, 2.6, v, true); osc('sine', 315, 180, t + 0.3, 2.2, v * 0.4, true); };
   A.creak = () => { if (!ok()) return; const t = now(); noise(t, 1.4, 0.08, 'bandpass', 180, 90, 8); osc('sawtooth', 55, 48, t, 1.2, 0.03); };
   A.latch = () => { if (!ok()) return; const t = now(); noise(t, 0.8, 0.3, 'bandpass', 1500, 400, 6); osc('square', 60, 30, t, 0.8, 0.1); };
+  /* гул трубного органа: низкий аккорд, громкость 0..1 по расстоянию до губки */
+  A.organ = l => {
+    if (!A.on) return;
+    if (!A.org) {
+      const c = A.ctx, g = c.createGain(); g.gain.value = 0; g.connect(A.master); g.connect(A.wet);
+      [55, 82.4, 110.3].forEach((f, i) => { const o = c.createOscillator(); o.type = i ? 'triangle' : 'sine'; o.frequency.value = f; const og = c.createGain(); og.gain.value = i ? 0.25 : 0.5; o.connect(og); og.connect(g); o.start(); });
+      A.org = g;
+    }
+    A.org.gain.setTargetAtTime(A.muted ? 0 : l * l * 0.12, A.ctx.currentTime, 0.5);
+  };
   A.alarm = () => { if (!ok()) return; osc('square', 880, 660, now(), 0.35, 0.05); };
   A.toggleMute = () => { A.muted = !A.muted; if (A.master) A.master.gain.value = A.muted ? 0 : A.vol; return A.muted; };
   /* громкость 0..1 из настроек; 0 — звук выключен */
