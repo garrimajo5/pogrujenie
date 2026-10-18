@@ -14,6 +14,7 @@
 <canvas id="view"></canvas>
 <div id="fx-hit"></div>
 <div id="fx-danger"></div>
+<div id="fx-vignette"></div>
 
 <div id="hud" hidden>
   <div id="brief" hidden>
@@ -123,6 +124,8 @@
       <div class="step"><button class="chip" data-a="sens-" type="button" aria-label="Меньше">−</button><output data-v="sens">1.0×</output><button class="chip" data-a="sens+" type="button" aria-label="Больше">+</button></div></div>
     <div class="set-row"><div><b>Инверсия по вертикали</b><small>Свайп вверх — взгляд вниз</small></div>
       <div class="step"><button class="chip" data-a="invert" type="button">Выкл</button></div></div>
+    <div class="set-row"><div><b>Защита от укачивания</b><small>Ровный горизонт, без покачивания, тень по краям на поворотах</small></div>
+      <div class="step"><button class="chip" data-a="comfort" type="button">Вкл</button></div></div>
     <div class="set-row"><div><b>Громкость</b><small>0 — звук выключен</small></div>
       <div class="step"><button class="chip" data-a="vol-" type="button" aria-label="Тише">−</button><output data-v="volume">70%</output><button class="chip" data-a="vol+" type="button" aria-label="Громче">+</button></div></div>
     <div class="set-row"><div><b>Качество графики</b><small id="set-qhint"></small></div>

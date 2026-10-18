@@ -4,7 +4,7 @@
   const V3 = THREE.Vector3;
   const $ = id => document.getElementById(id);
   const Game = G.Game = {
-    state: 'intro', t: 0, piloting: false, room: 'bridge', done: false, shake: 0,
+    state: 'intro', t: 0, piloting: false, room: 'bridge', done: false, shake: 0, vignette: 0,
     player: { x: 0, z: -3.0, yaw: 0, pitch: -0.08, bob: 0 },
     scan: { key: null, prog: 0 }
   };
@@ -83,7 +83,7 @@
       if (Game.piloting) Game.toggleHelm();
       const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
       Object.assign(G.Ctl.padMove, { x: 0, y: 0 }); G.Ctl.btnVert = 0; G.Ctl.actionDown = false; G.Ctl.keys = {};
-      Game.scan.key = null; Game.scan.prog = 0; Game.done = false;
+      Game.scan.key = null; Game.scan.prog = 0; Game.done = false; Game.shake = 0; Game.vignette = 0;
       ['journal', 'lost', 'intro', 'settings'].forEach(id => { $(id).hidden = true; }); $('hud').hidden = false;
       Game.state = 'play'; updateCounts(); updatePlayer(0);
     },
@@ -193,8 +193,11 @@
   }
 
   /* ---------- игрок ---------- */
+  let vigEl = null, vigShown = 0;
   function updatePlayer(dt) {
     const P = Game.player, C = G.Ctl, S = G.Ship, sens = 0.0055 * G.Settings.lookX(), sensY = 0.0055 * G.Settings.lookY();
+    const comfort = G.Settings.comfort();
+    if (!vigEl) vigEl = $('fx-vignette');
     if (C.gyro && C.gyroOK) {
       if (C.needCalib) { tmp.e.setFromQuaternion(C.gyroQ, 'YXZ'); C.yawOffset = P.yaw - tmp.e.y; C.needCalib = false; }
       C.yawOffset -= C.lookDX * sens;
@@ -223,11 +226,16 @@
         P.bob += dt * 9;
       }
       Game.room = S.roomAt(P.z);
-      cx = P.x; cy = 1.65 + Math.sin(P.bob) * 0.03; cz = P.z;
+      cx = P.x; cy = 1.65 + (comfort ? 0 : Math.sin(P.bob) * 0.03); cz = P.z;
     }
     if (Game.piloting) Game.room = 'bridge';
     Game.shake = Math.max(0, Game.shake - dt);
-    const sh = Game.shake * 0.25;
+    const sh = Game.shake * (comfort ? 0.1 : 0.25);
+    /* тень по краям экрана, пока мир за стеклом поворачивается или корабль резко меняет глубину */
+    const vt = comfort && !G.AR.active ? G.clamp(Math.abs(S.turn) * 0.85 + Math.abs(S.vy) / 2.6 * 0.3, 0, 0.85) : 0;
+    Game.vignette = comfort ? Game.vignette + (vt - Game.vignette) * Math.min(1, dt * 4) : 0;
+    if (Game.vignette < 0.005) Game.vignette = 0;
+    if (Math.abs(Game.vignette - vigShown) > 0.01 || (Game.vignette === 0 && vigShown !== 0)) { vigShown = Game.vignette; vigEl.style.opacity = vigShown.toFixed(2); }
     camera.position.set(cx + G.rr(-sh, sh), cy + G.rr(-sh, sh), cz + G.rr(-sh, sh));
   }
 

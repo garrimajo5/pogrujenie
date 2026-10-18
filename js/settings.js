@@ -1,9 +1,9 @@
 'use strict';
-/* Настройки: чувствительность обзора, инверсия по вертикали, громкость, качество графики.
+/* Настройки: чувствительность обзора, инверсия по вертикали, громкость, качество графики, защита от укачивания.
    Хранятся отдельно от журнала (сброс прогресса их не трогает) и применяются сразу. */
 (function (G) {
   const KEY = 'pogrujenie.settings.v1';
-  const DEF = { sens: 1, invert: false, volume: 0.7, quality: 'auto' };
+  const DEF = { sens: 1, invert: false, volume: 0.7, quality: 'auto', comfort: true };
   const QUALITY = ['auto', 'low', 'mid', 'high'];
   const QNAME = { auto: 'Авто', low: 'Низкое', mid: 'Среднее', high: 'Высокое' };
   const St = G.Settings = { KEY, QUALITY, QNAME, v: Object.assign({}, DEF), el: null, back: null };
@@ -18,6 +18,7 @@
     if (typeof o.invert === 'boolean') r.invert = o.invert;
     if (typeof o.volume === 'number' && isFinite(o.volume)) r.volume = round1(G.clamp(o.volume, 0, 1));
     if (QUALITY.includes(o.quality)) r.quality = o.quality;
+    if (typeof o.comfort === 'boolean') r.comfort = o.comfort;
     return r;
   }
   St.defaults = () => Object.assign({}, DEF);
@@ -46,6 +47,8 @@
   /* множители для обзора: свайп по X и по Y */
   St.lookX = () => St.v.sens;
   St.lookY = () => St.v.sens * (St.v.invert ? -1 : 1);
+  /* защита от укачивания: горизонт без крена, без покачивания шага, слабее тряска, затемнение краёв на поворотах */
+  St.comfort = () => St.v.comfort;
 
   /* ---------- экран настроек ---------- */
   St.isOpen = () => !!St.el && !St.el.hidden;
@@ -66,6 +69,7 @@
     q('[data-v="sens"]').textContent = v.sens.toFixed(1) + '×';
     q('[data-v="volume"]').textContent = v.volume === 0 ? 'выкл' : pct(v.volume);
     const inv = q('[data-a="invert"]'); inv.textContent = v.invert ? 'Вкл' : 'Выкл'; inv.classList.toggle('on', v.invert);
+    const cf = q('[data-a="comfort"]'); cf.textContent = v.comfort ? 'Вкл' : 'Выкл'; cf.classList.toggle('on', v.comfort);
     St.el.querySelectorAll('[data-q]').forEach(b => b.classList.toggle('on', b.dataset.q === v.quality));
     q('[data-a="sens-"]').disabled = v.sens <= 0.4; q('[data-a="sens+"]').disabled = v.sens >= 2;
     q('[data-a="vol-"]').disabled = v.volume <= 0; q('[data-a="vol+"]').disabled = v.volume >= 1;
@@ -84,6 +88,7 @@
       else if (a === 'vol-') { G.Audio.init(); St.set('volume', v.volume - 0.1); }
       else if (a === 'vol+') { G.Audio.init(); St.set('volume', v.volume + 0.1); G.Audio.beep(700); }
       else if (a === 'invert') St.set('invert', !v.invert);
+      else if (a === 'comfort') St.set('comfort', !v.comfort);
       else if (a === 'defaults') St.reset(false);
       else if (a === 'close') St.close();
     });
