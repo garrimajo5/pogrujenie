@@ -299,6 +299,7 @@
     S.pos.x += -Math.sin(S.yaw) * S.speed * dt;
     S.pos.z += -Math.cos(S.yaw) * S.speed * dt;
     S.pos.y += S.vy * dt;
+    if (G.Eco.current) { S.pos.x += G.Eco.current.x * dt; S.pos.z += G.Eco.current.z * dt; } // течение сносит корабль
     S.pos.x = G.clamp(S.pos.x, -300, 300); S.pos.z = G.clamp(S.pos.z, -300, 300);
     if (S.pos.y > -5) { S.pos.y = -5; if (S.vy > 0) S.vy = 0; }
     if (S.pos.y < -96) { S.pos.y = -96; if (S.vy < 0) S.vy = 0; S.depthLimit = 1.5; }

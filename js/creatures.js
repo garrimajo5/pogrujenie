@@ -12,10 +12,11 @@
    скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору;
    присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста;
    каменщики прячут венчики, когда рядом крупный, а гул трубного органа заглушает двигатели корабля;
-   подушечник от касания выпускает чернила, в которых прячутся стая и корабль; споры пузырчатки собирают рыб на кормёжку. */
+   подушечник от касания выпускает чернила, в которых прячутся стая и корабль; споры пузырчатки собирают рыб на кормёжку;
+   веерники стоят поперёк течения, волнолист раскрывается в луче и открывает моллюсков для рыб. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, masons: [], organs: [], shipMasked: null, cushions: [], shipInk: null, bladders: [], remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, masons: [], organs: [], shipMasked: null, cushions: [], shipInk: null, bladders: [], fans: [], ferns: [], current: new THREE.Vector3(), curAng: 0, curTarget: 0, curIdx: 0, curT: 0, fanCd: 0, fanReadCd: 0, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -89,9 +90,15 @@
       notes: { touch: 'От касания сжимается и выпускает облако чернил.', hide: 'В облаке чернил стая прячется от хищника.', ship: 'Корабль, задевший подушечник, может переждать в чернилах.' } },
     bladder: { name: 'Пузырчатка-фонарь', acc: 'пузырчатку-фонарь', gen: 'пузырчатки', unom: 'светящиеся луковицы', uacc: 'светящиеся луковицы', ugen: 'светящихся луковиц',
       desc: 'Тонкие стебли около метра с прозрачными луковицами, полными светящегося сока. Растёт у пятен мха.',
-      notes: { pop: 'Спелые луковицы лопаются облаком светящихся спор.', feed: 'На споры слетаются светляки и монетники.' } }
+      notes: { pop: 'Спелые луковицы лопаются облаком светящихся спор.', feed: 'На споры слетаются светляки и монетники.' } },
+    fan: { name: 'Веерник', acc: 'веерник', gen: 'веерника', unom: 'кружевной веер', uacc: 'кружевной веер', ugen: 'кружевного веера',
+      desc: 'Веерный коралл около 3 метров с кружевной сеткой ветвей. Растёт рядом со станциями огнёвок и всегда разворачивается поперёк течения.',
+      notes: { across: 'Стоит поперёк течения — по нему видно, куда сносит корабль.', turn: 'Когда течение меняется, веерники разворачиваются следом.', ognevka: 'Огнёвки кормятся на веернике, пока их станция пустует.' } },
+    fern: { name: 'Волнолист', acc: 'волнолист', gen: 'волнолиста', unom: 'папоротник-спираль', uacc: 'папоротник-спираль', ugen: 'папоротника-спирали',
+      desc: 'Спиральный папоротник около 1,5 метра. Разворачивает листья к свету и сворачивает их в темноте.',
+      notes: { open: 'Раскрывается в луче прожектора, в темноте сворачивается.', mollusk: 'Под раскрытыми листьями — съедобные моллюски, к ним приплывают светляки.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ', 'cushion', 'bladder'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ', 'cushion', 'bladder', 'fan', 'fern'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -711,6 +718,7 @@
     E.shrimp.forEach((sh, k) => {
       const st = sh.st, a = t * 0.8 + sh.ph;
       if (st.busy) tv.copy(st.busy.p).add(tv2.set(Math.cos(a * 2) * sh.r * 0.5, 0.4 + sh.h * 0.4, Math.sin(a * 2) * sh.r * 0.5));
+      else if (k % 2 && E.fanAt && E.fanAt(st)) tv.copy(E.fanAt(st).top).add(tv2.set(Math.cos(a) * sh.r * 0.8, sh.h + Math.sin(t * 3 + sh.ph) * 0.3, Math.sin(a) * sh.r * 0.3)); // половина кормится на веернике
       else tv.copy(st.top).add(tv2.set(Math.cos(a) * sh.r, sh.h + Math.sin(t * 3 + sh.ph) * 0.15, Math.sin(a) * sh.r));
       tv3.copy(sh.p); sh.p.lerp(tv, Math.min(1, dt * 3));
       tv2.subVectors(sh.p, tv3); if (tv2.lengthSq() < 1e-8) tv2.set(Math.cos(a + 1.57), 0, Math.sin(a + 1.57));
@@ -718,6 +726,11 @@
       dummy.scale.setScalar(1); dummy.updateMatrix(); E.shrimpIM.setMatrixAt(k, dummy.matrix);
     });
     E.shrimpIM.instanceMatrix.needsUpdate = true;
+    if (E.fans.length && E.ognFanCd <= 0) {
+      const st = E.stations.find(x => !x.busy && E.fanAt(x) && E.fanAt(x).p.distanceTo(G.Ship.center) < 30);
+      if (st) { E.ognFanCd = 120; E.emit('fan', 'ognevka', E.fanAt(st).top, () => `${cap(G.nm('ognevka'))} кормятся на ${SP.fan.scanned ? 'веернике' : 'кружевном веере'}, пока станция пустует`); }
+    }
+    E.ognFanCd = (E.ognFanCd || 0) - dt;
   }
 
   /* ======================= ХВАТНИ И ПЕСТРЯНКИ ======================= */
@@ -1788,9 +1801,9 @@
       bl.feedCd -= dt;
       if (bl.life > 0) {
         bl.life -= dt;
-        /* на споры слетаются светляки и монетники */
+        /* на споры слетаются светляки (кроме стаи гротовика: она держится своего рифа) и монетники */
         let came = false;
-        for (const sh of E.shoals) if (sh.alarm <= 0 && !sh.follow && sh.n >= 3 && sh.c.distanceTo(bl.c) < PZ_CALL_R) { sh.goal.copy(bl.c); sh.gt = Math.max(sh.gt, 0.5); if (sh.c.distanceTo(bl.c) < 6) came = true; }
+        for (const sh of E.shoals) if (!sh.range && sh.alarm <= 0 && !sh.follow && sh.n >= 3 && sh.c.distanceTo(bl.c) < PZ_CALL_R) { sh.goal.copy(bl.c); sh.gt = Math.max(sh.gt, 0.5); if (sh.c.distanceTo(bl.c) < 6) came = true; }
         if (bl.sc.c.distanceTo(bl.c) < 25 && bl.sc.scatter <= 0) { bl.sc.feed = bl; if (bl.sc.members.some(c => c.alive && c.p.distanceTo(bl.c) < 3)) came = true; }
         if (came && bl.feedCd <= 0) { bl.feedCd = 60; E.emit('bladder', 'feed', bl.c, () => 'На светящиеся споры слетаются рыбы'); }
         if (bl.life <= 0 && bl.sc.feed === bl) bl.sc.feed = null;
@@ -1818,8 +1831,109 @@
     E.sporePts.geometry.attributes.position.needsUpdate = true; E.sporePts.geometry.attributes.color.needsUpdate = true;
   }
 
+  /* ======================= ТЕЧЕНИЕ, ВЕЕРНИКИ И ВОЛНОЛИСТ ======================= */
+  /* По отмели идёт медленное течение, раз в несколько минут оно меняет направление и сносит корабль.
+     Веерники всегда стоят поперёк течения — по ним пилот читает поток; огнёвки кормятся на веернике
+     у своей станции, пока та пустует. Волнолист раскрывается в луче прожектора и сворачивается в темноте;
+     под раскрытыми листьями видны моллюски, и к ним приплывают светляки. */
+  const CUR_SPEED = 0.3, CUR_DIRS = [0.7, 2.4, -1.9, 0.1, 2.9, -0.9], CUR_PERIOD = 180;
+  const VN_TURN_R = 70, FERN_LEAVES = 6, FERN_SHELLS = 3, FERN_CALL_R = 25;
+  function fanTex() { // кружевная сетка ветвей веерника на прозрачном фоне
+    return G.canvasTex(256, 256, (x, w, h) => {
+      x.clearRect(0, 0, w, h);
+      x.strokeStyle = 'rgba(255,190,150,1)'; x.lineCap = 'round';
+      const cx = w / 2, cy = h - 8;
+      x.lineWidth = 9; x.beginPath(); x.moveTo(cx, h); x.lineTo(cx, cy - 30); x.stroke();
+      for (let k = 0; k < 13; k++) { const a = -1.25 + k / 12 * 2.5; x.lineWidth = 3.2; x.beginPath(); x.moveTo(cx, cy - 30); x.lineTo(cx + Math.sin(a) * 120, cy - 30 - Math.cos(a) * 210); x.stroke(); }
+      x.lineWidth = 1.6;
+      for (let r = 50; r < 240; r += 20) { x.beginPath(); x.ellipse(cx, cy - 30, r * 0.55, r * 0.95, 0, Math.PI * 1.1, Math.PI * 1.9); x.stroke(); }
+    });
+  }
+  function initFans(scene) {
+    if (!E.stations.length) return;
+    const g = new THREE.PlaneGeometry(2.6, 3, 1, 1); g.translate(0, 1.5, 0);
+    const tex = fanTex(); tex.userData = tex.userData || {};
+    E.fanIM = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.4, transparent: false, side: THREE.DoubleSide, emissive: 0x3a1408 }), E.stations.length + 1);
+    E.fanIM.frustumCulled = false; scene.add(E.fanIM);
+    const spots = E.stations.map((st, i) => { const a = i * 2.1 + 2.6; return new V3(st.base.x + Math.cos(a) * 7, 0, st.base.z + Math.sin(a) * 7); });
+    spots.push(new V3(-6, 0, 74)); // у старта, чтобы его увидеть сразу
+    spots.forEach((p, i) => { p.y = H(p.x, p.z) - 0.05; E.fans.push({ i, p, top: p.clone().add(new V3(0, 2.2, 0)), yaw: 0, st: E.stations[i] || null, ph: i * 1.3 }); });
+    E.curIdx = 0; E.curAng = CUR_DIRS[0]; E.curTarget = CUR_DIRS[0]; E.curT = CUR_PERIOD;
+  }
+  function currentUpdate(dt, t) {
+    const S = G.Ship;
+    E.curT -= dt; E.fanCd -= dt;
+    if (E.curT <= 0) { // течение сменилось
+      E.curT = CUR_PERIOD; E.curIdx = (E.curIdx + 1) % CUR_DIRS.length; E.curTarget = CUR_DIRS[E.curIdx];
+      if (E.fanCd <= 0 && E.fans.some(f => f.p.distanceTo(S.center) < VN_TURN_R)) { E.fanCd = 60; E.emit('fan', 'turn', S.center, () => `${cap(G.nm('fan'))} разворачиваются — течение сменилось`); }
+    }
+    let da = E.curTarget - E.curAng; da = Math.atan2(Math.sin(da), Math.cos(da));
+    E.curAng += da * Math.min(1, dt * 0.08);
+    E.current.set(Math.sin(E.curAng), 0, Math.cos(E.curAng)).multiplyScalar(CUR_SPEED);
+    for (const f of E.fans) {
+      let dy = E.curAng - f.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); f.yaw += dy * Math.min(1, dt * 0.3); // плоскость веера смотрит на поток
+      dummy.position.copy(f.p); dummy.rotation.set(Math.sin(t * 0.9 + f.ph) * 0.05, f.yaw, 0, 'YXZ'); dummy.scale.setScalar(1); dummy.updateMatrix();
+      E.fanIM.setMatrixAt(f.i, dummy.matrix);
+    }
+    E.fanIM.instanceMatrix.needsUpdate = true;
+    if (E.fanReadCd <= 0 && E.fans.some(f => f.p.distanceTo(S.center) < 30)) { E.fanReadCd = 150; E.emit('fan', 'across', S.center, () => `${cap(G.nm('fan'))} стоит поперёк течения — по нему видно, куда несёт`); }
+    E.fanReadCd -= dt;
+  }
+  E.fanAt = st => E.fans.find(f => f.st === st);
+  function initFerns(scene) {
+    if (E.shoals.length < 3) return;
+    const rng0 = G.rng; G.seed(3307);
+    const lg = new THREE.PlaneGeometry(0.28, 1.4, 1, 6); lg.translate(0, 0.7, 0);
+    const pos = lg.attributes.position; for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); pos.setX(i, pos.getX(i) * Math.sin(Math.min(1, y / 1.4) * Math.PI) * 1.2); } // лист-перо
+    lg.computeVertexNormals();
+    const cl = [new V3(14, 0, 78), E.shoals[2].home.clone().add(new V3(-6, 0, 4))];
+    const N = cl.length * 4;
+    E.fernIM = new THREE.InstancedMesh(lg, new THREE.MeshLambertMaterial({ color: 0x5fc48a, side: THREE.DoubleSide, emissive: 0x0a2a14 }), N * FERN_LEAVES);
+    const sg = new THREE.SphereGeometry(0.11, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2); sg.scale(1, 0.5, 1.3);
+    E.shellIM = new THREE.InstancedMesh(sg, new THREE.MeshLambertMaterial({ color: 0xe8c9a8, emissive: 0x2a1a10 }), N * FERN_SHELLS);
+    [E.fernIM, E.shellIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    cl.forEach((c, ci) => {
+      for (let k = 0; k < 4; k++) {
+        const p = new V3(c.x + G.rr(-2.5, 2.5), 0, c.z + G.rr(-2.5, 2.5)); p.y = H(p.x, p.z);
+        const fe = { i: E.ferns.length, p, top: p.clone().add(new V3(0, 0.9, 0)), open: 0, lit: false, ph: G.rr(0, 6), yaw: G.rr(0, 6.28), openCd: 0, feedCd: 0, litT: 0 };
+        for (let j = 0; j < FERN_SHELLS; j++) {
+          const a = j / FERN_SHELLS * 6.283 + fe.yaw;
+          dummy.position.set(p.x + Math.cos(a) * 0.35, H(p.x + Math.cos(a) * 0.35, p.z + Math.sin(a) * 0.35) + 0.02, p.z + Math.sin(a) * 0.35);
+          dummy.rotation.set(0, a, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); E.shellIM.setMatrixAt(fe.i * FERN_SHELLS + j, dummy.matrix);
+        }
+        E.ferns.push(fe);
+      }
+    });
+    E.shellIM.instanceMatrix.needsUpdate = true;
+    G.rng = rng0;
+  }
+  function fernsUpdate(dt, t) {
+    E.fernMsgCd = (E.fernMsgCd || 0) - dt; E.fernFeedCd = (E.fernFeedCd || 0) - dt;
+    for (const fe of E.ferns) {
+      fe.openCd -= dt; fe.feedCd -= dt;
+      const was = fe.lit; fe.lit = inBeam(fe.top);
+      fe.litT = fe.lit ? 5 : fe.litT - dt; // после луча листья ещё немного остаются раскрытыми
+      const want = fe.litT > 0 ? 1 : 0;
+      fe.open = want > fe.open ? Math.min(1, fe.open + dt * 0.6) : Math.max(0, fe.open - dt * 0.25);
+      if (fe.lit && !was && fe.open < 0.3 && E.fernMsgCd <= 0) { E.fernMsgCd = 40; E.emit('fern', 'open', fe.top, () => `${cap(G.nm('fern'))} разворачивает листья к свету прожектора`); }
+      if (fe.open > 0.8) { // открытые моллюски манят светляков
+        let came = false;
+        for (const sh of E.shoals) if (!sh.range && sh.alarm <= 0 && !sh.follow && sh.n >= 3 && sh.c.distanceTo(fe.top) < FERN_CALL_R) { sh.goal.copy(fe.top); sh.gt = Math.max(sh.gt, 0.5); if (sh.c.distanceTo(fe.top) < 4) came = true; }
+        if (came && E.fernFeedCd <= 0) { E.fernFeedCd = 60; E.emit('fern', 'mollusk', fe.top, () => `Под листьями ${G.nm('fern', 'gen')} открылись моллюски — к ним приплыли рыбы`); }
+      }
+      for (let j = 0; j < FERN_LEAVES; j++) {
+        const a = j / FERN_LEAVES * 6.283 + fe.yaw, o = fe.open;
+        dummy.position.copy(fe.p); dummy.rotation.set(0, a, 0, 'YXZ');
+        dummy.rotateX(-(0.25 + 1.0 * o) + Math.sin(t * 1.2 + fe.ph + j) * 0.05 * o); // раскрытый лист ложится наружу
+        dummy.scale.set(0.6 + 0.4 * o, 0.45 + 0.55 * o, 1); dummy.updateMatrix();
+        E.fernIM.setMatrixAt(fe.i * FERN_LEAVES + j, dummy.matrix);
+      }
+    }
+    E.fernIM.instanceMatrix.needsUpdate = true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initMasons(scene); initOrgans(scene); initCushions(scene); initBladders(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initMasons(scene); initOrgans(scene); initCushions(scene); initBladders(scene); initFans(scene); initFerns(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1850,6 +1964,8 @@
     if (E.organMesh) organsUpdate(dt, t);
     if (E.pdIM) cushionsUpdate(dt, t);
     if (E.pzBulbIM) bladdersUpdate(dt, t);
+    if (E.fanIM) currentUpdate(dt, t);
+    if (E.fernIM) fernsUpdate(dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1877,6 +1993,8 @@
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
     if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
+    E.fans.forEach(f => L.push({ sp: 'fan', pos: f.top, r: 1.4 }));
+    E.ferns.forEach(fe => L.push({ sp: 'fern', pos: fe.top, r: 0.7 }));
     E.cushions.forEach(cu => L.push({ sp: 'cushion', pos: cu.top, r: 1.3 }));
     E.bladders.forEach(bl => L.push({ sp: 'bladder', pos: bl.stems[0].top, r: 0.9 }));
     E.masons.forEach(col => L.push({ sp: 'kamen', pos: col.worms[KM_N >> 1].top, r: 1.5 }));
@@ -1947,5 +2065,8 @@
     E.organs.forEach(og => { og.maskCd = 0; og.humCd = 0; }); E.shipMasked = null;
     E.cushions.forEach(cu => { cu.squeeze = 0; cu.cd = 0; cu.ink = 0; cu.hideCd = 0; }); E.shipInk = null;
     E.bladders.forEach((bl, i) => { bl.ripe = 0.3 + i * 0.2; bl.life = 0; bl.feedCd = 0; bl.sc.feed = null; });
+    E.curIdx = 0; E.curAng = E.curTarget = CUR_DIRS[0]; E.curT = CUR_PERIOD; E.fanCd = 0; E.fanReadCd = 0; E.ognFanCd = 0; E.current.set(Math.sin(E.curAng), 0, Math.cos(E.curAng)).multiplyScalar(CUR_SPEED);
+    E.fans.forEach(f => { f.yaw = E.curAng; });
+    E.ferns.forEach(fe => { fe.open = 0; fe.lit = false; fe.litT = 0; }); E.fernMsgCd = 0; E.fernFeedCd = 0;
   };
 })(window.G);

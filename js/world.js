@@ -162,7 +162,7 @@
     });
     // кораллы-подушки
     {
-      const g = G.jitter(new THREE.SphereGeometry(1, 14, 10), 0.12, 2.2); g.scale(1, 0.55, 1);
+      const g = G.jitter(new THREE.SphereGeometry(1, 10, 7), 0.12, 2.2); g.scale(1, 0.55, 1); // экономия треугольников: 150 подушек
       const list = placeMany(150, reefC[0], reefC[1], 230, -62, -10, 2);
       const pal = [0x8a4fa8, 0xc76a5a, 0x3f8f86, 0xa0a050, 0x6a5ac8].map(c => new THREE.Color(c));
       inst(scene, g, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x0c0610 }), mats(list, () => new V3(G.rr(0.8, 2.6), G.rr(0.6, 1.6), G.rr(0.8, 2.6)), 0.15), list.map(() => G.pick(pal)));
@@ -182,9 +182,9 @@
     }
     // светящиеся анемоны
     {
-      const parts = [{ g: new THREE.CylinderGeometry(0.16, 0.22, 0.18, 8), m: new THREE.Matrix4().makeTranslation(0, 0.09, 0), c: new THREE.Color(0.35, 0.35, 0.4) }];
+      const parts = [{ g: new THREE.CylinderGeometry(0.16, 0.22, 0.18, 6), m: new THREE.Matrix4().makeTranslation(0, 0.09, 0), c: new THREE.Color(0.35, 0.35, 0.4) }];
       for (let k = 0; k < 18; k++) {
-        const cg = new THREE.ConeGeometry(0.035, 1, 4); cg.translate(0, 0.5, 0);
+        const cg = new THREE.ConeGeometry(0.035, 1, 3, 1, true); cg.translate(0, 0.5, 0); // тонкие щупальца: 3 грани без донышка
         const a = k / 18 * 6.283;
         const m = new THREE.Matrix4().makeRotationAxis(new V3(Math.sin(a), 0, -Math.cos(a)), G.rr(0.15, 0.6)).setPosition(Math.cos(a) * 0.12, 0.15, Math.sin(a) * 0.12);
         parts.push({ g: cg, m });
