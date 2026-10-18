@@ -51,6 +51,7 @@ T.describe('Монетник и песчаный глазун', () => {
   T.test('монетник в стороне от глазуна цел (контроль)', () => {
     quiet(); shipAway();
     const gz = E().glazuns[0], cn = gz.sc.members[0]; gz.cd = 0;
+    gz.sc.members.forEach(c => { if (c !== cn) { c.alive = false; c.t = 999; } }); // остальные не заплывают к глазуну
     for (let i = 0; i < 40; i++) { cn.p.set(gz.p.x + 3, gz.p.y + 0.8, gz.p.z); cn.goal.copy(cn.p); eco(1); }
     T.ok(cn.alive);
     T.eq(gz.lunge, 0);
