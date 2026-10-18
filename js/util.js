@@ -87,6 +87,34 @@ window.G = window.G || {};
     return t;
   };
 
+  /* Слить меши с общим материалом в один (позиции, нормали, uv). Меши удаляются из сцены. */
+  G.mergeMeshes = function (list, parent) {
+    if (list.length < 2) return null;
+    parent.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(parent.matrixWorld).invert(), mat = list[0].material;
+    const geos = list.map(o => { o.updateMatrixWorld(true); const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); if (!geo.attributes.normal) geo.computeVertexNormals(); return geo; });
+    const hasUV = geos.every(x => x.attributes.uv);
+    let n = 0; geos.forEach(x => { n += x.attributes.position.count; });
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = hasUV ? new Float32Array(n * 2) : null;
+    let o3 = 0, o2 = 0;
+    geos.forEach(x => {
+      pos.set(x.attributes.position.array, o3); nor.set(x.attributes.normal.array, o3); o3 += x.attributes.position.array.length;
+      if (uv) { uv.set(x.attributes.uv.array, o2); o2 += x.attributes.uv.array.length; }
+      x.dispose();
+    });
+    const mg = new THREE.BufferGeometry();
+    mg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    if (uv) mg.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    mg.computeBoundingSphere();
+    const mesh = new THREE.Mesh(mg, mat); mesh.name = 'merged'; mesh.renderOrder = list[0].renderOrder;
+    list.forEach(o => {
+      if (o.children.length) { o.geometry = new THREE.BufferGeometry(); o.userData.emptied = true; }
+      else o.parent.remove(o);
+    });
+    parent.add(mesh);
+    return mesh;
+  };
+
   G.timeU = { value: 0 };
 
   /* Покачивание растений в вершинном шейдере (геометрия нормирована по высоте 0..1) */

@@ -217,7 +217,25 @@
     S.beam.quaternion.setFromUnitVectors(new V3(0, -1, 0), new V3(0, -10, -40).sub(S.spot.position).normalize());
     g.add(S.beam);
 
+    S.mergeStatic();
     S.reset();
+  };
+
+  /* Слить неподвижные детали отсеков с одинаковым материалом в один меш: меньше вызовов отрисовки.
+     Подвижное (люки, штурвал, рычаг, экраны, прожектор) помечается userData.dynamic и не трогается. */
+  S.mergeStatic = function () {
+    [S.wheel, S.lever, S.beam, S.spot].concat(S.doors.map(d => d.mesh)).forEach(o => o && o.traverse(c => { c.userData.dynamic = true; }));
+    const canvasMaps = new Set([S.helmScreen, S.engScreen].filter(Boolean));
+    const groups = new Map();
+    g.traverse(o => {
+      if (!o.isMesh || o.userData.dynamic || o.isInstancedMesh || Array.isArray(o.material)) return;
+      if (o.material.map && (canvasMaps.has(o.material.map) || o.material.map === G.Sonar.tex)) return;
+      if (!groups.has(o.material)) groups.set(o.material, []);
+      groups.get(o.material).push(o);
+    });
+    let removed = 0;
+    groups.forEach(list => { if (G.mergeMeshes(list, g)) removed += list.length; });
+    S.merged = removed;
   };
 
   const FOOT = [[0, -6.6], [-5, -6], [5, -6], [-5, 2], [5, 2], [-1.1, 8], [1.1, 8], [-4, 14], [4, 14], [0, 11]];

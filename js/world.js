@@ -243,7 +243,7 @@
       const side = new V3(out.z, 0, -out.x);
       const back = p.clone().addScaledVector(out, -2.4);
       [[0, 0.2, 2.7], [1.7, 1.0, 1.9], [-1.7, 1.0, 1.9], [0, 2.6, 2.1], [0.6, -0.2, 2.2]].forEach(([sx, sy, r]) => {
-        const m = new THREE.Mesh(rockGeo, rockMat);
+        const m = new THREE.Mesh(rockGeo, rockMat); m.userData.mergeLair = true;
         m.position.copy(back).addScaledVector(side, sx); m.position.y += sy;
         m.scale.setScalar(r); m.rotation.set(G.rr(0, 3), G.rr(0, 3), 0);
         scene.add(m);
@@ -332,7 +332,7 @@
         const len = G.rr(5, 16);
         const c = new THREE.Mesh(new THREE.ConeGeometry(G.rr(0.8, 2.2), len, 7), stM);
         c.rotation.x = Math.PI; c.position.set(x + G.rr(-24, 24), -len / 2 + 0.5, z + G.rr(-24, 24));
-        scene.add(c);
+        scene.add(c); c.userData.mergeIce = true;
       }
       const glow = new THREE.Mesh(new THREE.CircleGeometry(10, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }));
       glow.rotation.x = Math.PI / 2; glow.position.set(x, -0.3, z); scene.add(glow);
@@ -344,6 +344,9 @@
       inst(scene, crystalGeo, crystalMat, mats(placeMany(26, x, z, 40, -150, -30, 4), () => G.rr(1.5, 3.5), 0.3));
       addPoi('drop', 'Край отмели', 'Дно обрывается в синюю темноту. Где-то внизу начинается Кристальный лес, но корпус «Ковчега» пока не выдержит такой глубины.', new V3(x, -60, z), 55);
     }
+
+    /* ---------- слить неподвижные камни логов и сосульки ---------- */
+    ['mergeLair', 'mergeIce'].forEach(tag => { const list = scene.children.filter(o => o.isMesh && o.userData[tag]); G.mergeMeshes(list, scene); });
 
     /* ---------- морской снег вокруг корабля ---------- */
     {
