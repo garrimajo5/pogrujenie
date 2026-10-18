@@ -11,6 +11,7 @@ window.G = window.G || {};
     };
   }
   G.rng = mulberry32(20261018);
+  G.seed = n => { const r = mulberry32(n); G.rng = r; };
   G.rr = (a, b) => a + (b - a) * G.rng();
   G.pick = arr => arr[Math.floor(G.rng() * arr.length)];
   G.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

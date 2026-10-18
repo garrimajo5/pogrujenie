@@ -23,6 +23,7 @@
   T._restore = [];
   T.run = async (filter) => {
     const out = [];
+    G.Game.debug.paused = true;
     for (const c of T.cases) {
       if (filter && !c.name.includes(filter)) continue;
       const t0 = performance.now();
@@ -36,6 +37,7 @@
         T._restore.splice(0).forEach(f => f());
       }
     }
+    G.Game.debug.paused = false;
     return out;
   };
 })();

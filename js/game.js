@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.DebugPanel.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     $('loading').hidden = true; $('b-start').hidden = false;
@@ -65,7 +65,9 @@
       updatePlayer(0);
     },
     /* вернуть мир и игрока в исходное состояние (для тестов) */
+    paused: false,
     reset() {
+      G.seed(12345);
       G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
@@ -78,6 +80,8 @@
       Game.state = 'play'; updateCounts(); updatePlayer(0);
     },
     get camera() { return camera; },
+    teleport: key => G.DebugPanel.teleport(key),
+    get pixelRatio() { return curPR; },
     actionLabel: () => $('act-label').textContent,
     feed: () => [...document.querySelectorAll('#feed div')].map(d => d.textContent)
   };
@@ -104,10 +108,12 @@
   function loop() {
     const raw = clock.getDelta();
     if (Game.state !== 'intro') adapt(raw);
+    G.DebugPanel.tick(raw);
     const dt = Math.min(raw, 0.05);
     Game.t += dt; G.timeU.value = Game.t;
     const S = G.Ship, C = G.Ctl;
     C.read();
+    if (Game.debug.paused) { renderer.render(scene, camera); return; }
     if (Game.state === 'play') {
       simulate(dt);
     } else if (Game.state === 'intro') {
