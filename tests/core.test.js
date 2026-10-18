@@ -46,6 +46,8 @@ T.describe('Мир', () => {
     const p = G.World.patches[0]; p.food = 0.2;
     for (let i = 0; i < 200; i++) G.World.update(0.05, 100 + i * 0.05);
     T.near(p.food, 0.2 + 10 * 0.012, 0.01);
-    T.near(p.mesh.material.opacity, 0.15 + 0.85 * p.food, 1e-6);
+    T.near(p.alpha, 0.15 + 0.85 * p.food, 0.003);
+    const a = G.World.moss.geometry.attributes.color.array, k = p.base.findIndex(b => b > 0.2);
+    T.near(a[(p.v0 + k) * 4 + 3], p.base[k] * p.alpha, 1e-5, 'яркость пятна в общем меше');
   });
 });
