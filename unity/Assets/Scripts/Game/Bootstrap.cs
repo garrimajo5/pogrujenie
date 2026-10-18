@@ -66,6 +66,7 @@ namespace Pogrujenie.Game
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            foreach (var m in ownMats) Destroy(m);
         }
 
         void Build()
@@ -104,14 +105,10 @@ namespace Pogrujenie.Game
             ship.SetParent(transform);
             Ship = ship;
             ship.position = new Vector3(Motion.X, Motion.Y, Motion.Z);
-            var hull = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            hull.name = "Корпус";
-            hull.transform.SetParent(ship, false);
+            var hull = Part(Shape.Capsule, "Корпус", ship, new Color(0.55f, 0.5f, 0.42f));
             hull.transform.localPosition = new Vector3(0, 1.5f, 9f);
             hull.transform.localRotation = Quaternion.Euler(90, 0, 0);
             hull.transform.localScale = new Vector3(11f, 16f, 5f); // 32 м: от носа z=−7 до кормы; изнутри не виден
-            Paint(hull, new Color(0.55f, 0.5f, 0.42f));
-            Destroy(hull.GetComponent<Collider>());
 
             // отсеки: полы, стены, переборки и люки
             Layout = new ShipLayout();
@@ -126,20 +123,12 @@ namespace Pogrujenie.Game
             wheel.localPosition = new Vector3(0, 0.95f, -5.25f);
             wheel.localRotation = Quaternion.Euler(-20, 0, 0);
             Wheel = wheel;
-            var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            rim.name = "Обод штурвала";
-            Destroy(rim.GetComponent<Collider>());
-            rim.transform.SetParent(wheel, false);
+            var rim = Part(Shape.Cylinder, "Обод штурвала", wheel, new Color(0.12f, 0.17f, 0.19f));
             rim.transform.localRotation = Quaternion.Euler(90, 0, 0);
             rim.transform.localScale = new Vector3(0.6f, 0.02f, 0.6f);
-            Paint(rim, new Color(0.12f, 0.17f, 0.19f));
-            var spoke = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            spoke.name = "Спица штурвала";
-            Destroy(spoke.GetComponent<Collider>());
-            spoke.transform.SetParent(wheel, false);
+            var spoke = Part(Shape.Cube, "Спица штурвала", wheel, new Color(0.75f, 0.6f, 0.3f));
             spoke.transform.localPosition = new Vector3(0, 0, 0.03f); // со стороны пилота (+Z)
             spoke.transform.localScale = new Vector3(0.62f, 0.06f, 0.03f);
-            Paint(spoke, new Color(0.75f, 0.6f, 0.3f));
 
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
@@ -153,14 +142,12 @@ namespace Pogrujenie.Game
 
             // светляки: стайка кружит перед носом
             Fireflies = new Transform[24];
+            var fireflyMat = Mat(new Color(0.5f, 1f, 0.8f), "Светляк");
+            fireflyMat.SetColor("_Glow", new Color(0.25f, 0.5f, 0.4f)); // светятся сами
             for (int i = 0; i < Fireflies.Length; i++)
             {
-                var f = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                f.name = "Светляк";
-                f.transform.SetParent(transform);
+                var f = Shapes.Make(Shape.Sphere, "Светляк", transform, fireflyMat);
                 f.transform.localScale = Vector3.one * 0.3f;
-                Paint(f, new Color(0.5f, 1f, 0.8f));
-                Destroy(f.GetComponent<Collider>());
                 Fireflies[i] = f.transform;
             }
 
@@ -192,11 +179,17 @@ namespace Pogrujenie.Game
             Sun.intensity = Water.Sun(depth);
         }
 
-        static void Paint(GameObject go, Color c)
+        readonly System.Collections.Generic.List<Material> ownMats = new System.Collections.Generic.List<Material>();
+
+        Material Mat(Color c, string name)
         {
-            var r = go.GetComponent<Renderer>();
-            if (r != null) r.material.color = c;
+            var m = Shapes.Paint(c, name);
+            ownMats.Add(m);
+            return m;
         }
+
+        /// <summary>Деталь корабля своим материалом (без CreatePrimitive: ни коллайдеров, ни Standard).</summary>
+        GameObject Part(Shape s, string name, Transform parent, Color c) => Shapes.Make(s, name, parent, Mat(c, name));
 
         /// <summary>Прожектор берёт силу из реактора: доля 0 или аварийный сброс — света нет.</summary>
         public void ApplyPower()

@@ -8,7 +8,9 @@
 
 ## Замечания тестера
 Отчёты — в ветке `qa/reports`, папка `qa/` (порядок работы — в CLAUDE.md, раздел «Отчёты тестера»). Задачи отсюда идут раньше этапов ниже.
-- пока замечаний нет
+- [x] Unity: почти всё, кроме дна, розовое в APK (шейдер Standard не попал в сборку) и 84 ошибки «class '…Collider' doesn't exist» от `CreatePrimitive` — свой шейдер `Pogrujenie/Lit` в `Resources`, детали без `CreatePrimitive` (`Game/Shapes.cs`). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, ошибки 1 и 2
+- [ ] Unity: закоммитить `.meta`-файлы (GUID меняются при каждом импорте) и зафиксировать `m_EditorVersionWithRevision` в `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
+- [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
 ## Этап 0. Проверка идеи
 - [x] Включить GitHub Pages: https://garrimajo5.github.io/pogrujenie/ (ссылка в README)

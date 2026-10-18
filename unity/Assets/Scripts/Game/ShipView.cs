@@ -19,39 +19,27 @@ namespace Pogrujenie.Game
         public void Build(ShipLayout layout)
         {
             Layout = layout;
-            var shared = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            var baseMat = shared.GetComponent<Renderer>().sharedMaterial;
-            Destroy(shared);
-
             Material M(BoxKind k)
             {
                 if (mats.TryGetValue(k, out var m)) return m;
-                m = new Material(baseMat) { name = k.ToString(), color = KindColor(k) };
+                m = Shapes.Paint(KindColor(k), k.ToString());
                 mats[k] = m;
                 return m;
             }
 
             foreach (var b in ShipLayout.Boxes)
             {
-                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                go.name = b.Name;
-                Destroy(go.GetComponent<Collider>());
-                go.transform.SetParent(transform, false);
+                var go = Shapes.Make(Shape.Cube, b.Name, transform, M(b.Kind));
                 go.transform.localPosition = new Vector3(b.X, b.Y, b.Z);
                 go.transform.localScale = new Vector3(b.W, b.H, b.D);
-                go.GetComponent<Renderer>().sharedMaterial = M(b.Kind);
                 BoxCount++;
             }
 
             DoorMeshes = new Transform[layout.Doors.Length];
             for (int i = 0; i < layout.Doors.Length; i++)
             {
-                var d = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                d.name = "Люк " + (i + 1);
-                Destroy(d.GetComponent<Collider>());
-                d.transform.SetParent(transform, false);
+                var d = Shapes.Make(Shape.Cube, "Люк " + (i + 1), transform, M(BoxKind.Trim));
                 d.transform.localScale = new Vector3(1.6f, 2.3f, 0.08f);
-                d.GetComponent<Renderer>().sharedMaterial = M(BoxKind.Trim);
                 DoorMeshes[i] = d.transform;
             }
 
@@ -84,13 +72,9 @@ namespace Pogrujenie.Game
 
         void Cylinder(string name, Vector3 pos, Vector3 scale, Material m)
         {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            c.name = name;
-            Destroy(c.GetComponent<Collider>());
-            c.transform.SetParent(transform, false);
+            var c = Shapes.Make(Shape.Cylinder, name, transform, m);
             c.transform.localPosition = pos;
             c.transform.localScale = scale;
-            c.GetComponent<Renderer>().sharedMaterial = m;
         }
 
         void Lamp(Vector3 pos, float range, Color c, float intensity)
