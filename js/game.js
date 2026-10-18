@@ -28,6 +28,7 @@
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
     G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Run.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
+    renderer.xr.enabled = true; G.AR.build(); G.AR.check();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
     else $('loading').hidden = true;
@@ -126,7 +127,7 @@
     if (n !== curPR) { curPR = n; renderer.setPixelRatio(curPR); resize(); }
   }
 
-  function loop() {
+  function loop(time, xrFrame) {
     const raw = clock.getDelta();
     if (Game.state !== 'intro') adapt(raw);
     G.DebugPanel.tick(raw);
@@ -148,7 +149,8 @@
     } else if (Game.state === 'vote') G.Run.voteNav(C.move.x); // решение экипажа: мир ждёт
     clearOneShots();
     updateEnv(); updateHUD(dt);
-    renderer.render(scene, camera);
+    if (G.AR.active) { G.AR.frame(xrFrame, renderer.xr.getReferenceSpace()); renderer.render(G.AR.scene, G.AR.camera); } // в AR — комната и голостол на столе
+    else renderer.render(scene, camera);
   }
 
   /* один шаг игровой логики в режиме «play» (без рендера) */
@@ -496,6 +498,7 @@
       G.Tutorial.render();
     };
     $('b-journal').onclick = () => Game.openJournal();
+    $('b-ar').onclick = () => (G.AR.active ? G.AR.stop() : G.AR.start(renderer));
     $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
     $('b-intro-settings').onclick = () => G.Settings.open();
     $('b-restart').onclick = restart;
