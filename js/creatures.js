@@ -10,10 +10,11 @@
    монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке;
    гротовик носит на спине риф, где живёт и прячется одна из стай светляков;
    скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору;
-   присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста. */
+   присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста;
+   каменщики строят известковые арки у огнецвета и прячут венчики от вибрации: ряды показывают, где идёт кто-то крупный. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { kamen: [], fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -75,9 +76,12 @@
       notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } },
     prisoska: { name: 'Присоска', acc: 'присосок', gen: 'присосок', unom: 'рыба-прилипала', uacc: 'рыб-прилипал', ugen: 'рыб-прилипал',
       desc: 'Рыба-прилипала около 35 см. Держится присоской на темени за крупных существ — и за корпус «Ковчега».',
-      notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } }
+      notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } },
+    kamen: { name: 'Каменщик', acc: 'каменщика', gen: 'каменщиков', unom: 'трубчатые черви', uacc: 'трубчатых червей', ugen: 'трубчатых червей',
+      desc: 'Трубчатые черви около 30 см строят известковые арки у огнецвета. Наружу из трубок выглядывают перистые венчики.',
+      notes: { arch: 'Строят известковые арки у огнецвета. У тихого корабля венчики раскрыты.', ship: 'Прячут венчики от вибрации двигателей: к ним надо подходить с выключенным ходом.', warn: 'Ряд прячется с того края, к которому подплывает кто-то крупный, — так видно хищника, которого ещё не видно.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -694,6 +698,104 @@
       dummy.scale.setScalar(1); dummy.updateMatrix(); E.shrimpIM.setMatrixAt(k, dummy.matrix);
     });
     E.shrimpIM.instanceMatrix.needsUpdate = true;
+  }
+
+  /* ======================= КАМЕНЩИКИ ======================= */
+  /* Трубчатые черви строят ряды известковых арок у огнецвета (у каждой станции чистки).
+     Венчики прячутся в трубки от вибрации: от идущего корабля, от серпохвоста, от бредущего гротовика.
+     Ближние к источнику венчики прячутся первыми, поэтому по ряду видно, с какой стороны идёт кто-то крупный.
+     Раскрываются медленно, через пару секунд тишины. Прожектор и стоящий корабль их не тревожат. */
+  const KM_ARCH = 6, KM_PER = 2, KM_STEP = 1.2, KM_R = 0.55;
+  const KM_SHIP_R = 14, KM_SHIP_V = 0.6, KM_PRED_R = 7, KM_GROT_R = 8;
+  const kmPl = () => SP.kamen.scanned ? 'каменщики' : 'трубчатые черви';
+  function initKamen(scene) {
+    if (!E.stations.length) return;
+    const rnd = G.mulberry32(3007), rr = (a, b) => a + (b - a) * rnd(); // своё зерно: остальной мир не меняется
+    const archParts = [], crowns = [];
+    E.stations.forEach((st, si) => {
+      const a = rr(0, 6.28), side = new V3(Math.cos(a), 0, Math.sin(a));
+      const c = st.base.clone().addScaledVector(side, 5.5); c.y = H(c.x, c.z);
+      /* ряд идёт вдоль склона (по горизонтали), чтобы арки не уходили в грунт */
+      const gx = H(c.x + 1, c.z) - H(c.x - 1, c.z), gz = H(c.x, c.z + 1) - H(c.x, c.z - 1);
+      const dir = Math.hypot(gx, gz) > 0.05 ? new V3(-gz, 0, gx).normalize() : new V3(-side.z, 0, side.x);
+      const km = { i: si, st, c, dir, crowns: [], shut: 0, shipCd: 0, warnCd: 0, archCd: 0 };
+      for (let k = 0; k < KM_ARCH; k++) {
+        const p = c.clone().addScaledVector(dir, (k - (KM_ARCH - 1) / 2) * KM_STEP);
+        const yaw = Math.atan2(-dir.z, dir.x) + rr(-0.25, 0.25), sc = rr(0.85, 1.15);
+        const fx = Math.cos(yaw) * KM_R * sc, fz = -Math.sin(yaw) * KM_R * sc; // ноги арки
+        p.y = Math.min(H(p.x + fx, p.z + fz), H(p.x - fx, p.z - fz)) - 0.05; // на склоне арка стоит на нижней ноге
+        const g = new THREE.TorusGeometry(KM_R, 0.1, 5, 9, Math.PI);
+        const m = new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).multiply(new THREE.Matrix4().makeRotationY(yaw)).multiply(new THREE.Matrix4().makeScale(sc, sc, sc));
+        archParts.push({ g, m, c: new THREE.Color(0xd9cfb8).multiplyScalar(rr(0.8, 1)) });
+        for (let j = 0; j < KM_PER; j++) {
+          const ang = Math.PI * (j + 1) / (KM_PER + 1) + rr(-0.2, 0.2);
+          const lp = new V3(Math.cos(ang) * KM_R, Math.sin(ang) * KM_R + 0.08, 0).applyMatrix4(m);
+          const cr = { km, p: lp, open: 1, calm: 0, tilt: rr(-0.3, 0.3), ph: rr(0, 6.28) };
+          km.crowns.push(cr); crowns.push(cr);
+        }
+      }
+      E.kamen.push(km);
+    });
+    const arches = new THREE.Mesh(G.merge(archParts), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    arches.matrixAutoUpdate = false; scene.add(arches); E.kamArches = arches;
+    const cg = new THREE.ConeGeometry(0.2, 0.3, 7, 1, true); cg.rotateX(Math.PI); cg.translate(0, 0.15, 0);
+    const im = E.kamIM = new THREE.InstancedMesh(cg, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, emissive: 0x6a1a0c }), crowns.length);
+    im.frustumCulled = false; scene.add(im);
+    const cols = [0xff5a3c, 0xffd0b0, 0xff8a2a, 0xfff2e0];
+    crowns.forEach((cr, k) => { cr.idx = k; im.setColorAt(k, new THREE.Color(cols[k % cols.length])); });
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    kamenRender(0);
+  }
+  /* сила вибрации в точке: 1 — спрятаться, 0 — тихо. Возвращает и источник */
+  function kamenShake(p, out) {
+    const S = G.Ship;
+    out.src = null;
+    if (S.hull > 0 && (Math.abs(S.speed) > KM_SHIP_V || Math.abs(S.vy) > KM_SHIP_V) && S.center.distanceTo(p) < KM_SHIP_R) { out.src = 'ship'; return true; }
+    for (const pr of E.preds) if (pr.p.distanceTo(p) < KM_PRED_R) { out.src = 'pred'; out.pos = pr.p; return true; }
+    const gr = E.grot;
+    if (gr && gr.shy <= 0 && Math.hypot(gr.p.x - p.x, gr.p.z - p.z) < KM_GROT_R) { out.src = 'grot'; out.pos = gr.back; return true; }
+    return false;
+  }
+  const kmOut = {};
+  function kamenUpdate(dt, t) {
+    const S = G.Ship;
+    for (const km of E.kamen) {
+      km.shipCd -= dt; km.warnCd -= dt; km.archCd -= dt;
+      let shut = 0, why = null, wpos = null;
+      for (const c of km.crowns) {
+        if (kamenShake(c.p, kmOut)) {
+          c.calm = 0; c.open = Math.max(0, c.open - dt * 8);
+          if (!why || kmOut.src !== 'ship') { why = kmOut.src; wpos = kmOut.pos; }
+        } else {
+          c.calm += dt;
+          if (c.calm > 2) c.open = Math.min(1, c.open + dt * 0.6);
+        }
+        if (c.open < 0.3) shut++;
+      }
+      km.shut = shut / km.crowns.length;
+      if (why === 'ship' && km.shut > 0.3 && km.shipCd <= 0) {
+        km.shipCd = 60; E.emit('kamen', 'ship', km.c, () => `${cap(kmPl())} спрятали венчики от вибрации двигателей`);
+      } else if ((why === 'pred' || why === 'grot') && km.shut > 0.15 && km.warnCd <= 0) {
+        km.warnCd = 40;
+        const who = why === 'pred' ? G.nm('pred') : G.nm('grot');
+        E.emit('kamen', 'warn', km.c, () => `${cap(kmPl())} прячут венчики с края ряда: рядом проходит ${who}`);
+      }
+      if (km.shut === 0 && km.archCd <= 0 && S.center.distanceTo(km.c) < KM_SHIP_R && Math.abs(S.speed) <= KM_SHIP_V && km.crowns.every(c => c.open > 0.95)) {
+        km.archCd = 120; E.emit('kamen', 'arch', km.c, () => `${cap(kmPl())} раскрыли венчики на известковых арках`);
+      }
+    }
+    kamenRender(t);
+  }
+  function kamenRender(t) {
+    const im = E.kamIM;
+    for (const km of E.kamen) for (const c of km.crowns) {
+      const o = c.open, s = 0.08 + 0.92 * o;
+      dummy.position.copy(c.p); dummy.position.y -= (1 - o) * 0.05;
+      dummy.rotation.set(c.tilt + Math.sin(t * 1.3 + c.ph) * 0.12 * o, c.ph, Math.cos(t * 1.1 + c.ph) * 0.1 * o);
+      dummy.scale.set(s, 0.2 + 0.8 * o, s); dummy.updateMatrix();
+      im.setMatrixAt(c.idx, dummy.matrix);
+    }
+    im.instanceMatrix.needsUpdate = true;
   }
 
   /* ======================= ХВАТНИ И ПЕСТРЯНКИ ======================= */
@@ -1546,7 +1648,7 @@
   }
 
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initKamen(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1576,6 +1678,7 @@
     if (E.grot) grotUpdate(E.grot, dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
+    if (E.kamIM) kamenUpdate(dt, t);
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
     E.grazers.forEach(gz => grazerUpdate(gz, dt, t));
     E.eels.forEach((el, i) => { eelUpdate(el, dt, t); eelRender(el, i, t); });
@@ -1603,6 +1706,7 @@
     E.remoras.forEach(rm => L.push({ sp: 'prisoska', pos: rm.p, r: 0.4, noSonar: true }));
     if (E.skalnik) { const h = E.skalnik.camo >= 0.5; L.push({ sp: 'skalnik', pos: E.skalnik.p, r: 1, hidden: h, noSonar: h }); } // замаскированного не видно ни в прицеле, ни на сонаре
     E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
+    E.kamen.forEach(km => L.push({ sp: 'kamen', pos: km.c, r: 1.6 }));
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
@@ -1639,6 +1743,8 @@
     if (E.latched) { E.latched.state = 'flee'; E.latched.cd = 40; E.latched = null; }
     E.preds.forEach((pr, i) => { pr.p.copy(pr.p0); pr.goal.copy(pr.p0); pr.v.set(0, 0, 1); pr.segs.forEach((sg, k) => sg.copy(pr.p0).z -= k * 0.6); pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; pr.flareCd = 0; });
     E.stations.forEach(st => { st.busy = null; st.work = 0; });
+    E.kamen.forEach(km => { km.crowns.forEach(c => { c.open = 1; c.calm = 0; }); km.shut = 0; km.shipCd = km.warnCd = km.archCd = 0; });
+    if (E.kamIM) kamenRender(0);
     E.anemones.forEach(hv => { hv.open = 1; hv.lit = false; hv.digest = 0; hv.lure = null; hv.lureT = 0; hv.lureCd = G.rr(4, 12); hv.leftT = 0; hv.hideCd = 0; hv.msgCd = 0; });
     E.groves.forEach(gr => { gr.msgCd = 0; gr.grazeCd = 0; gr.stalks.forEach((s, k) => { s.f = 1; s.eater = null; s.drawn = 1; setKelp(gr, k); }); gr.cover = 1; });
     if (E.kelpIM) { E.kelpIM.instanceMatrix.needsUpdate = true; E.kelpIM.instanceColor.needsUpdate = true; }

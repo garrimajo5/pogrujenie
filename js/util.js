@@ -10,6 +10,7 @@ window.G = window.G || {};
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
   }
+  G.mulberry32 = mulberry32; // отдельный генератор: не сдвигает общий поток случайных чисел
   G.rng = mulberry32(20261018);
   G.seed = n => { const r = mulberry32(n); G.rng = r; };
   G.rr = (a, b) => a + (b - a) * G.rng();
