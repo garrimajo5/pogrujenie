@@ -37,7 +37,12 @@ if ($p.ExitCode -ne 0) {
 }
 
 # Установка и запуск
-& $adb install -r "$out\Pogrujenie.apk" | Out-Null
+# Эмулятор мог уйти в offline за время сборки: ждём и проверяем, что APK встал
+& $adb wait-for-device
+for ($i = 0; $i -lt 60; $i++) { if ((& $adb shell getprop sys.boot_completed).Trim() -eq '1') { break }; Start-Sleep 5 }
+$inst = ''
+for ($i = 0; $i -lt 3; $i++) { $inst = (& $adb install -r "$out\Pogrujenie.apk" 2>&1 | Out-String); if ($inst -match 'Success') { break }; Start-Sleep 10 }
+if ($inst -notmatch 'Success') { Write-Output "INSTALL_FAILED $head"; $inst; exit 1 }
 & $adb shell am force-stop $app
 & $adb logcat -c
 & $adb shell monkey -p $app -c android.intent.category.LAUNCHER 1 | Out-Null
