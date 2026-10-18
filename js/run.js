@@ -26,7 +26,7 @@
     return true;
   };
   R.reset = function () {
-    R.route = null; R.visited.clear(); R.done = false; R.sel = 0; R.depth = 0; R.ended = false;
+    R.route = null; R.visited.clear(); R.done = false; R.sel = 0; R.depth = 0; R.ended = false; if (G.Echo) G.Echo.newDive();
     if (R.open) R.close(); if (R.voteOpen) R.closeVote(); R.startStats(); R.hud(true);
     const res = document.getElementById('results'); if (res) res.hidden = true;
   };
@@ -85,7 +85,8 @@
     R.closeVote();
     if (choice === 'deep') {
       R.depth++; R.route = null; R.visited.clear(); R.done = false; R.hud(true);
-      G.Game.toast('Глубже', `Экипаж идёт дальше. Хищники здесь злее (+${R.depth * 15}% к чутью). Выберите новый маршрут у голостола.`, 5000);
+      const code = G.Echo ? G.Echo.newDive() : '';
+      G.Game.toast('Глубже', `Экипаж идёт дальше. Хищники здесь злее (+${R.depth * 15}% к чутью). Новое кодовое слово: ${code}. Выберите новый маршрут у голостола.`, 5000);
       G.Game.feedMsg && G.Game.feedMsg(`Решение экипажа: глубже (${R.depth + 1}-й спуск)`, true);
       return 'deep';
     }
