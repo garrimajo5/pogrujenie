@@ -11,7 +11,7 @@
     coral: { name: 'Ветка огнецвета', color: 0xff8a3c },
     spine: { name: 'Игла шипоежа', color: 0x8cdcff }
   };
-  const M = G.Manip = { KIND, REACH, samples: [], holding: false, arm: null, target: null, state: 'idle', t: 0, prog: 0 };
+  const M = G.Manip = { KIND, REACH, samples: [], got: new Set(), holding: false, arm: null, target: null, state: 'idle', t: 0, prog: 0 };
   const tv = new V3(), tv2 = new V3(), base = new V3(), tip = new V3();
 
   /* образцы на дне: у пятен мха, под волнолистом, у станций огнецвета, у норы кольчужника */
@@ -98,8 +98,10 @@
   /* образец в шлюзе: попадает в колбу лаборатории */
   M.stow = function (s) {
     M.state = 'idle'; M.target = null; M.prog = 0; M.arm.carry.visible = false;
-    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name }); G.Run.note('samples');
+    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name, i: s.i }); G.Run.note('samples');
+    M.got.add(s.i); // поднятый образец больше не лежит на дне, даже если его потратят на улучшение
     G.Ship.showTubes && G.Ship.showTubes();
+    G.Save.mark();
     G.Game.toast('Образец в шлюзе', `${KIND[s.kind].name} — в колбе лаборатории. Всего образцов: ${G.Ship.cargo.length}.`);
     G.Game.feedMsg && G.Game.feedMsg(`Манипулятор достал образец: ${KIND[s.kind].name.toLowerCase()}`, true);
     G.Audio.scanDone();
@@ -113,7 +115,25 @@
   };
   /* образец снова лежит на дне — его можно достать ещё раз */
   M.drop = function (s, pos) { s.taken = false; s.pos.set(pos.x, G.World.height(pos.x, pos.z) + 0.15, pos.z); M.place(); };
+  /* из сохранения: какие образцы уже подняты со дна и что лежит в трюме */
+  M.restore = function (got, cargo) {
+    M.reset();
+    (Array.isArray(got) ? got : []).forEach(i => { const s = Number.isInteger(i) && M.samples[i]; if (s) { s.taken = true; M.got.add(i); } });
+    const used = new Set(), list = [];
+    (Array.isArray(cargo) ? cargo : []).forEach(c => {
+      if (!c || !KIND[c.kind]) return;
+      if (c.i != null) { // образец со дна: тот же вид, поднят и ещё не лежит в трюме
+        const s = Number.isInteger(c.i) && M.samples[c.i];
+        if (!s || s.kind !== c.kind || used.has(c.i)) return;
+        used.add(c.i); s.taken = true; M.got.add(c.i);
+      }
+      list.push({ kind: c.kind, name: KIND[c.kind].name, i: c.i != null ? c.i : null });
+    });
+    G.Ship.cargo.length = 0; list.forEach(c => G.Ship.cargo.push(c));
+    M.place(); G.Ship.showTubes();
+  };
   M.reset = function () {
+    M.got.clear();
     M.samples.forEach(s => { s.taken = false; s.pos.copy(s.pos0); }); M.state = 'idle'; M.target = null; M.prog = 0;
     if (M.arm) { M.arm.carry.visible = false; M.pose(M.arm.fold); }
     if (M.im) M.place();

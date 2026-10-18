@@ -263,7 +263,7 @@
     if (Game.piloting) Game.toggleHelm();
   }
   function restart() {
-    G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset();
+    G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset(); G.Save.mark(); // груз потерян вместе с кораблём
     const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
     $('lost').hidden = true; Game.state = 'play'; clock.getDelta();
   }
@@ -449,6 +449,7 @@
     G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
     G.Tutorial.restart();
     G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
+    G.Ship.cargo.length = 0; G.Manip.reset(); G.Cargo.reset(); G.Ship.showTubes(); // трюм пустеет, образцы снова на дне
     Game.done = false; updateCounts();
     if (Game.state === 'journal') renderJournal();
     Game.toast('Журнал очищен', 'Экспедиция начинается заново.');
