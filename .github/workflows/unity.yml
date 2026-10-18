@@ -60,8 +60,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: unity/Library
-          key: Library-android-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
-          restore-keys: Library-android-
+          # v2: старый кэш Library (18:12) ронял редактор сразу после запуска (exit 137) — начинаем с чистого
+          key: Library-android-v2-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          restore-keys: Library-android-v2-
       - uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
