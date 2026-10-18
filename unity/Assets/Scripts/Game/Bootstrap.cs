@@ -5,7 +5,8 @@ using UnityEngine.SceneManagement;
 namespace Pogrujenie.Game
 {
     /// <summary>
-    /// Заготовка Unity-версии: собирает сцену из кода — тёмная вода, дно, «Ковчег-7» с прожектором
+    /// Заготовка Unity-версии: собирает сцену из кода — отмель с рельефом и льдом, вода с туманом
+    /// по глубине, «Ковчег-7» с прожектором
     /// и стайка светляков. Прожектор питается от реактора: его дальность — доля «Прожектор».
     /// Корабль ведут за штурвалом (ShipPhysics): тяга зависит от доли «Двигатели», течение сносит всегда.
     /// Сцена Main создаётся меню «Погружение → Создать сцену Main» или сборкой; в пустой сцене
@@ -29,8 +30,9 @@ namespace Pogrujenie.Game
         public ShipPhysics Motion { get; private set; }
         public SeaCurrent Current { get; private set; }
         public Transform Wheel { get; private set; }
-
-        public const float FloorY = -32f; // ровное дно, пока нет рельефа отмели
+        public SeabedView Seafloor { get; private set; }
+        /// <summary>Свет сквозь лёд: слабеет с глубиной.</summary>
+        public Light Sun { get; private set; }
 
         /// <summary>Прожектор включён (кнопкой действия). Светит, только если у него есть энергия.</summary>
         public bool LampOn = true;
@@ -53,7 +55,7 @@ namespace Pogrujenie.Game
             Instance = this;
             Reactor = new Reactor();
             Reactor.Message += (title, text) => lastMsg = title;
-            Motion = new ShipPhysics { Ground = (x, z) => FloorY };
+            Motion = new ShipPhysics { Ground = Seabed.Height };
             Current = new SeaCurrent();
             Current.Changed += i => Say("Течение сменилось");
             Application.targetFrameRate = 60;
@@ -68,13 +70,10 @@ namespace Pogrujenie.Game
 
         void Build()
         {
-            var water = new Color(0.02f, 0.07f, 0.12f);
+            // вода как в браузерной версии: туман FogExp2, рассеянный свет сверху и свет сквозь лёд
             RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogColor = water;
-            RenderSettings.fogDensity = 0.035f;
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.08f, 0.14f, 0.2f);
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
 
             Cam = Camera.main;
             if (Cam == null)
@@ -84,16 +83,21 @@ namespace Pogrujenie.Game
                 Cam = camGo.AddComponent<Camera>();
             }
             Cam.clearFlags = CameraClearFlags.SolidColor;
-            Cam.backgroundColor = water;
-            Cam.farClipPlane = 200f;
+            Cam.farClipPlane = 200f; // дальше туман всё равно непрозрачен
 
-            // дно отмели
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Дно";
-            floor.transform.SetParent(transform);
-            floor.transform.position = new Vector3(ShipPhysics.StartX, FloorY, ShipPhysics.StartZ);
-            floor.transform.localScale = new Vector3(20, 1, 20);
-            Paint(floor, new Color(0.18f, 0.2f, 0.17f));
+            var sunGo = new GameObject("Свет сквозь лёд");
+            sunGo.transform.SetParent(transform);
+            // в браузере свет идёт из (0.3, 1, 0.25); x в Unity меняет знак
+            sunGo.transform.rotation = Quaternion.LookRotation(-new Vector3(-0.3f, 1f, 0.25f));
+            Sun = sunGo.AddComponent<Light>();
+            Sun.type = LightType.Directional;
+            Sun.color = new Color(0xc8 / 255f, 0xf2 / 255f, 1f);
+            Sun.shadows = LightShadows.None;
+
+            // отмель: рельеф из шума как js/world.js и лёд над головой
+            Seafloor = new GameObject("Отмель").AddComponent<SeabedView>();
+            Seafloor.transform.SetParent(transform);
+            Seafloor.Build();
 
             // «Ковчег-7»: нос в −Z, как в браузерной версии
             var ship = new GameObject("Ковчег-7").transform;
@@ -166,6 +170,26 @@ namespace Pogrujenie.Game
             Player = gameObject.AddComponent<Player>();
             Player.Init(this);
             ApplyPower();
+            ApplyWater();
+        }
+
+        static readonly Color HemiSky = new Color(0x9a / 255f, 0xd9 / 255f, 0xe8 / 255f);    // 0x9ad9e8
+        static readonly Color HemiGround = new Color(0x0b / 255f, 0x1c / 255f, 0x24 / 255f); // 0x0b1c24
+
+        /// <summary>Вода по глубине корабля: цвет и плотность тумана, рассеянный свет, свет сквозь лёд.</summary>
+        public void ApplyWater()
+        {
+            float depth = Motion.Depth;
+            Water.FogColor(depth, out float r, out float g, out float b);
+            var fog = new Color(r, g, b);
+            RenderSettings.fogColor = fog;
+            RenderSettings.fogDensity = Water.FogDensity(depth);
+            Cam.backgroundColor = fog;
+            float a = Water.Ambient(depth);
+            RenderSettings.ambientSkyColor = HemiSky * a;
+            RenderSettings.ambientEquatorColor = Color.Lerp(HemiSky, HemiGround, 0.5f) * a;
+            RenderSettings.ambientGroundColor = HemiGround * a;
+            Sun.intensity = Water.Sun(depth);
         }
 
         static void Paint(GameObject go, Color c)
@@ -198,6 +222,7 @@ namespace Pogrujenie.Game
             // перегрев реактора (Reactor.Update) включится вместе с машинным отделением
             ApplyPower();
             Step(Time.deltaTime);
+            ApplyWater();
             float t = Time.time;
             for (int i = 0; i < Fireflies.Length; i++)
             {

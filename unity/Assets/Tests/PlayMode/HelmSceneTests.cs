@@ -174,7 +174,7 @@ namespace Pogrujenie.Tests
         {
             yield return Sit();
             Assert.AreEqual(20f, boot.Motion.Depth, 0.5f, "старт на глубине 20 м, как в браузере");
-            Assert.Greater(boot.Ship.position.y, Bootstrap.FloorY + ShipPhysics.Clearance, "над дном");
+            Assert.Greater(boot.Ship.position.y, Seabed.Height(boot.Ship.position.x, boot.Ship.position.z) + ShipPhysics.Clearance, "над дном");
         }
     }
 }
