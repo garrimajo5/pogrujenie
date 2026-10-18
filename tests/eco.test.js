@@ -2,7 +2,7 @@
 /* Экосистема: виды, связи между ними, реакции на корабль */
 T.describe('Виды', () => {
   T.test('у каждого вида полное описание', () => {
-    T.eq(G.SPECIES_ORDER.length, 16);
+    T.eq(G.SPECIES_ORDER.length, 17);
     G.SPECIES_ORDER.forEach(k => {
       const s = G.SPECIES[k];
       ['name', 'acc', 'unom', 'uacc', 'desc'].forEach(f => T.ok(typeof s[f] === 'string' && s[f].length > 1, `${k}.${f}`));
@@ -40,7 +40,7 @@ T.describe('Связи', () => {
     const snap = () => JSON.stringify([E().fish.map(f => [f.alive, f.p.x.toFixed(3), f.p.z.toFixed(3)]), E().rays.map(r => r.ang.toFixed(4)), E().preds.map(p => p.p.toArray().map(v => v.toFixed(3)))]);
     const a = snap();
     E().fish[3].alive = false; D.step(200); D.reset();
-    T.ok(snap() === a, 'после сброса мир другой — тесты зависят от предыдущих кадров');
+    T.ok(snap() === a, 'после сброса мир другой — тесты зависят от предыдущих');
   });
   T.test('погибшая рыба возвращается в стаю', () => {
     const f = E().fish[0]; f.alive = false; f.t = 1;
