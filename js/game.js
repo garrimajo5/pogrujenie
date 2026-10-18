@@ -225,13 +225,13 @@
   Game.toggleLight = function () {
     const S = G.Ship;
     if (!S.light && S.energy < 3) { Game.toast('Мало энергии', 'Прожектор не включить'); return; }
-    if (!S.light && G.Power.v.lamp <= 0) { Game.toast('Прожектор обесточен', 'Дайте ему энергию в машинном отделении'); return; }
+    if (!S.light && G.Power.k('lamp') <= 0) { Game.toast('Прожектор обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'Дайте ему энергию в машинном отделении'); return; }
     S.light = !S.light; G.Audio.beep(S.light ? 760 : 380);
     $('b-light').classList.toggle('lit', S.light);
   };
   Game.zap = function () {
     const S = G.Ship;
-    if (G.Power.v.zap <= 0) { Game.toast('Разряд обесточен', 'В машинном отделении у разряда 0 единиц'); G.Audio.beep(220); return; }
+    if (G.Power.k('zap') <= 0) { Game.toast('Разряд обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'В машинном отделении у разряда 0 единиц'); G.Audio.beep(220); return; }
     if (S.energy < 15) { Game.toast('Мало энергии', 'Для разряда нужно 15 единиц'); G.Audio.beep(220); return; }
     S.energy -= 15; S.flicker = 0.8; G.Audio.zap(); flash('rgba(94,242,214,.55)');
     G.Eco.onZap();
