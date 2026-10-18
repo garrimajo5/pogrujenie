@@ -49,6 +49,32 @@ namespace Pogrujenie.Tests
             Assert.IsTrue(boot.Controls.PilotButtons, "появились «Всплыть», «Вниз» и «Свет»");
         }
 
+        /// <summary>По отчёту qa/2026-10-19-0150-unity-shader-fix: за штурвалом рама окна уходила за край кадра.</summary>
+        [UnityTest]
+        public IEnumerator ЗаШтурваломВидноРамуОкнаИШтурвал()
+        {
+            yield return Sit();
+            var cam = boot.Cam;
+            var ship = cam.transform.parent;
+            try
+            {
+                foreach (var aspect in new[] { 2400f / 1080f, 1080f / 2400f })
+                {
+                    cam.aspect = aspect;
+                    yield return null;
+                    Assert.AreEqual(CameraView.Fov(aspect), cam.fieldOfView, 0.01f, "угол обзора как в браузере");
+                    var frame = cam.WorldToViewportPoint(ship.TransformPoint(new Vector3(0, 2.7f, -5.9f)));
+                    Assert.Greater(frame.z, 0f, "рама впереди");
+                    Assert.Less(frame.y, 1f, "рама над окном не за верхним краем, соотношение " + aspect);
+                    Assert.Greater(frame.y, 0.5f, "рама в верхней половине кадра");
+                    var wheel = cam.WorldToViewportPoint(boot.Wheel.position);
+                    Assert.Greater(wheel.y, -0.05f, "штурвал у нижнего края, не ниже");
+                    Assert.Less(wheel.y, 0.5f, "штурвал в нижней половине");
+                }
+            }
+            finally { cam.ResetAspect(); }
+        }
+
         [UnityTest]
         public IEnumerator КрестовинаВедётКорабльАНеИгрока()
         {

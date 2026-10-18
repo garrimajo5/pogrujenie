@@ -11,7 +11,7 @@ namespace Pogrujenie.Game
     /// </summary>
     public sealed class Player : MonoBehaviour
     {
-        public const float SeatZ = -4.3f, SeatEye = 1.62f, StandZ = -3.2f;
+        public const float SeatZ = CameraView.SeatZ, SeatEye = CameraView.SeatEye, StandZ = -3.2f;
 
         public readonly Walker Walker = new Walker();
         Bootstrap boot;
@@ -36,12 +36,12 @@ namespace Pogrujenie.Game
             Apply();
         }
 
-        /// <summary>Сесть за штурвал: взгляд на нос, крестовина ведёт корабль.</summary>
+        /// <summary>Сесть за штурвал: взгляд прямо на нос (в кадре рама окна и штурвал), крестовина ведёт корабль.</summary>
         public void SitAtHelm()
         {
             if (Piloting) return;
             Piloting = true;
-            Walker.Yaw = Mathf.PI; Walker.Pitch = -0.08f;
+            Walker.Yaw = Mathf.PI; Walker.Pitch = CameraView.SeatPitch;
             boot.Controls.PilotButtons = true;
             boot.Say("Вы за штурвалом");
             Apply();
@@ -54,7 +54,7 @@ namespace Pogrujenie.Game
             Piloting = false;
             var s = boot.Motion;
             s.InThrust = s.InTurn = s.InVert = 0;
-            Walker.X = 0; Walker.Z = StandZ; Walker.Yaw = Mathf.PI; Walker.Pitch = -0.08f;
+            Walker.X = 0; Walker.Z = StandZ; Walker.Yaw = Mathf.PI; Walker.Pitch = CameraView.StandPitch;
             boot.Controls.PilotButtons = false;
             Apply();
         }
@@ -90,6 +90,7 @@ namespace Pogrujenie.Game
 
         void Apply()
         {
+            boot.Cam.fieldOfView = CameraView.Fov(boot.Cam.aspect);
             var cam = boot.Cam.transform;
             cam.localPosition = Piloting ? new Vector3(0f, SeatEye, SeatZ) : new Vector3(Walker.X, Walker.Eye, Walker.Z);
             cam.localRotation = Quaternion.Euler(-Walker.Pitch * Mathf.Rad2Deg, Walker.Yaw * Mathf.Rad2Deg, 0f);

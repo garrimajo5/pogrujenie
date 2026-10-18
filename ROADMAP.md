@@ -12,7 +12,9 @@
 - Unity: закоммитить `.meta`-файлы и зафиксировать `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи — разделено на две части:
   - [x] `.meta` для всех ассетов `unity/Assets` с постоянными GUID (`tools/unity_meta.py`, проверка в CI «Тесты»)
   - [x] Дописать в `ProjectVersion.txt` строку `m_EditorVersionWithRevision: 6000.6.6f1 (d20c9ac777da)` (ревизия из лога сборки в CI) и убедиться, что «Unity» зелёная
-- [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
+- [x] Unity: за штурвалом не видно рамы носового окна, весь кадр — «лёд». Камера на месте, но угол обзора был 60° (Unity по умолчанию) вместо браузерных 72°/85° и взгляд опущен — угол как в браузере, за штурвалом взгляд прямо на нос (`Core/CameraView.cs`). Отчёт `qa/2026-10-19-0150-unity-shader-fix`, наблюдение
+- [ ] Unity: `.utmp/` в `.gitignore`; закоммитить `Packages/packages-lock.json` и `ProjectSettings/*.asset`, которые Unity создаёт при сборке, чтобы сборки в CI и у тестера совпадали (файлы взять из сборки CI — выложить артефактом). Отчёт `qa/2026-10-19-0150-unity-shader-fix`, мелочь по репозиторию
+- [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки (в Unity Issue Tracker похожая ошибка `AssetPackStateUpdateListener ClassNotFoundException` в пустом проекте — возможно, настройкой не убирается). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
 ## Концепт-арт
 Рисует Codex по `art/ARTIST.md`, заказы — в `art/REQUESTS.md`, работы — в ветке `art/concepts`.
@@ -21,6 +23,7 @@
   - [x] Принять ART-001: лист ракурсов и сцена в `docs/concept-art/kovcheg-7-*`, решения по вопросам художника в `art/REQUESTS.md`
   - [ ] Корпус по ART-001 в Unity: 28 простых частей по `docs/concept-art/kovcheg-7.md`, подогнать к отсекам `ShipLayout`
 - [ ] Принять ART-002 мостик и пересобрать по нему мостик в Unity
+- [ ] Принять ART-003…ART-007 (серпохвост, флора, карта отмели, стеклоуст и скребун, эхоловец) — сданы в `art/concepts` 2026-10-19, по одной PR на заказ
 
 ## Этап 0. Проверка идеи
 - [x] Включить GitHub Pages: https://garrimajo5.github.io/pogrujenie/ (ссылка в README)
