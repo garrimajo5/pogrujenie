@@ -105,7 +105,7 @@
       cyan: new THREE.MeshBasicMaterial({ color: 0x5ef2d6 }),
       red: new THREE.MeshBasicMaterial({ color: 0xff5d6c })
     };
-    const bridgeC = new V3(0, 1.6, -2), corrC = new V3(0, 1.3, 5), labC = new V3(0, 1.7, 11), engC = new V3(0, 1.6, 16.75);
+    const bridgeC = new V3(0, 1.6, -2), corrC = new V3(0, 1.3, 5), labC = new V3(0, 1.7, 11), engC = new V3(0, 1.6, 16.75), cargoC = new V3(0, 1.5, 21.75);
     const E0 = new THREE.Euler(0, 0, 0), EL = new THREE.Euler(0, Math.PI / 2, 0), ER = new THREE.Euler(0, -Math.PI / 2, 0);
 
     /* ----- полы и потолки ----- */
@@ -117,6 +117,8 @@
     box(8, 0.1, 6, M.ceil, 0, 3.45, 11);
     box(6, 0.1, 5.5, M.floor, 0, -0.05, 16.75);
     box(6, 0.1, 5.5, M.ceil, 0, 3.25, 16.75);
+    box(5, 0.1, 4.5, M.floor, 0, -0.05, 21.75);
+    box(5, 0.1, 4.5, M.ceil, 0, 3.05, 21.75);
 
     /* ----- мостик ----- */
     wall(10, 3.2, [{ x: 0, y: 1.75, w: 7.6, h: 1.9, rr: 0.5 }], M.wall, new V3(0, 0, -6), E0, 'bridge', bridgeC);
@@ -142,7 +144,26 @@
     /* ----- машинное отделение ----- */
     wall(5.5, 3.2, [{ x: 0, y: 1.6, r: 0.32 }], M.wall, new V3(-3, 0, 16.75), EL, 'eng', engC);
     wall(5.5, 3.2, [{ x: 0.8, y: 1.6, r: 0.32 }], M.wall, new V3(3, 0, 16.75), ER, 'eng', engC);
-    wall(6, 3.2, [], M.wall, new V3(0, 0, 19.5), E0, 'eng', engC);
+    box(2.2, 3.2, 0.2, M.wall, -1.9, 1.6, 19.5); box(2.2, 3.2, 0.2, M.wall, 1.9, 1.6, 19.5); box(1.6, 0.9, 0.2, M.wall, 0, 2.75, 19.5); // корма машинного: люк в трюм
+
+    /* ----- грузовой отсек (трюм) ----- */
+    wall(4.5, 3, [], M.wall2, new V3(-2.5, 0, 21.75), EL, 'cargo', cargoC);
+    wall(4.5, 3, [], M.wall2, new V3(2.5, 0, 21.75), ER, 'cargo', cargoC);
+    wall(5, 3, [{ x: 0, y: 1.9, r: 0.3 }], M.wall2, new V3(0, 0, 24), E0, 'cargo', cargoC);
+    box(0.15, 0.04, 3.8, M.lamp, 0, 2.99, 21.75);
+    const slots = [];
+    [-1, 1].forEach(sx => [0.55, 1.3, 2.05].forEach(y => { // полки вдоль бортов, на каждой по два-три образца
+      box(0.55, 0.05, 3.6, M.frame, sx * 2.1, y, 21.9);
+      [20.6, 21.4, 22.2, 23.0].forEach((z, k) => { if (slots.length < 24) slots.push(new V3(sx * 2.1, y + 0.19, z)); });
+    }));
+    S.obst.push({ x: -2.1, z: 21.9, r: 0.45 }, { x: 2.1, z: 21.9, r: 0.45 }, { x: -2.1, z: 20.6, r: 0.45 }, { x: 2.1, z: 20.6, r: 0.45 }, { x: -2.1, z: 23.2, r: 0.45 }, { x: 2.1, z: 23.2, r: 0.45 });
+    G.Cargo.build(g, slots);
+    box(1.2, 1.0, 0.45, M.dark, 0, 0.5, 23.6);
+    S.cargoScreen = screen(1.0, 0.55, 256, 128, 0, 1.3, 23.36, -0.4, 0);
+    (function (x) { x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 128); x.fillStyle = '#ffb259'; x.font = '600 20px monospace'; x.textAlign = 'center'; x.fillText('ТРЮМ', 128, 50); x.fillText('УЛУЧШЕНИЯ', 128, 82); x.strokeStyle = '#ffb259'; x.strokeRect(6, 6, 244, 116); })(S.cargoScreen.userData.ctx);
+    S.cargoScreen.needsUpdate = true;
+    S.obst.push({ x: 0, z: 23.6, r: 0.55 });
+    S.inter.push({ x: 0, z: 22.8, r: 1.5, label: () => (G.Cargo.isOpen() ? 'Закрыть терминал' : 'Терминал трюма: улучшения'), fn: () => G.Cargo.toggle() });
     box(0.2, 0.04, 4.6, M.lamp, -2.2, 3.19, 16.75); box(0.2, 0.04, 4.6, M.lamp, 2.2, 3.19, 16.75);
     // реактор: тёмное основание, светящийся стержень в стеклянном кожухе, кольца охлаждения
     box(1.9, 0.3, 1.9, M.dark, 0, 0.15, 17.2);
@@ -215,7 +236,7 @@
     S.inter.push({ x: 2.9, z: 12.6, r: 1.6, label: () => 'Открыть журнал', fn: () => G.Game.openJournal() });
 
     /* ----- люки ----- */
-    [2, 8, 14].forEach(z => {
+    [2, 8, 14, 19.5].forEach(z => {
       const d = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.3, 0.08), M.door); d.position.set(0, 1.15, z); g.add(d);
       const st = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.1), M.trim); st.position.y = 0.2; d.add(st);
       const wnd = new THREE.Mesh(new THREE.CircleGeometry(0.16, 20), M.cyan); wnd.position.set(0, 0.55, 0.05); d.add(wnd);
@@ -253,7 +274,7 @@
      Подвижное (люки, штурвал, рычаг, экраны, прожектор) помечается userData.dynamic и не трогается. */
   S.mergeStatic = function () {
     [S.wheel, S.lever, S.beam, S.spot, S.reactorCore].concat(S.doors.map(d => d.mesh)).forEach(o => o && o.traverse(c => { c.userData.dynamic = true; }));
-    const canvasMaps = new Set([S.helmScreen, S.engScreen, S.powerScreen].filter(Boolean));
+    const canvasMaps = new Set([S.helmScreen, S.engScreen, S.powerScreen, S.cargoScreen].filter(Boolean));
     const groups = new Map();
     g.traverse(o => {
       if (!o.isMesh || o.userData.dynamic || o.isInstancedMesh || Array.isArray(o.material)) return;
@@ -276,7 +297,7 @@
     S.pos.copy(S.start); S.yaw = 0;
     S.pos.y = Math.min(-9, S.clearance(S.pos.x, S.pos.z, 0) + 9);
     S.speed = S.vy = S.turn = S.roll = S.pitch = 0;
-    S.hull = 100; S.energy = 100; S.light = true; S.cargo.length = 0; if (S.showTubes && G.Manip.KIND) S.showTubes();
+    S.hull = 100; S.energy = 100; S.light = true; S.cargo.length = 0; if (S.showTubes && G.Manip.KIND) S.showTubes(); if (G.Cargo.shelves) G.Cargo.shelves();
     S.input.thrust = S.input.turn = S.input.vert = 0;
     S.applyTransform();
   };
@@ -289,6 +310,7 @@
   /* Можно ли стоять игроку в точке (x,z) корабельных координат */
   /* в колбах лаборатории — три последних образца */
   S.showTubes = function () {
+    if (G.Cargo.shelves) G.Cargo.shelves();
     const last = S.cargo.slice(-S.tubeOrbs.length);
     S.tubeOrbs.forEach((o, i) => { const c = last[i]; o.visible = !!c; if (c) o.material.color.set(G.Manip.KIND[c.kind].color); });
   };
@@ -318,11 +340,13 @@
     if (!ok && x > -4 + r && x < 4 - r && z > 8 + r && z < 14 - r) ok = true;
     if (!ok && x > -3 + r && x < 3 - r && z > 14 + r && z < 19.5 - r) ok = true; // машинное отделение
     if (!ok && x > -1.1 + r && x < 1.1 - r && z > 13.4 && z < 14.6 && S.doors[2].t > 0.85) ok = true;
+    if (!ok && x > -2.5 + r && x < 2.5 - r && z > 19.5 + r && z < 24 - r) ok = true; // трюм
+    if (!ok && x > -1.1 + r && x < 1.1 - r && z > 18.9 && z < 20.1 && S.doors[3].t > 0.85) ok = true;
     if (!ok) return false;
     for (const o of S.obst) if (Math.hypot(x - o.x, z - o.z) < o.r + r) return false;
     return true;
   };
-  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : z < 14 ? 'lab' : 'eng');
+  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : z < 14 ? 'lab' : z < 19.5 ? 'eng' : 'cargo');
 
   /* Проходит ли взгляд (из точки p в направлении d, всё в координатах корабля) через иллюминатор */
   S.throughWindow = function (p, d, room) {
@@ -382,7 +406,7 @@
     // энергия и корпус
     let drain = Math.abs(inp.thrust) * 0.35 + Math.abs(inp.vert) * 0.15 + (S.light ? 0.22 : 0);
     if (G.Eco.latched) drain += 3.2;
-    S.energy = G.clamp(S.energy + (1.1 - drain) * dt, 0, 100);
+    S.energy = G.clamp(S.energy + ((G.Cargo.has('batt') ? 1.54 : 1.1) - drain) * dt, 0, 100); // живые аккумуляторы из мха
     if (S.energy <= 0.5 && S.light) { S.light = false; G.Game.toast('Прожектор погас', 'Не хватает энергии'); }
     if (S.light && G.Power.k('lamp') <= 0) { S.light = false; G.Game.toast('Прожектор обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'В машинном отделении у прожектора 0 единиц'); }
     G.Power.update(dt, t);

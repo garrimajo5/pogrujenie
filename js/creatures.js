@@ -1740,7 +1740,7 @@
   /* серпохвост слышит быстрый ход корабля поблизости, если его не заглушает трубный орган */
   function hearsShip(pr, dShip) {
     const S = G.Ship;
-    if (dShip >= HEAR_R || Math.abs(S.speed) <= HEAR_SPEED || S.hull <= 0) return false;
+    if (dShip >= HEAR_R * (G.Cargo.has('quiet') ? 0.5 : 1) || Math.abs(S.speed) <= HEAR_SPEED || S.hull <= 0) return false; // глушитель двигателей
     if (E.shipMasked) {
       const og = E.shipMasked;
       if (og.maskCd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) { og.maskCd = 40; E.emit('organ', 'mask', og.top, () => `Гул ${G.nm('organ', 'gen')} заглушает двигатели — ${G.nm('pred')} не слышит корабль`); }

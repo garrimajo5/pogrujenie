@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene); G.Silt.build(scene); G.Manip.build(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); G.Power.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.Power.init(); G.Cargo.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -162,6 +162,11 @@
       if (C.actionPressed) { C.actionPressed = false; G.Power.close(); }
       if (Game.room !== 'eng' || Game.piloting) G.Power.close();
     }
+    if (G.Cargo.isOpen()) { // терминал трюма: тот же принцип, что у пульта энергии
+      G.Cargo.nav(C.move.x, C.move.y); C.move.x = C.move.y = 0;
+      if (C.actionPressed) { C.actionPressed = false; G.Cargo.close(); }
+      if (Game.room !== 'cargo' || Game.piloting) G.Cargo.close();
+    }
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
@@ -238,6 +243,7 @@
   };
   Game.hullHit = function (n, kind) {
     const S = G.Ship; if (S.hull <= 0) return;
+    if (G.Cargo.has('hull')) n = Math.max(1, Math.round(n * 0.7)); // броня из огнецвета и игл
     S.hull = Math.max(0, S.hull - n); Game.shake = 0.6; S.flicker = 0.4;
     flash('rgba(255,93,108,.5)'); G.Audio.thud();
     feed(kind === 'scrape' ? `Удар о дно: корпус −${n}%` : `Удар по корпусу: −${n}%`);
@@ -409,7 +415,7 @@
     $('s-head').textContent = String(Math.round(((-S.yaw * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, '0');
     $('s-speed').textContent = Math.abs(S.speed).toFixed(1);
     setBar('s-hull', S.hull); setBar('s-energy', S.energy);
-    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное' }[Game.room];
+    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное', cargo: 'Трюм' }[Game.room];
     $('b-light').classList.toggle('lit', S.light);
   }
   function feed(text, isNew) {

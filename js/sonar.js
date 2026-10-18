@@ -23,9 +23,10 @@
   So.ping = function () {
     const S = G.Ship;
     if (G.Power.k('son') <= 0) { G.Game.toast('Сонар обесточен', G.Power.scram > 0 ? 'Аварийный сброс реактора' : 'В машинном отделении у сонара 0 единиц'); G.Audio.beep(220); return; }
-    if (S.energy < 6) { G.Game.toast('Мало энергии', 'Для импульса нужно 6 единиц'); return; }
+    const cost = G.Cargo.has('sonar') ? 4 : 6; // фильтр сонара из ракушек
+    if (S.energy < cost) { G.Game.toast('Мало энергии', `Для импульса нужно ${cost} единиц`); return; }
     So.range = 110 * G.Power.k('son'); // дальность импульса — от доли сонара в реакторе
-    S.energy -= 6; So.pingT = G.Game.t; G.Audio.ping();
+    S.energy -= cost; So.pingT = G.Game.t; G.Audio.ping();
     if (G.Silt && G.Silt.inside) { // сонарная тьма: импульс вязнет в иле, на столе одни помехи
       So.blips = []; So.jamT = G.Game.t;
       G.Game.toast('Сонар ослеп', 'Импульс вязнет в облаке ила. Выйдите из мути, чтобы увидеть, что вокруг.');
