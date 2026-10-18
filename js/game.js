@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); G.DebugPanel.init(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.DebugPanel.init(); G.Tutorial.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
@@ -69,7 +69,7 @@
     /* вернуть мир и игрока в исходное состояние (для тестов) */
     paused: false,
     reset() {
-      G.seed(12345); G.Save.wipe();
+      G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
@@ -140,6 +140,7 @@
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
+    G.Tutorial.update();
     G.Save.tick(dt);
   }
   function clearOneShots() {
@@ -392,6 +393,7 @@
   Game.resetProgress = function () {
     G.Save.wipe();
     G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
+    G.Tutorial.restart();
     G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
     Game.done = false; updateCounts();
     if (Game.state === 'journal') renderJournal();
@@ -441,7 +443,8 @@
       }
       $('intro').hidden = true; $('hud').hidden = false;
       Game.state = 'play'; Game.player.yaw = 0; G.Eco.events.length = 0; clock.getDelta();
-      Game.toast('Погружение началось', 'Подойдите к штурвалу у носового иллюминатора и нажмите кнопку действия.', 6000);
+      if (G.Tutorial.done) Game.toast('Погружение началось', 'Журнал экспедиции продолжается.', 4000);
+      G.Tutorial.render();
     };
     $('b-journal').onclick = () => Game.openJournal();
     $('b-sound').onclick = () => { G.Audio.init(); const m = G.Audio.toggleMute(); $('b-sound').classList.toggle('off', m); $('b-sound').textContent = m ? 'Звук выкл' : 'Звук'; };
