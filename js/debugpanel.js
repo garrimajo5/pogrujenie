@@ -8,6 +8,7 @@
     const st = /^station(\d)$/.exec(key || ''), hv = /^hvaten(\d)$/.exec(key || '');
     if (key === 'krab' && !G.Eco.crab) return false;
     if (key === 'grot' && !G.Eco.grot) return false;
+    if (key === 'skalnik' && !G.Eco.skalnik) return false;
     const rd = /^raduzh(\d)$/.exec(key || ''), pl = /^plankton(\d)$/.exec(key || ''), gl = /^glazun(\d)$/.exec(key || '');
     const p = st ? (G.Eco.stations[+st[1]] && { pos: G.Eco.stations[+st[1]].top })
       : hv ? (G.Eco.anemones[+hv[1]] && { pos: G.Eco.anemones[+hv[1]].top })
@@ -15,6 +16,7 @@
       : pl ? (G.Eco.clouds[+pl[1]] && { pos: G.Eco.clouds[+pl[1]].home })
       : gl ? (G.Eco.glazuns[+gl[1]] && { pos: G.Eco.glazuns[+gl[1]].p })
       : key === 'grot' ? { pos: G.Eco.grot.back }
+      : key === 'skalnik' ? { pos: G.Eco.skalnik.home }
       : key === 'krab' ? { pos: G.Eco.crab.den } : G.World.pois.find(x => x.key === key);
     if (!p) return false;
     const S = G.Ship;
@@ -51,6 +53,7 @@
     if (G.Eco.clouds.length) { const b = document.createElement('button'); b.dataset.tp = 'plankton1'; b.textContent = '→ Облако планктона'; tp.appendChild(b); }
     if (G.Eco.glazuns.length) { const b = document.createElement('button'); b.dataset.tp = 'glazun0'; b.textContent = '→ Монетники и глазун'; tp.appendChild(b); }
     if (G.Eco.grot) { const b = document.createElement('button'); b.dataset.tp = 'grot'; b.textContent = '→ Гротовик'; tp.appendChild(b); }
+    if (G.Eco.skalnik) { const b = document.createElement('button'); b.dataset.tp = 'skalnik'; b.textContent = '→ Скальник'; tp.appendChild(b); }
     if (G.Eco.crab) { const b = document.createElement('button'); b.dataset.tp = 'krab'; b.textContent = '→ Нора кольчужника'; tp.appendChild(b); }
     el.addEventListener('pointerdown', e => e.stopPropagation());
     el.addEventListener('click', e => {

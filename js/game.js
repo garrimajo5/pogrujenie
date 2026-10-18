@@ -266,6 +266,7 @@
     if (!G.Ship.throughWindow(camera.position, ld, Game.room)) return null;
     let best = null, bs = 1;
     for (const tg of G.Eco.scanTargets()) {
+      if (tg.hidden) continue; // замаскированное существо не берётся в прицел
       const dx = tg.pos.x - camPos.x, dy = tg.pos.y - camPos.y, dz = tg.pos.z - camPos.z;
       const dist = Math.hypot(dx, dy, dz);
       if (dist > 80 || dist < 1) continue;
