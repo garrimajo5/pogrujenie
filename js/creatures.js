@@ -11,10 +11,11 @@
    гротовик носит на спине риф, где живёт и прячется одна из стай светляков;
    скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору;
    присоски катаются на ледокрылах и перебираются на корпус, а там отпугивают стеклоуста;
-   каменщики прячут венчики, когда рядом крупный, а гул трубного органа заглушает двигатели корабля. */
+   каменщики прячут венчики, когда рядом крупный, а гул трубного органа заглушает двигатели корабля;
+   подушечник от касания выпускает чернила, в которых прячутся стая и корабль; споры пузырчатки собирают рыб на кормёжку. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, masons: [], organs: [], shipMasked: null, remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, masons: [], organs: [], shipMasked: null, cushions: [], shipInk: null, bladders: [], remoras: [], hullRemoras: 0, rmHopCd: 0, rmEelCd: 0, rmRideCd: 0, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -82,9 +83,15 @@
       notes: { hide: 'Прячут венчики в трубки от вибрации, когда рядом проходит кто-то крупный.', warn: 'По спрятавшимся рядам видно, где идёт хищник.' } },
     organ: { name: 'Трубный орган', acc: 'трубный орган', gen: 'трубного органа', unom: 'гудящая губка', uacc: 'гудящую губку', ugen: 'гудящей губки',
       desc: 'Губка высотой около 2,5 метра из толстых труб. Течение проходит сквозь трубы, и губка гудит, как орган.',
-      notes: { hum: 'Гудит в течении низким голосом.', mask: 'Гул заглушает двигатели: рядом можно проскользнуть мимо серпохвоста.' } }
+      notes: { hum: 'Гудит в течении низким голосом.', mask: 'Гул заглушает двигатели: рядом можно проскользнуть мимо серпохвоста.' } },
+    cushion: { name: 'Подушечник', acc: 'подушечник', gen: 'подушечника', unom: 'мягкая подушка', uacc: 'мягкую подушку', ugen: 'мягкой подушки',
+      desc: 'Мягкий коралл-подушка около 2 метров, весь в бархатных полипах. Растёт рядом со стаями светляков.',
+      notes: { touch: 'От касания сжимается и выпускает облако чернил.', hide: 'В облаке чернил стая прячется от хищника.', ship: 'Корабль, задевший подушечник, может переждать в чернилах.' } },
+    bladder: { name: 'Пузырчатка-фонарь', acc: 'пузырчатку-фонарь', gen: 'пузырчатки', unom: 'светящиеся луковицы', uacc: 'светящиеся луковицы', ugen: 'светящихся луковиц',
+      desc: 'Тонкие стебли около метра с прозрачными луковицами, полными светящегося сока. Растёт у пятен мха.',
+      notes: { pop: 'Спелые луковицы лопаются облаком светящихся спор.', feed: 'На споры слетаются светляки и монетники.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik', 'prisoska', 'kamen', 'organ', 'cushion', 'bladder'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -123,7 +130,7 @@
   }
   function nearestFish(p, R) {
     let best = null, bd = R;
-    for (const f of E.fish) { if (!f.alive || nearStation(f.p) || kelpShelter(f) || grotShelter(f)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
+    for (const f of E.fish) { if (!f.alive || nearStation(f.p) || kelpShelter(f) || grotShelter(f) || inkAt(f.p)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
     return best;
   }
   function updateFish(dt, t) {
@@ -297,6 +304,12 @@
             if (gr.msgCd <= 0) { gr.msgCd = 40; E.emit('fish', 'kelp', gr.c, () => `${cap(G.nm('fish'))}: стая спряталась в ленточнике, ${G.nm('pred')} её потерял`); }
             break;
           } }
+        { const cu = inkAt(pr.target.p); // светляк скрылся в чернилах подушечника
+          if (cu) {
+            pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
+            if (cu.hideCd <= 0) { cu.hideCd = 30; E.emit('cushion', 'hide', cu.inkC, () => `${cap(G.nm('fish'))}: стая скрылась в чернилах ${G.nm('cushion', 'gen')}, ${G.nm('pred')} её потерял`); }
+            break;
+          } }
         { const gr = grotShelter(pr.target); // стая нырнула в риф на спине гротовика
           if (gr) {
             pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
@@ -326,7 +339,8 @@
         }
         if (E.shipHidden) {
           pr.state = 'retreat'; pr.timer = 10; pr.goal.copy(pr.p).add(tv.set(G.rr(-40, 40), 5, G.rr(-40, 40))); pr.goal.y = Math.min(pr.goal.y, -6);
-          E.emit('veil', 'hide', pr.p, () => `Корабль под куполом: ${G.nm('pred')} потерял его из виду`);
+          if (E.shipInk) E.emit('cushion', 'ship', pr.p, () => `Корабль в чернилах ${G.nm('cushion', 'gen')}: ${G.nm('pred')} потерял его из виду`);
+          else E.emit('veil', 'hide', pr.p, () => `Корабль под куполом: ${G.nm('pred')} потерял его из виду`);
           break;
         }
         if (dShip < 8.5) {
@@ -1226,8 +1240,9 @@
         cn.goal.copy(cn.p).addScaledVector(tv.normalize(), 6); cn.goal.y = sc.c.y + 1.5; maxS = 5;
       } else {
         cn.gt -= dt;
-        if (cn.gt <= 0) { cn.gt = G.rr(2, 5); cn.goal.set(sc.c.x + G.rr(-3, 3), sc.c.y + G.rr(0.5, 1.3), sc.c.z + G.rr(-3, 3)); }
-        if (Math.hypot(cn.p.x - sc.c.x, cn.p.z - sc.c.z) > 4) maxS = 2.2; // разбежавшиеся возвращаются на мох быстрее
+        const fd = sc.feed && sc.feed.life > 0 ? sc.feed : null; // кормёжка на спорах пузырчатки
+        if (cn.gt <= 0 || (fd && cn.goal.distanceTo(fd.c) > 3)) { cn.gt = G.rr(2, 5); if (fd) cn.goal.copy(fd.c).add(tv.set(G.rr(-1.5, 1.5), G.rr(-1, 1), G.rr(-1.5, 1.5))); else cn.goal.set(sc.c.x + G.rr(-3, 3), sc.c.y + G.rr(0.5, 1.3), sc.c.z + G.rr(-3, 3)); }
+        if (fd || Math.hypot(cn.p.x - sc.c.x, cn.p.z - sc.c.z) > 4) maxS = 2.2; // к спорам и обратно на мох — быстрее
       }
       tv.copy(cn.goal).sub(cn.p); const d = tv.length();
       if (d > 0.05) cn.v.lerp(tv.multiplyScalar(Math.min(maxS, d * 1.5) / d), Math.min(1, dt * 3));
@@ -1670,13 +1685,146 @@
     return true;
   }
 
+  /* ======================= ПОДУШЕЧНИК И ПУЗЫРЧАТКА-ФОНАРЬ ======================= */
+  /* Подушечник — мягкий коралл у стаи светляков. От касания (корабль или напуганная стая) сжимается
+     и выпускает облако чернил: в нём рыбы и корабль скрыты от серпохвоста.
+     Пузырчатка-фонарь — стебли со светящимися луковицами у пятен мха. Спелая луковица лопается
+     облаком светящихся спор, и на кормёжку слетаются светляки и монетники. */
+  const PD_INK_N = 70, PD_INK_R = 5.5, PD_INK_LIFE = 9, PD_RECHARGE = 40;
+  const PZ_STEMS = 7, PZ_SPORE_N = 60, PZ_LIFE = 12, PZ_RIPEN = 70, PZ_CALL_R = 35;
+  function initCushions(scene) {
+    if (E.shoals.length < 5) return;
+    const rng0 = G.rng; G.seed(6271);
+    const g = new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1.1, 0.75, 1);
+    const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); col.set([0.85 - y * 0.2, 0.45 + y * 0.25, 0.6 + y * 0.3], i * 3); } // бархатные полипы светлее к макушке
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    E.pdIM = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x1a0a14 }), 2);
+    const ig = new THREE.BufferGeometry(), ia = new Float32Array(2 * PD_INK_N * 3), ic = new Float32Array(2 * PD_INK_N * 3);
+    ig.setAttribute('position', new THREE.BufferAttribute(ia, 3)); ig.setAttribute('color', new THREE.BufferAttribute(ic, 3));
+    E.inkPts = new THREE.Points(ig, new THREE.PointsMaterial({ size: 2.4, map: glowTex(), vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false }));
+    [E.pdIM, E.inkPts].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    [3, 4].forEach((si, i) => {
+      const sh = E.shoals[si], a = i * 2.4 + 1.1;
+      const base = new V3(sh.home.x + Math.cos(a) * 3, 0, sh.home.z + Math.sin(a) * 3); base.y = H(base.x, base.z) - 0.1;
+      const cu = { i, sh, base, top: base.clone().add(new V3(0, 1.4, 0)), squeeze: 0, cd: 0, ink: 0, inkC: base.clone().add(new V3(0, 2, 0)), hideCd: 0, off: [] };
+      for (let k = 0; k < PD_INK_N; k++) { const v = new V3(G.rr(-1, 1), G.rr(-0.6, 1), G.rr(-1, 1)); if (v.lengthSq() > 1) v.normalize(); cu.off.push(v.multiplyScalar(PD_INK_R * Math.cbrt(G.rng()))); }
+      E.cushions.push(cu);
+    });
+    G.rng = rng0;
+  }
+  function squeeze(cu, why) {
+    if (cu.cd > 0) return false;
+    cu.cd = PD_RECHARGE; cu.squeeze = 1; cu.ink = PD_INK_LIFE;
+    E.emit('cushion', 'touch', cu.top, () => `${cap(G.nm('cushion'))} сжимается и выпускает облако чернил${why === 'ship' ? ' — корабль его задел' : ''}`);
+    return true;
+  }
+  function inkAt(p) { for (const cu of E.cushions) if (cu.ink > 0 && p.distanceTo(cu.inkC) < PD_INK_R) return cu; return null; }
+  E.inkAt = inkAt;
+  function cushionsUpdate(dt, t) {
+    const S = G.Ship;
+    E.shipInk = null;
+    const ia = E.inkPts.geometry.attributes.position.array, ic = E.inkPts.geometry.attributes.color.array;
+    for (const cu of E.cushions) {
+      cu.cd -= dt; cu.ink -= dt; cu.hideCd -= dt;
+      /* касание: корабль у самой подушки или напуганная стая, нырнувшая в неё */
+      if (Math.hypot(S.center.x - cu.base.x, S.center.z - cu.base.z) < 6.8 && S.pos.y < cu.top.y + 1.2 && S.hull > 0) squeeze(cu, 'ship');
+      else if (cu.sh.alarm > 0 && cu.sh.members.some(f => f.alive && f.p.distanceTo(cu.top) < 2.2)) squeeze(cu, 'fish');
+      cu.squeeze = Math.max(0, cu.squeeze - dt * 0.15);
+      if (cu.ink > 0 && S.center.distanceTo(cu.inkC) < PD_INK_R + 2) E.shipInk = cu;
+      const k = Math.max(0, Math.min(1, cu.ink / 2)) ; // последние 2 с облако тает
+      const grow = Math.min(1, (PD_INK_LIFE - cu.ink) * 2);
+      for (let j = 0; j < PD_INK_N; j++) {
+        const q = (cu.i * PD_INK_N + j) * 3, o = cu.off[j];
+        if (cu.ink > 0) {
+          ia[q] = cu.inkC.x + o.x * grow + Math.sin(t * 0.5 + j) * 0.3; ia[q + 1] = cu.inkC.y + o.y * grow; ia[q + 2] = cu.inkC.z + o.z * grow + Math.cos(t * 0.4 + j) * 0.3;
+          ic[q] = 0.05 * k; ic[q + 1] = 0.04 * k; ic[q + 2] = 0.12 * k;
+        } else { ia[q] = 0; ia[q + 1] = -999; ia[q + 2] = 0; }
+      }
+      const s = 1 - cu.squeeze * 0.45;
+      dummy.position.copy(cu.base); dummy.rotation.set(0, cu.i, 0); dummy.scale.set(s, s * (1 - cu.squeeze * 0.2), s); dummy.updateMatrix(); E.pdIM.setMatrixAt(cu.i, dummy.matrix);
+    }
+    E.pdIM.instanceMatrix.needsUpdate = true;
+    E.inkPts.geometry.attributes.position.needsUpdate = true; E.inkPts.geometry.attributes.color.needsUpdate = true;
+  }
+  function initBladders(scene) {
+    if (!E.schools.length) return;
+    const rng0 = G.rng; G.seed(8813);
+    const stemG = new THREE.CylinderGeometry(0.025, 0.04, 1, 4); stemG.translate(0, 0.5, 0);
+    const N = E.schools.length * PZ_STEMS;
+    E.pzStemIM = new THREE.InstancedMesh(stemG, new THREE.MeshLambertMaterial({ color: 0x3f7a5a }), N);
+    const bg = new THREE.SphereGeometry(0.16, 8, 6); bg.scale(1, 1.3, 1);
+    E.pzBulbIM = new THREE.InstancedMesh(bg, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9 }), N);
+    const sg = new THREE.BufferGeometry(), sa = new Float32Array(E.schools.length * PZ_SPORE_N * 3), sc = new Float32Array(E.schools.length * PZ_SPORE_N * 3);
+    sg.setAttribute('position', new THREE.BufferAttribute(sa, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
+    E.sporePts = new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.5, map: glowTex(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    [E.pzStemIM, E.pzBulbIM, E.sporePts].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    E.schools.forEach((s, i) => {
+      const a = i * 1.9 + 2.6, base = new V3(s.c.x + Math.cos(a) * 4.5, 0, s.c.z + Math.sin(a) * 4.5); base.y = H(base.x, base.z);
+      const bl = { i, base, sc: s, ripe: G.rr(0.2, 0.8), life: 0, c: base.clone().add(new V3(0, 2.2, 0)), stems: [], off: [], feedCd: 0 };
+      for (let k = 0; k < PZ_STEMS; k++) {
+        const r = k ? 0.35 + (k % 3) * 0.2 : 0, b = k * 2.39996, h = G.rr(0.8, 1.4);
+        const p = new V3(base.x + Math.cos(b) * r, H(base.x + Math.cos(b) * r, base.z + Math.sin(b) * r) - 0.05, base.z + Math.sin(b) * r);
+        const tilt = new V3(Math.cos(b) * r * 0.25, 1, Math.sin(b) * r * 0.25).normalize();
+        dummy.position.copy(p); dummy.quaternion.setFromUnitVectors(tv.set(0, 1, 0), tilt); dummy.scale.set(1, h, 1); dummy.updateMatrix();
+        E.pzStemIM.setMatrixAt(i * PZ_STEMS + k, dummy.matrix);
+        bl.stems.push({ top: p.clone().addScaledVector(tilt, h), ph: G.rr(0, 6) });
+      }
+      for (let k = 0; k < PZ_SPORE_N; k++) { const v = new V3(G.rr(-1, 1), G.rr(-0.5, 1), G.rr(-1, 1)); if (v.lengthSq() > 1) v.normalize(); bl.off.push(v.multiplyScalar(2.5 * Math.cbrt(G.rng()))); }
+      E.bladders.push(bl); s.feed = null;
+    });
+    dummy.quaternion.identity(); dummy.rotation.set(0, 0, 0);
+    E.pzStemIM.instanceMatrix.needsUpdate = true;
+    G.rng = rng0;
+  }
+  function pop(bl, why) {
+    bl.ripe = 0; bl.life = PZ_LIFE;
+    E.emit('bladder', 'pop', bl.c, () => why === 'ship' ? 'Корабль задел спелые луковицы — они лопаются облаком светящихся спор' : `Спелые луковицы${SP.bladder.scanned ? ' пузырчатки' : ''} лопаются облаком светящихся спор`);
+  }
+  function bladdersUpdate(dt, t) {
+    const S = G.Ship;
+    const sa = E.sporePts.geometry.attributes.position.array, sc = E.sporePts.geometry.attributes.color.array;
+    for (const bl of E.bladders) {
+      bl.feedCd -= dt;
+      if (bl.life > 0) {
+        bl.life -= dt;
+        /* на споры слетаются светляки и монетники */
+        let came = false;
+        for (const sh of E.shoals) if (sh.alarm <= 0 && !sh.follow && sh.n >= 3 && sh.c.distanceTo(bl.c) < PZ_CALL_R) { sh.goal.copy(bl.c); sh.gt = Math.max(sh.gt, 0.5); if (sh.c.distanceTo(bl.c) < 6) came = true; }
+        if (bl.sc.c.distanceTo(bl.c) < 25 && bl.sc.scatter <= 0) { bl.sc.feed = bl; if (bl.sc.members.some(c => c.alive && c.p.distanceTo(bl.c) < 3)) came = true; }
+        if (came && bl.feedCd <= 0) { bl.feedCd = 60; E.emit('bladder', 'feed', bl.c, () => 'На светящиеся споры слетаются рыбы'); }
+        if (bl.life <= 0 && bl.sc.feed === bl) bl.sc.feed = null;
+      } else {
+        bl.ripe = Math.min(1, bl.ripe + dt / PZ_RIPEN);
+        if (bl.ripe >= 1) pop(bl, 'ripe');
+        else if (bl.ripe > 0.6 && Math.abs(S.speed) > 0.5 && Math.hypot(S.center.x - bl.base.x, S.center.z - bl.base.z) < 6.5 && S.pos.y < bl.base.y + 3) pop(bl, 'ship');
+      }
+      const k = Math.max(0, Math.min(1, bl.life / 3)), spread = Math.min(1, (PZ_LIFE - bl.life) * 0.6);
+      for (let j = 0; j < PZ_SPORE_N; j++) {
+        const q = (bl.i * PZ_SPORE_N + j) * 3, o = bl.off[j];
+        if (bl.life > 0) {
+          sa[q] = bl.c.x + o.x * (0.3 + spread) + Math.sin(t + j) * 0.2; sa[q + 1] = bl.c.y + o.y * (0.3 + spread) + (PZ_LIFE - bl.life) * 0.08; sa[q + 2] = bl.c.z + o.z * (0.3 + spread);
+          sc[q] = 0.5 * k; sc[q + 1] = 1 * k; sc[q + 2] = 0.55 * k;
+        } else { sa[q] = 0; sa[q + 1] = -999; sa[q + 2] = 0; }
+      }
+      bl.stems.forEach((st, k) => {
+        const j = bl.i * PZ_STEMS + k, r = bl.life > 0 ? 0.2 : 0.35 + 0.65 * bl.ripe;
+        dummy.position.copy(st.top); dummy.position.x += Math.sin(t * 0.8 + st.ph) * 0.05; dummy.scale.setScalar(r); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+        E.pzBulbIM.setMatrixAt(j, dummy.matrix);
+        E.pzBulbIM.setColorAt(j, rdColT.setRGB(0.3 + 0.5 * bl.ripe, 0.6 + 0.4 * bl.ripe, 0.35 + 0.2 * bl.ripe));
+      });
+    }
+    E.pzBulbIM.instanceMatrix.needsUpdate = true; if (E.pzBulbIM.instanceColor) E.pzBulbIM.instanceColor.needsUpdate = true;
+    E.sporePts.geometry.attributes.position.needsUpdate = true; E.sporePts.geometry.attributes.color.needsUpdate = true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initMasons(scene); initOrgans(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initMasons(scene); initOrgans(scene); initCushions(scene); initBladders(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); initRemoras(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
     E.veils.forEach(v => veilUpdate(v, dt, t));
-    E.shipHidden = E.veils.some(vl => Math.hypot(S.center.x - vl.p.x, S.center.z - vl.p.z) < vl.r + 6 && S.center.y < vl.p.y + 1 && S.center.y > vl.p.y - vl.len - 6);
+    E.shipHidden = !!E.shipInk || E.veils.some(vl => Math.hypot(S.center.x - vl.p.x, S.center.z - vl.p.z) < vl.r + 6 && S.center.y < vl.p.y + 1 && S.center.y > vl.p.y - vl.len - 6);
     stationsUpdate(dt, t);
     updateBeam(); E.anemones.forEach(hv => anemoneUpdate(hv, dt, t));
     if (E.hvTentIM) { E.hvTentIM.instanceMatrix.needsUpdate = true; E.pestrIM.instanceMatrix.needsUpdate = true; }
@@ -1700,6 +1848,8 @@
     if (E.coinIM) { coinsUpdate(dt, t); coinsRender(t); }
     if (E.grot) grotUpdate(E.grot, dt, t);
     if (E.organMesh) organsUpdate(dt, t);
+    if (E.pdIM) cushionsUpdate(dt, t);
+    if (E.pzBulbIM) bladdersUpdate(dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1727,6 +1877,8 @@
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
     if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
+    E.cushions.forEach(cu => L.push({ sp: 'cushion', pos: cu.top, r: 1.3 }));
+    E.bladders.forEach(bl => L.push({ sp: 'bladder', pos: bl.stems[0].top, r: 0.9 }));
     E.masons.forEach(col => L.push({ sp: 'kamen', pos: col.worms[KM_N >> 1].top, r: 1.5 }));
     E.organs.forEach(og => L.push({ sp: 'organ', pos: og.top, r: 1.6 }));
     E.remoras.forEach(rm => L.push({ sp: 'prisoska', pos: rm.p, r: 0.4, noSonar: true }));
@@ -1793,5 +1945,7 @@
     E.hullRemoras = 0; E.rmHopCd = 0; E.rmEelCd = 0; E.rmRideCd = 0;
     E.masons.forEach(col => { col.hideCd = 0; col.warnCd = 0; col.hidden = 0; col.worms.forEach(w => { w.ext = 1; w.quiet = 0; }); });
     E.organs.forEach(og => { og.maskCd = 0; og.humCd = 0; }); E.shipMasked = null;
+    E.cushions.forEach(cu => { cu.squeeze = 0; cu.cd = 0; cu.ink = 0; cu.hideCd = 0; }); E.shipInk = null;
+    E.bladders.forEach((bl, i) => { bl.ripe = 0.3 + i * 0.2; bl.life = 0; bl.feedCd = 0; bl.sc.feed = null; });
   };
 })(window.G);
