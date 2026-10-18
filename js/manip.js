@@ -21,7 +21,7 @@
     [0, 4].forEach(i => { const fe = E.ferns[i]; if (fe) list.push({ kind: 'shell', pos: new V3(fe.p.x + 0.4, G.World.height(fe.p.x + 0.4, fe.p.z) + 0.1, fe.p.z) }); });
     E.stations.forEach(st => list.push({ kind: 'coral', pos: st.base.clone().add(new V3(1.6, 0, 0.4)).setY(G.World.height(st.base.x + 1.6, st.base.z + 0.4) + 0.15) }));
     if (E.crab) { const d = E.crab.den.clone().addScaledVector(E.crab.out, 2.2); d.y = G.World.height(d.x, d.z) + 0.1; list.push({ kind: 'spine', pos: d }); }
-    M.samples = list.map((s, i) => Object.assign(s, { i, taken: false }));
+    M.samples = list.map((s, i) => Object.assign(s, { i, taken: false, pos0: s.pos.clone() }));
     const g = new THREE.OctahedronGeometry(0.22, 0);
     M.im = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial(), Math.max(1, M.samples.length));
     M.im.frustumCulled = false; scene.add(M.im);
@@ -104,8 +104,17 @@
     G.Game.feedMsg && G.Game.feedMsg(`Манипулятор достал образец: ${KIND[s.kind].name.toLowerCase()}`, true);
     G.Audio.scanDone();
   };
+  /* скальник выхватывает образец, пока рука несёт его в шлюз */
+  M.steal = function () {
+    if (M.state !== 'back' || !M.target) return null;
+    const s = M.target; M.state = 'idle'; M.target = null; M.prog = 0; M.arm.carry.visible = false;
+    G.Game.toast('Образец украден', 'Скальник выхватил образец прямо из клешни. Он уносит его к себе в нору.');
+    return s;
+  };
+  /* образец снова лежит на дне — его можно достать ещё раз */
+  M.drop = function (s, pos) { s.taken = false; s.pos.set(pos.x, G.World.height(pos.x, pos.z) + 0.15, pos.z); M.place(); };
   M.reset = function () {
-    M.samples.forEach(s => { s.taken = false; }); M.state = 'idle'; M.target = null; M.prog = 0;
+    M.samples.forEach(s => { s.taken = false; s.pos.copy(s.pos0); }); M.state = 'idle'; M.target = null; M.prog = 0;
     if (M.arm) { M.arm.carry.visible = false; M.pose(M.arm.fold); }
     if (M.im) M.place();
   };

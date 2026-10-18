@@ -75,7 +75,7 @@
       notes: { drift: 'Неспешно бредёт по отмели, на спине растёт риф.', hide: 'Напуганная стая прячется в рифе на его спине — хищник её теряет.', shy: 'Если задеть его корпусом, прячет ноги под панцирь и замирает.' } },
     skalnik: { name: 'Скальник', acc: 'скальника', gen: 'скальника', unom: 'живой камень', uacc: 'живой камень', ugen: 'живого камня',
       desc: 'Рогатый спрут около 2 метров. Меняет цвет и рисунок кожи под окружающие камни и часами сидит неподвижно у нор.',
-      notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } },
+      notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.', thief: 'Крадёт образцы с манипулятора и уносит к себе в нору.', drop: 'От разряда по корпусу бросает украденное.' } },
     prisoska: { name: 'Присоска', acc: 'присосок', gen: 'присосок', unom: 'рыба-прилипала', uacc: 'рыб-прилипал', ugen: 'рыб-прилипал',
       desc: 'Рыба-прилипала около 35 см. Держится присоской на темени за крупных существ — и за корпус «Ковчега».',
       notes: { ride: 'Катается на ледокрылах.', hop: 'Перебирается на корпус корабля, если подойти к ледокрылу.', eel: 'Стеклоуст не садится на корпус, где уже есть прилипалы.', drag: 'Каждая прилипала немного тормозит корабль.', zap: 'Разряд по корпусу их сбрасывает.' } },
@@ -1449,7 +1449,7 @@
      в луче прожектора меняет цвет и выдаёт себя. Подстерегает кольчужника, вышедшего на охоту:
      краба с бедным панцирем выгоняет обратно в нору, от краба в полной броне из игл отступает.
      Любопытен: к неподвижному кораблю с погашенным светом подплывает к самому стеклу. */
-  const SK_ARMS = 8, SK_SEG = 6, SK_ARMOR = 7;
+  const SK_ARMS = 8, SK_SEG = 6, SK_ARMOR = 7, SK_THIEF_R = 12;
   const skRock = new THREE.Color(0x4f4a5c), skSkin = new THREE.Color(0xb8553c);
   function initSkalnik(scene) {
     const cr = E.crab; if (!cr) return;
@@ -1464,7 +1464,8 @@
     const body = new THREE.Mesh(G.merge(parts), new THREE.MeshLambertMaterial({ color: skRock.clone(), flatShading: true }));
     const arms = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), body.material, SK_ARMS * SK_SEG);
     arms.frustumCulled = false; scene.add(body); scene.add(arms);
-    E.skalnik = { home, p: home.clone(), v: new V3(), dir: cr.out.clone().negate(), body, arms, state: 'rock', timer: 0, cd: 20, curCd: 0, camo: 1, reveal: 0, lit: false, mimicCd: 0, goal: new V3() };
+    const carryM = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0xffffff })); carryM.visible = false; scene.add(carryM);
+    E.skalnik = { carryM, loot: null, home, p: home.clone(), v: new V3(), dir: cr.out.clone().negate(), body, arms, state: 'rock', timer: 0, cd: 20, curCd: 0, camo: 1, reveal: 0, lit: false, mimicCd: 0, goal: new V3() };
   }
   function skUpdate(sk, dt, t) {
     const S = G.Ship, cr = E.crab;
@@ -1511,7 +1512,27 @@
         speed = 1.8; sk.goal.copy(sk.home); sk.seen = false;
         if (sk.p.distanceTo(sk.home) < 0.5) { sk.state = 'rock'; sk.p.copy(sk.home); }
         break;
+      case 'thief': { // рука манипулятора с образцом рядом — стащить
+        const M = G.Manip; speed = 5;
+        if (!M.arm || M.state === 'idle') { sk.state = 'back'; break; }
+        G.Ship.group.localToWorld(sk.goal.copy(M.arm.tipL));
+        if (sk.p.distanceTo(sk.goal) < 2.2 && M.state === 'back') { // щупальца длинные: хватает за пару метров
+          sk.loot = M.steal(); sk.state = 'loot'; sk.reveal = 6;
+          E.emit('skalnik', 'thief', sk.p, () => `${cap(G.nm('skalnik'))} стащил образец с манипулятора и уносит его к себе`);
+        }
+        break;
+      }
+      case 'loot':
+        speed = 2.2; sk.goal.copy(sk.home);
+        if (sk.p.distanceTo(sk.home) < 0.6) { // добычу — в нору, к камням
+          const s = sk.loot; sk.loot = null; sk.state = 'rock'; sk.p.copy(sk.home);
+          if (s) G.Manip.drop(s, tv.copy(sk.home).addScaledVector(tv2.set(Math.cos(s.i), 0, Math.sin(s.i)), 1.2));
+        }
+        break;
     }
+    /* рука тянется за образцом недалеко от норы — скальник бросается её обчистить */
+    if (sk.state === 'rock' && G.Manip.arm && (G.Manip.state === 'reach' || G.Manip.state === 'back') && G.Manip.target && G.Manip.target.pos.distanceTo(sk.home) < SK_THIEF_R) { sk.state = 'thief'; sk.reveal = 4; }
+    if (sk.carryM) { sk.carryM.visible = !!sk.loot; if (sk.loot) { sk.carryM.position.copy(sk.p).y += 0.9; sk.carryM.material.color.set(G.Manip.KIND[sk.loot.kind].color); } }
     if (speed > 0) {
       tv.copy(sk.goal).sub(sk.p); const d = tv.length();
       if (d > 0.05) { sk.v.copy(tv).multiplyScalar(Math.min(speed, d * 2) / d); sk.p.addScaledVector(sk.v, dt); tv2.copy(sk.v).setY(0); if (tv2.lengthSq() > 1e-4) sk.dir.lerp(tv2.normalize(), Math.min(1, dt * 3)).normalize(); }
@@ -2051,6 +2072,11 @@
   E.onZap = function () {
     const S = G.Ship;
     remorasZap();
+    const sk = E.skalnik;
+    if (sk && (sk.state === 'thief' || sk.state === 'loot') && sk.p.distanceTo(S.center) < 20 * G.Power.k('zap')) { // разряд — бросить добычу
+      if (sk.loot) { const s = sk.loot; sk.loot = null; G.Manip.drop(s, tv.copy(sk.p)); E.emit('skalnik', 'drop', sk.p, () => `Разряд спугнул ${G.nm('skalnik', 'acc')}: он бросил образец`); }
+      sk.state = 'back'; sk.cd = 30; sk.reveal = 4;
+    }
     if (E.latched) {
       const el = E.latched; el.state = 'flee'; el.cd = 40; E.latched = null;
       E.emit('eel', 'zap', S.front, () => `Разряд сбросил ${G.nm('eel', 'acc')} с корпуса`);
@@ -2081,7 +2107,7 @@
     E.glazuns.forEach(gz => { gz.cd = G.rr(8, 20); gz.lunge = 0; gz.lit = false; gz.eyesCd = 0; });
     E.coins.forEach(coinSpawn);
     const sk = E.skalnik;
-    if (sk) { sk.p.copy(sk.home); sk.v.set(0, 0, 0); sk.state = 'rock'; sk.timer = 0; sk.cd = 20; sk.curCd = 0; sk.camo = 1; sk.reveal = 0; sk.lit = false; sk.mimicCd = 0; sk.seen = false; }
+    if (sk) { sk.p.copy(sk.home); sk.v.set(0, 0, 0); sk.state = 'rock'; sk.timer = 0; sk.cd = 20; sk.curCd = 0; sk.camo = 1; sk.reveal = 0; sk.lit = false; sk.mimicCd = 0; sk.seen = false; sk.loot = null; if (sk.carryM) sk.carryM.visible = false; }
     const gt = E.grot;
     if (gt) { gt.p.copy(gt.route[0]); gt.wp = 1; gt.yaw = 0; gt.shy = 0; gt.shyCd = 0; gt.lift = 1; gt.hideCd = 0; gt.driftCd = 0; grotPlace(gt, 0, 0); }
     const cr = E.crab;
