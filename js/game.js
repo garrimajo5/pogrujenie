@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Breach.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -198,7 +198,7 @@
       const len = Math.hypot(mx, my);
       if (len > 0) {
         mx /= len; my /= len;
-        const sp = 2.4 * dt, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+        const sp = 2.4 * dt * G.Breach.slow(Game.room), fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
         const dx = (fx * my + rx * mx) * sp, dz = (fz * my + rz * mx) * sp;
         if (S.canStand(P.x + dx, P.z)) P.x += dx;
         if (S.canStand(P.x, P.z + dz)) P.z += dz;
@@ -241,8 +241,9 @@
     S.hull = Math.max(0, S.hull - n); Game.shake = 0.6; S.flicker = 0.4;
     flash('rgba(255,93,108,.5)'); G.Audio.thud();
     feed(kind === 'scrape' ? `Удар о дно: корпус −${n}%` : `Удар по корпусу: −${n}%`);
-    if (S.hull <= 0) lose();
+    if (S.hull <= 0) lose(); else G.Breach.onHit(n);
   };
+  Game.feedMsg = (text, isNew) => feed(text, isNew);
   Game.onLatch = function () { G.Audio.latch(); G.Ship.flicker = 1.5; flash('rgba(191,246,255,.4)'); Game.shake = 0.3; };
 
   function lose() {
@@ -250,7 +251,7 @@
     if (Game.piloting) Game.toggleHelm();
   }
   function restart() {
-    G.Ship.reset(); G.Eco.reset();
+    G.Breach.reset(); G.Ship.reset(); G.Eco.reset();
     const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
     $('lost').hidden = true; Game.state = 'play'; clock.getDelta();
   }
@@ -261,7 +262,7 @@
     const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
     for (const it of G.Ship.inter) {
       const dx = it.x - P.x, dz = it.z - P.z, d = Math.hypot(dx, dz);
-      if (d > it.r) continue;
+      if (d > it.r || (it.on && !it.on())) continue;
       if (d > 0.9 && (dx * fx + dz * fz) / d < 0.3) continue;
       if (d < bd) { bd = d; best = it; }
     }
@@ -295,7 +296,7 @@
       const dx = it.x - P.x, dy = 1.0 - 1.65, dz = it.z - P.z, d = Math.hypot(dx, dy, dz);
       if ((dx * ld.x + dy * ld.y + dz * ld.z) / d < 0.94) it = null;
     }
-    if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false };
+    if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false, holdFn: it.holdFn, prog: it.prog };
     else if (tgt) {
       const sp = SP[tgt.sp];
       act = sp.scanned ? { label: 'Сведения: ' + sp.name, fn: () => Game.openJournal(tgt.sp) } : { label: 'Сканировать (держать)', hold: tgt.sp };
@@ -308,12 +309,13 @@
         if (Game.scan.prog >= 1) { completeScan(act.hold); Game.scan.prog = 0; }
       } else Game.scan.prog = Math.max(0, Game.scan.prog - dt * 2);
     } else Game.scan.prog = 0;
-    $('scanring').style.setProperty('--p', Game.scan.prog.toFixed(3));
-    if (act && !act.hold && !act.dis && C.actionPressed) act.fn();
+    if (act && act.holdFn && C.actionDown) act.holdFn(dt); // удержание у поста (сварка)
+    $('scanring').style.setProperty('--p', (act && act.prog ? act.prog() : Game.scan.prog).toFixed(3));
+    if (act && !act.hold && !act.holdFn && !act.dis && C.actionPressed) act.fn();
     const btn = $('b-action'), lbl = act ? act.label : 'Действие';
     if (btn.dataset.l !== lbl) { $('act-label').textContent = lbl; btn.dataset.l = lbl; }
     btn.classList.toggle('dis', !act || !!act.dis);
-    btn.classList.toggle('scan', !!(act && act.hold));
+    btn.classList.toggle('scan', !!(act && (act.hold || act.holdFn)));
   }
   function completeScan(key) {
     const sp = G.SPECIES[key]; if (sp.scanned) return;

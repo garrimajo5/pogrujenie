@@ -239,6 +239,11 @@
     S.beam.quaternion.setFromUnitVectors(new V3(0, -1, 0), new V3(0, -10, -40).sub(S.spot.position).normalize());
     g.add(S.beam);
 
+    /* ----- пробоины: трещина, струя, вода, место для сварки ----- */
+    G.Breach.build(g);
+    G.Breach.SPOTS.forEach(spot => S.inter.push({ x: spot.at.x, z: spot.at.z, r: 1.4, on: () => G.Breach.active === spot,
+      label: () => 'Заварить пробоину (держать)', holdFn: dt => G.Breach.holdWeld(dt), prog: () => G.Breach.progress(), fn: () => {} }));
+
     S.mergeStatic();
     S.reset();
   };
@@ -381,6 +386,7 @@
     S.flicker = Math.max(0, S.flicker - dt);
     const fl = (G.Eco.latched || S.flicker > 0) ? (G.rng() < 0.25 ? 0.15 : 1) : 1;
     S.lights.forEach(o => { o.l.intensity = o.base * fl; });
+    G.Breach.update(dt, t); // пробоина: вода, сирена, красный свет поверх обычного
     const on = S.light && S.energy > 0.5;
     S.spot.intensity = on ? 2.8 * fl : 0;
     S.beam.visible = on;

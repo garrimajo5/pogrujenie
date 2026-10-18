@@ -56,6 +56,11 @@ T.describe('Присоска', () => {
 
   T.test('без прилипал стеклоуст присасывается (контроль)', () => {
     quiet(); shipAway(); eco(2); T.eq(E().hullRemoras, 0);
+    /* скребуны и рыбы у расщелины отвлекли бы стеклоуста на охоту — убираем их на время теста */
+    const L = G.World.lairs[0].mouth;
+    const gone = [...E().grazers.filter(g => g.alive && g.p.distanceTo(L) < 12), ...E().fish.filter(f => f.alive && f.p.distanceTo(L) < 10)];
+    gone.forEach(x => { x.alive = false; x.t = 1e9; });
+    T._restore.push(() => gone.forEach(x => { x.t = 0; }));
     atLair(); E().eels[0].cd = 0;
     for (let i = 0; i < 300 && !E().latched; i++) { atLair(); eco(1); }
     T.ok(E().latched, 'стеклоуст не присосался');
