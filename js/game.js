@@ -149,7 +149,10 @@
     } else if (Game.state === 'vote') G.Run.voteNav(C.move.x); // решение экипажа: мир ждёт
     clearOneShots();
     updateEnv(); updateHUD(dt);
-    if (G.AR.active) { G.AR.frame(xrFrame, renderer.xr.getReferenceSpace()); renderer.render(G.AR.scene, G.AR.camera); } // в AR — комната и голостол на столе
+    if (G.AR.active) { // в AR — комната, голостол на столе и иллюминаторы с океаном
+      G.AR.frame(xrFrame, renderer.xr.getReferenceSpace(), dt, renderer.xr.getCamera());
+      G.AR.renderWindows(renderer, scene); renderer.render(G.AR.scene, G.AR.camera);
+    }
     else renderer.render(scene, camera);
   }
 
