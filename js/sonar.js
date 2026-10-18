@@ -26,6 +26,11 @@
     if (S.energy < 6) { G.Game.toast('Мало энергии', 'Для импульса нужно 6 единиц'); return; }
     So.range = 110 * G.Power.k('son'); // дальность импульса — от доли сонара в реакторе
     S.energy -= 6; So.pingT = G.Game.t; G.Audio.ping();
+    if (G.Silt && G.Silt.inside) { // сонарная тьма: импульс вязнет в иле, на столе одни помехи
+      So.blips = []; So.jamT = G.Game.t;
+      G.Game.toast('Сонар ослеп', 'Импульс вязнет в облаке ила. Выйдите из мути, чтобы увидеть, что вокруг.');
+      G.Eco.onPing(S.center.clone()); return;
+    }
     So.blips = G.Eco.scanTargets()
       .filter(tg => !tg.noSonar && Math.hypot(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z) < So.range)
       .map(tg => ({ x: tg.pos.x, z: tg.pos.z, sp: tg.sp }));
@@ -58,6 +63,10 @@
         const col = b.sp === 'pred' || b.sp === 'eel' || b.sp === 'leech' ? '255,93,108' : b.sp === 'ognevka' ? '255,140,60' : b.sp === 'hvaten' ? '206,130,255' : b.sp === 'krab' ? '255,170,90' : b.sp === 'ezh' ? '140,220,255' : b.sp === 'raduzh' ? '200,255,170' : b.sp === 'plankton' ? '120,255,230' : b.sp === 'monet' ? '255,230,140' : b.sp === 'grot' ? '230,200,150' : b.sp === 'skalnik' ? '255,120,90' : b.sp === 'prisoska' ? '200,220,230' : b.sp === 'kamen' ? '255,150,170' : b.sp === 'organ' ? '210,170,130' : b.sp === 'cushion' ? '240,150,200' : b.sp === 'bladder' ? '150,255,160' : b.sp === 'fan' ? '255,180,140' : b.sp === 'fern' ? '120,220,140' : b.sp === 'veil' ? '255,138,224' : b.sp === 'ray' ? '191,246,255' : '255,210,107';
         c.fillStyle = `rgba(${col},${a.toFixed(2)})`; c.beginPath(); c.arc(x, y, b.sp === 'veil' || b.sp === 'ray' || b.sp === 'grot' ? 10 : b.sp === 'ezh' ? 3 : 6, 0, 7); c.fill();
       });
+    }
+    if ((G.Silt && G.Silt.k > 0.05) || t - (So.jamT || -99) < 4) { // помехи на голостоле
+      const n = 220 * Math.max(G.Silt ? G.Silt.k : 0, t - (So.jamT || -99) < 4 ? 1 : 0);
+      for (let i = 0; i < n; i++) { const v = (Math.sin(i * 91.7 + t * 37.3) * 43758.5) % 1, w = (Math.sin(i * 47.1 + t * 11.9) * 15731.7) % 1; c.fillStyle = `rgba(160,140,110,${(0.25 + Math.abs(v) * 0.5).toFixed(2)})`; c.fillRect(256 + v * R, 256 + w * R, 3, 3); }
     }
     c.restore();
 

@@ -75,8 +75,9 @@
   P.alert = function () {
     const el = document.getElementById('alert'); if (!el || (G.Breach && G.Breach.active)) return; // пробоина важнее
     const on = P.hot || P.scram > 0;
-    el.hidden = !on;
-    if (on) el.textContent = P.scram > 0 ? `АВАРИЙНЫЙ СБРОС · ${Math.ceil(P.scram)} с` : `ПЕРЕГРЕВ ${Math.round(P.heat)}° · НАГРУЗКА ${P.used()}/${SAFE}`;
+    if (!on) { if (P.shown) { el.hidden = true; P.shown = false; } return; } // чужое табло не трогаем
+    el.hidden = false; P.shown = true;
+    el.textContent = P.scram > 0 ? `АВАРИЙНЫЙ СБРОС · ${Math.ceil(P.scram)} с` : `ПЕРЕГРЕВ ${Math.round(P.heat)}° · НАГРУЗКА ${P.used()}/${SAFE}`;
   };
 
   /* ---------- пульт ---------- */

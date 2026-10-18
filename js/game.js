@@ -24,7 +24,7 @@
     G.World.build(scene);
     G.Sonar.init();
     G.Ship.build(scene);
-    G.Eco.init(scene);
+    G.Eco.init(scene); G.Silt.build(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
     G.Ctl.init(); bindUI(); G.Power.init(); G.Ship.drawPower(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
@@ -74,7 +74,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Breach.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -241,7 +241,7 @@
     S.hull = Math.max(0, S.hull - n); Game.shake = 0.6; S.flicker = 0.4;
     flash('rgba(255,93,108,.5)'); G.Audio.thud();
     feed(kind === 'scrape' ? `Удар о дно: корпус −${n}%` : `Удар по корпусу: −${n}%`);
-    if (S.hull <= 0) lose(); else G.Breach.onHit(n);
+    if (S.hull <= 0) lose(); else { G.Breach.onHit(n); G.Silt.onHit(n, kind); }
   };
   Game.feedMsg = (text, isNew) => feed(text, isNew);
   Game.onLatch = function () { G.Audio.latch(); G.Ship.flicker = 1.5; flash('rgba(191,246,255,.4)'); Game.shake = 0.3; };
@@ -251,7 +251,7 @@
     if (Game.piloting) Game.toggleHelm();
   }
   function restart() {
-    G.Breach.reset(); G.Ship.reset(); G.Eco.reset();
+    G.Breach.reset(); G.Silt.reset(); G.Ship.reset(); G.Eco.reset();
     const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
     $('lost').hidden = true; Game.state = 'play'; clock.getDelta();
   }
@@ -380,10 +380,11 @@
     if ($('warn').textContent !== warn) $('warn').textContent = warn;
     $('fx-danger').style.opacity = (danger * (0.6 + 0.4 * Math.sin(Game.t * 8))).toFixed(2);
   }
+  const siltCol = new THREE.Color(0x3d3a2e);
   function updateEnv() {
     const k = G.smooth(8, 95, -G.Ship.pos.y);
-    scene.fog.color.copy(fogA).lerp(fogB, k); scene.background.copy(scene.fog.color);
-    scene.fog.density = 0.015 + 0.01 * k;
+    scene.fog.color.copy(fogA).lerp(fogB, k).lerp(siltCol, 0.6 * (G.Silt ? G.Silt.k : 0)); scene.background.copy(scene.fog.color); // ил — бурая муть
+    scene.fog.density = 0.015 + 0.01 * k + 0.05 * (G.Silt ? G.Silt.k : 0); // в облаке ила вода мутнеет
     hemi.intensity = 0.95 - 0.55 * k; sun.intensity = 0.55 - 0.4 * k;
   }
 
