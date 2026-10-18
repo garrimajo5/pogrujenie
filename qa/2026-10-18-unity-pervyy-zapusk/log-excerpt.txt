@@ -1,0 +1,12 @@
+﻿10-18 19:52:20.749  1495  1610 E Unity   : java.lang.ClassNotFoundException: Didn't find class "com.google.android.play.core.assetpacks.AssetPackManager" on path: DexPathList[[zip file "/data/app/~~ffLHQB65Q9ZBh-s6-16h6g==/com.garrimajo5.pogrujenie-rYhsG7IJX3nO63JvB1ViCg==/base.apk"],nativeLibraryDirectories=[/data/app/~~ffLHQB65Q9ZBh-s6-16h6g==/com.garrimajo5.pogrujenie-rYhsG7IJX3nO63JvB1ViCg==/lib/arm64, /data/app/~~ffLHQB65Q9ZBh-s6-16h6g==/com.garrimajo5.pogrujenie-rYhsG7IJX3nO63JvB1ViCg==/base.apk!/lib/arm64-v8a, /system/lib64, /system_ext/lib64]]
+10-18 19:52:51.768  1495  1610 E Unity   : Can't add component because class 'CapsuleCollider' doesn't exist!
+10-18 19:52:51.768  1495  1610 E Unity   : UnityEngine.GameObject:CreatePrimitive(PrimitiveType)
+10-18 19:52:51.768  1495  1610 E Unity   : Pogrujenie.Game.Bootstrap:Build()
+10-18 19:52:51.768  1495  1610 E Unity   : 
+10-18 19:52:51.768  1495  1610 E Unity   : [./Runtime/Misc/GameObjectUtility.cpp line 904835144]
+10-18 19:52:51.768  1495  1610 E Unity   : 
+10-18 19:52:51.813  1495  1610 E Unity   : Can't add component because class 'BoxCollider' doesn't exist!
+10-18 19:52:51.813  1495  1610 E Unity   : UnityEngine.GameObject:CreatePrimitive(PrimitiveType)
+10-18 19:52:51.813  1495  1610 E Unity   : Pogrujenie.Game.ShipView:Build(ShipLayout)
+10-18 19:52:51.813  1495  1610 E Unity   : Pogrujenie.Game.Bootstrap:Build()
+10-18 19:52:51.813  1495  1610 E Unity   : 
