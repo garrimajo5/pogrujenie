@@ -16,6 +16,11 @@
 <div id="fx-danger"></div>
 
 <div id="hud" hidden>
+  <div id="brief" hidden>
+    <div class="pw-head"><div><div class="tag">Голостол · брифинг</div><b>Маршрут погружения</b></div><button class="chip" data-a="close" type="button">Закрыть</button></div>
+    <div class="cg-rows"></div>
+    <div class="pw-foot">Маршрут появится на голостоле, следующая точка — на приборах.</div>
+  </div>
   <div id="cargo" hidden>
     <div class="pw-head"><div><div class="tag">Грузовой отсек</div><b>Улучшения корабля</b></div><button class="chip" data-a="close" type="button">Готово</button></div>
     <div class="cg-rows"></div>
@@ -32,6 +37,7 @@
     <div class="bar"><span class="k">КОРПУС</span><i><em id="s-hull"></em></i></div>
     <div class="bar"><span class="k">ЭНЕРГИЯ</span><i><em id="s-energy"></em></i></div>
     <div class="place" id="s-place">Мостик</div>
+    <div class="route" id="s-route" hidden></div>
   </div>
   <div id="topbtns">
     <button id="b-journal" class="chip">Журнал <span id="j-count">0/6 · 0/6</span></button>
@@ -120,6 +126,7 @@
 <script src="js/settings.js"></script>
 <script src="js/power.js"></script>
 <script src="js/cargo.js"></script>
+<script src="js/run.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/debugpanel.js"></script>
 <script src="js/game.js"></script>

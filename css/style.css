@@ -142,6 +142,10 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .step output { min-width: 56px; text-align: center; font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; }
 .step .chip:disabled { opacity: .35; }
 .intro-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#brief { position: absolute; right: calc(var(--sr) + 8px); top: calc(var(--st) + 56px); width: min(440px, 62vw); background: rgba(2, 14, 20, .9); border: 1px solid var(--line); padding: 10px; display: grid; gap: 6px; z-index: 4; }
+#brief .pw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#brief .pw-head b { font: 700 16px var(--disp); color: var(--glow); }
+#stats .route { color: var(--amber); max-width: 230px; }
 #cargo { position: absolute; right: calc(var(--sr) + 8px); top: calc(var(--st) + 56px); width: min(420px, 60vw); background: rgba(2, 14, 20, .9); border: 1px solid var(--line); padding: 10px; display: grid; gap: 6px; z-index: 4; }
 #cargo .pw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #cargo .pw-head b { font: 700 16px var(--disp); color: var(--glow); }
@@ -189,7 +193,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .pw-row { padding: 1px 4px; }
   .pw-row .chip { min-height: 28px; }
   .pw-name small { display: none; }
-  #cargo { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
+  #cargo, #brief { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
+  #brief .pw-name small { display: block; font-size: 9px; }
+  #stats .route { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
   .cg-row { padding: 2px 4px; }
   #cargo .pw-name small { display: block; font-size: 9px; }
   .cg-row .chip { min-height: 28px; }
