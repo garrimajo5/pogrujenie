@@ -2,7 +2,7 @@
 /* Экосистема: виды, связи между ними, реакции на корабль */
 T.describe('Виды', () => {
   T.test('у каждого вида полное описание', () => {
-    T.eq(G.SPECIES_ORDER.length, 13);
+    T.eq(G.SPECIES_ORDER.length, 14);
     G.SPECIES_ORDER.forEach(k => {
       const s = G.SPECIES[k];
       ['name', 'acc', 'unom', 'uacc', 'desc'].forEach(f => T.ok(typeof s[f] === 'string' && s[f].length > 1, `${k}.${f}`));

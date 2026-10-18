@@ -42,7 +42,7 @@ T.describe('Сканирование', () => {
     for (let i = 0; i < 40 && !G.SPECIES.veil.scanned; i++) { D().lookAt(vl.scanP); D().frame(1); }
     G.Ctl.actionDown = false;
     T.ok(G.SPECIES.veil.scanned, 'вуаль не отсканирована');
-    T.ok(document.getElementById('j-count').textContent.startsWith('1/13'));
+    T.ok(document.getElementById('j-count').textContent.startsWith('1/14'));
     D().lookAt(vl.scanP); D().frame(1);
     T.eq(D().actionLabel(), 'Сведения: Фонарная вуаль');
   });

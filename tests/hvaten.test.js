@@ -8,6 +8,10 @@ T.describe('Хватень и пестрянка', () => {
     E().preds.forEach(p => { p.state = 'eat'; p.timer = 999; p.cd = 999; p.p.set(250, -20, 250); });
     E().rays.forEach(r => { r.fcd = 999; });
     E().shoals.forEach(sh => { sh.follow = null; sh.followT = 0; });
+    /* вуали дрейфуют от прогона к прогону по-разному и могут оттеснять стаю — убрать их подальше */
+    const vp = E().veils.map(v => v.p.clone());
+    E().veils.forEach(v => v.p.set(-280, v.p.y, -280));
+    T._restore.push(() => E().veils.forEach((v, i) => v.p.copy(vp[i])));
   };
   /* поставить корабль так, чтобы точка была в луче прожектора в 25 м от фонаря */
   const aimBeamAt = (p) => {
@@ -97,7 +101,9 @@ T.describe('Хватень и пестрянка', () => {
     const sh = E().shoals.reduce((a, b) => (a.home.distanceTo(hv.top) < b.home.distanceTo(hv.top) ? a : b));
     E().anemones.forEach(h => { h.lureCd = 999; });
     /* стая отходит в сторону, затем пестрянки начинают подманивать */
-    sh.goal.copy(sh.home).add(T.V(10, 2, 10)); sh.gt = 15; eco(200);
+    eco(1); // рыбы, убранные прошлым тестом, возрождаются дома — до сдвига стаи, а не после
+    sh.members.forEach(f => f.p.add(T.V(10, 2, 10))); // сразу отвести стаю от хватня
+    sh.goal.copy(sh.home).add(T.V(10, 2, 10)); sh.gt = 15; sh.alarm = 0; eco(40);
     const before = sh.c.distanceTo(hv.top);
     T.gt(before, 4, 'стая и так у хватня');
     hv.lureCd = 0; hv.digest = 0; hv.open = 1;

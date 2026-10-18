@@ -21,7 +21,9 @@ jobs:
         run: |
           pip install playwright==1.47.0
           python -m playwright install --with-deps chromium
-      - name: Тесты
+      - name: Логические тесты
+        run: python tools/test.py
+      - name: Смоук-тест
         run: python tools/smoke.py --shots shots
       - uses: actions/upload-artifact@v4
         if: always()
