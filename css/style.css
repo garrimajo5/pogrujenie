@@ -70,9 +70,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #toast p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink); }
 
 #feed { position: absolute; left: var(--sl); bottom: calc(var(--sb) + 172px); display: grid; gap: 4px; width: min(46vw, 380px); font-size: 11px; }
-#feed div { background: var(--panel); border-left: 2px solid var(--glow); padding: 5px 8px; transition: opacity 1s; line-height: 1.4; }
-#feed div.new { border-left-color: var(--amber); }
-#feed div.new::after { content: " · " attr(data-tag); color: var(--amber); }
+#feed-list { display: grid; gap: 4px; }
+#feed-list > div { background: var(--panel); border-left: 2px solid var(--glow); padding: 5px 8px; transition: opacity 1s; line-height: 1.4; }
+#feed-list > div.new { border-left-color: var(--amber); }
+#feed-list > div.new::after { content: " · " attr(data-tag); color: var(--amber); }
+#b-feed { justify-self: start; padding: 4px 10px; font-size: 11px; min-height: 28px; }
+/* свёрнутый лог: одна последняя строка в одну строку и счётчик новых на кнопке */
+#feed.min #feed-list > div:not(:first-child), #feed-list > div.over { display: none; }
+#feed.min #feed-list > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 #dpad { position: absolute; left: calc(var(--sl) + 6px); bottom: calc(var(--sb) + 6px); width: 156px; height: 156px; pointer-events: auto; touch-action: none; }
 #dpad button { position: absolute; width: 52px; height: 52px; font-size: 18px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; pointer-events: none; }
@@ -203,7 +208,10 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; justi
   #stats { min-width: 0; font-size: 10px; padding: 6px 8px; gap: 3px; }
   #dpad { transform: scale(.85); transform-origin: left bottom; }
   #b-action { width: 92px; height: 92px; }
-  #feed { bottom: calc(var(--sb) + 150px); }
+  #feed { bottom: calc(var(--sb) + 150px); grid-template-columns: 1fr auto; align-items: end; gap: 6px; } /* кнопка сбоку: строкам больше места по высоте */
+  #feed-list { gap: 3px; }
+  #feed-list > div { padding: 3px 7px; font-size: 10px; }
+  #b-feed { grid-column: 2; grid-row: 1; }
   #toast { top: 14%; }
   #power { top: calc(var(--st) + 44px); padding: 6px; gap: 2px; }
   #alert { left: calc(var(--sl) + 200px); transform: none; font-size: 11px; padding: 4px 10px; } /* между приборами и кнопками сверху */
