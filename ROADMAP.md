@@ -11,7 +11,7 @@
 - [x] Unity: почти всё, кроме дна, розовое в APK (шейдер Standard не попал в сборку) и 84 ошибки «class '…Collider' doesn't exist» от `CreatePrimitive` — свой шейдер `Pogrujenie/Lit` в `Resources`, детали без `CreatePrimitive` (`Game/Shapes.cs`). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, ошибки 1 и 2
 - Unity: закоммитить `.meta`-файлы и зафиксировать `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи — разделено на две части:
   - [x] `.meta` для всех ассетов `unity/Assets` с постоянными GUID (`tools/unity_meta.py`, проверка в CI «Тесты»)
-  - [ ] Дописать `m_EditorVersionWithRevision` в `ProjectVersion.txt` — ждёт владельца: нужна строка с номером ревизии из `ProjectVersion.txt` после открытия проекта в Unity 6000.6.6f1 (в облаке редактора нет, ревизию не угадываем)
+  - [ ] Дописать в `ProjectVersion.txt` строку `m_EditorVersionWithRevision: 6000.6.6f1 (d20c9ac777da)` (ревизия из лога сборки в CI) и убедиться, что «Unity» зелёная
 - [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
 ## Концепт-арт
