@@ -20,13 +20,14 @@
     const u = UP.find(x => x.id === id);
     if (!u || !Cg.can(u)) { G.Audio.beep(220); return false; }
     Object.entries(u.cost).forEach(([k, n]) => { for (let i = 0; i < n; i++) { const j = G.Ship.cargo.findIndex(c => c.kind === k); G.Ship.cargo.splice(j, 1); } });
-    Cg.owned.add(id);
+    Cg.owned.add(id); G.Save.mark();
     G.Ship.showTubes(); Cg.shelves(); Cg.render();
     G.Game.toast('Улучшение установлено', `${u.name}: ${u.hint}.`);
     G.Game.feedMsg && G.Game.feedMsg(`Установлено: ${u.name.toLowerCase()}`, true);
     G.Audio.scanDone();
     return true;
   };
+  Cg.restore = function (ids) { Cg.owned = new Set(ids.filter(id => UP.some(u => u.id === id))); Cg.shelves(); Cg.render(); };
   Cg.reset = function () { Cg.owned.clear(); Cg.sel = 0; if (Cg.open) Cg.close(); Cg.shelves(); Cg.render(); };
 
   /* ---------- полки ---------- */
