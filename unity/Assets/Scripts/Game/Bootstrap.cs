@@ -23,6 +23,8 @@ namespace Pogrujenie.Game
         public Transform[] Fireflies { get; private set; }
         public TouchInput Controls { get; private set; }
         public Player Player { get; private set; }
+        public ShipLayout Layout { get; private set; }
+        public ShipView View { get; private set; }
 
         /// <summary>Прожектор включён (кнопкой действия). Светит, только если у него есть энергия.</summary>
         public bool LampOn = true;
@@ -97,19 +99,13 @@ namespace Pogrujenie.Game
             Paint(hull, new Color(0.55f, 0.5f, 0.42f));
             Destroy(hull.GetComponent<Collider>());
 
-            // палуба мостика (z от −6 до 2) и пульт штурвала у носа — пока вместо отсеков
-            var deck = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            deck.name = "Палуба мостика";
-            deck.transform.SetParent(ship, false);
-            deck.transform.localPosition = new Vector3(0, -0.05f, -2f);
-            deck.transform.localScale = new Vector3(10f, 0.1f, 8f);
-            Paint(deck, new Color(0.22f, 0.25f, 0.27f));
-            var helm = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            helm.name = "Пульт штурвала";
-            helm.transform.SetParent(ship, false);
-            helm.transform.localPosition = new Vector3(0, 0.5f, -5.3f);
-            helm.transform.localScale = new Vector3(1.6f, 1f, 0.6f);
-            Paint(helm, new Color(0.3f, 0.45f, 0.5f));
+            // отсеки: полы, стены, переборки и люки
+            Layout = new ShipLayout();
+            Layout.Inter.Add(new Interactable(0, -4.3f, 1.7f,
+                () => LampOn ? "Погасить прожектор" : "Включить прожектор", ToggleLamp));
+            View = new GameObject("Отсеки").AddComponent<ShipView>();
+            View.transform.SetParent(ship, false);
+            View.Build(Layout);
 
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
@@ -166,7 +162,6 @@ namespace Pogrujenie.Game
 
         void Update()
         {
-            Controls.ActionLabel = LampOn ? "Погасить" : "Свет";
             // перегрев реактора (Reactor.Update) включится вместе с машинным отделением
             ApplyPower();
             float t = Time.time;
@@ -185,7 +180,7 @@ namespace Pogrujenie.Game
             style.normal.textColor = new Color(0.75f, 0.95f, 1f);
             GUI.Label(new Rect(16 * s, 16 * s, 900 * s, 40 * s), "Погружение · Unity 0.1", style);
             style.fontSize = Mathf.RoundToInt(16 * s);
-            string line = $"Реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
+            string line = $"{ShipLayout.RoomName(Player.Room)} · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
             if (lastMsg.Length > 0) line += " · " + lastMsg;
             GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), line, style);
         }
