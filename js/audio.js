@@ -1,12 +1,12 @@
 'use strict';
 /* Процедурный звук на WebAudio: гул воды, двигатель, сонар, удары, песни ледокрылов */
 (function (G) {
-  const A = G.Audio = { ctx: null, on: false, muted: false };
+  const A = G.Audio = { ctx: null, on: false, muted: false, vol: 0.7 };
   A.init = function () {
     if (A.ctx) { if (A.ctx.state === 'suspended') A.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = A.ctx = new AC();
-    A.master = c.createGain(); A.master.gain.value = 0.7; A.master.connect(c.destination);
+    A.master = c.createGain(); A.master.gain.value = A.muted ? 0 : A.vol; A.master.connect(c.destination);
     A.wet = c.createGain(); A.wet.gain.value = 0.5;
     const dl = c.createDelay(1.5); dl.delayTime.value = 0.31;
     const fb = c.createGain(); fb.gain.value = 0.42;
@@ -65,5 +65,7 @@
   A.creak = () => { if (!ok()) return; const t = now(); noise(t, 1.4, 0.08, 'bandpass', 180, 90, 8); osc('sawtooth', 55, 48, t, 1.2, 0.03); };
   A.latch = () => { if (!ok()) return; const t = now(); noise(t, 0.8, 0.3, 'bandpass', 1500, 400, 6); osc('square', 60, 30, t, 0.8, 0.1); };
   A.alarm = () => { if (!ok()) return; osc('square', 880, 660, now(), 0.35, 0.05); };
-  A.toggleMute = () => { A.muted = !A.muted; if (A.master) A.master.gain.value = A.muted ? 0 : 0.7; return A.muted; };
+  A.toggleMute = () => { A.muted = !A.muted; if (A.master) A.master.gain.value = A.muted ? 0 : A.vol; return A.muted; };
+  /* громкость 0..1 из настроек; 0 — звук выключен */
+  A.setVolume = v => { A.vol = Math.max(0, Math.min(1, v)); A.muted = A.vol === 0; if (A.master) A.master.gain.value = A.muted ? 0 : A.vol; };
 })(window.G);

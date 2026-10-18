@@ -131,6 +131,17 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #dbg pre { margin: 0; font: 11px/1.45 var(--mono); color: var(--amber); white-space: pre-wrap; }
 #dbg .dbg-row { display: flex; flex-wrap: wrap; gap: 4px; }
 #dbg button { font: 600 10px var(--mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); padding: 5px 7px; }
+#settings { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2, 10, 14, .94); overflow: auto; touch-action: pan-y; padding: var(--st) var(--sr) var(--sb) var(--sl); z-index: 6; }
+#settings .card { gap: 10px; }
+#settings h2 { font: 800 30px var(--disp); margin: 4px 0 0; }
+.set-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid var(--line); background: rgba(12, 34, 45, .7); padding: 10px 12px; flex-wrap: wrap; }
+.set-row b { font-weight: 600; font-size: 13px; color: var(--glow); display: block; }
+.set-row small { font-size: 11px; color: var(--dim); }
+.step { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.step .chip { min-width: 44px; min-height: 40px; }
+.step output { min-width: 56px; text-align: center; font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; }
+.step .chip:disabled { opacity: .35; }
+.intro-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 #errbox { position: fixed; left: 8px; right: 8px; bottom: 8px; background: #400; color: #fff; font-size: 11px; padding: 8px; z-index: 99; }
 
 @media (max-height: 460px) {
@@ -139,6 +150,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .lead, .how { font-size: 11px; }
   .hint { display: none; }
   .big { padding: 11px 18px; }
+  #settings h2 { font-size: 22px; }
+  .set-row { padding: 6px 10px; }
+  .step .chip { min-height: 34px; padding: 6px 10px; }
   #stats { min-width: 0; font-size: 10px; padding: 6px 8px; gap: 3px; }
   #dpad { transform: scale(.85); transform-origin: left bottom; }
   #b-action { width: 92px; height: 92px; }

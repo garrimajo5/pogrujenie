@@ -26,7 +26,7 @@
     G.Ship.build(scene);
     G.Eco.init(scene);
     G.Ship.group.add(camera); camera.position.set(0, 1.65, -3);
-    G.Ctl.init(); bindUI(); G.DebugPanel.init(); G.Tutorial.init(); resize(); addEventListener('resize', resize);
+    G.Ctl.init(); bindUI(); G.DebugPanel.init(); G.Tutorial.init(); G.Settings.init(); resize(); addEventListener('resize', resize);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(loop);
     if (G.Save.load() && G.Save.hasProgress()) { const c = counts(); $('loading').textContent = `Журнал загружен: видов ${c.s} из ${c.sn}, мест ${c.p} из ${c.pn}.`; }
@@ -55,6 +55,7 @@
         Game.t += dt; G.timeU.value = Game.t; G.Ctl.read();
         if (Game.state === 'play') simulate(dt);
         else if (Game.state === 'journal' && G.Ctl.journalPressed) closeJournal();
+        else if (Game.state === 'settings' && G.Ctl.journalPressed) G.Settings.close();
         clearOneShots();
       }
     },
@@ -70,6 +71,8 @@
     paused: false,
     reset() {
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
+      if (G.Settings.isOpen()) G.Settings.close();
+      G.Settings.reset(true);
       G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
@@ -78,7 +81,7 @@
       const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
       Object.assign(G.Ctl.padMove, { x: 0, y: 0 }); G.Ctl.btnVert = 0; G.Ctl.actionDown = false; G.Ctl.keys = {};
       Game.scan.key = null; Game.scan.prog = 0; Game.done = false;
-      ['journal', 'lost', 'intro'].forEach(id => { $(id).hidden = true; }); $('hud').hidden = false;
+      ['journal', 'lost', 'intro', 'settings'].forEach(id => { $(id).hidden = true; }); $('hud').hidden = false;
       Game.state = 'play'; updateCounts(); updatePlayer(0);
     },
     get camera() { return camera; },
@@ -97,7 +100,19 @@
   /* адаптивное разрешение: держим плавность на слабых телефонах */
   const maxPR = Math.min(window.devicePixelRatio || 1, 1.6);
   let curPR = Math.min(maxPR, 1.25), fpsAcc = 0, fpsN = 0;
+  Game.quality = 'auto';
+  /* качество графики из настроек: «авто» — адаптивное разрешение, иначе фиксированное */
+  Game.setQuality = function (q) {
+    const fixed = { low: 0.7, mid: 1, high: Math.min(window.devicePixelRatio || 1, 2) };
+    Game.quality = q in fixed ? q : 'auto';
+    curPR = Game.quality === 'auto' ? Math.min(maxPR, 1.25) : fixed[Game.quality];
+    fpsAcc = 0; fpsN = 0;
+    G.World.shafts.forEach(s => { s.visible = Game.quality !== 'low'; });
+    if (renderer) { renderer.setPixelRatio(curPR); resize(); }
+  };
+  Game.resumeClock = () => { if (clock) clock.getDelta(); };
   function adapt(raw) {
+    if (Game.quality !== 'auto') return;
     fpsAcc += raw; fpsN++;
     if (fpsAcc < 2.5) return;
     const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0;
@@ -124,6 +139,8 @@
       G.Eco.events.length = 0;
     } else if (Game.state === 'journal') {
       if (C.journalPressed) closeJournal();
+    } else if (Game.state === 'settings') {
+      if (C.journalPressed) G.Settings.close();
     }
     clearOneShots();
     updateEnv(); updateHUD(dt);
@@ -151,7 +168,7 @@
 
   /* ---------- игрок ---------- */
   function updatePlayer(dt) {
-    const P = Game.player, C = G.Ctl, S = G.Ship, sens = 0.0055;
+    const P = Game.player, C = G.Ctl, S = G.Ship, sens = 0.0055 * G.Settings.lookX(), sensY = 0.0055 * G.Settings.lookY();
     if (C.gyro && C.gyroOK) {
       if (C.needCalib) { tmp.e.setFromQuaternion(C.gyroQ, 'YXZ'); C.yawOffset = P.yaw - tmp.e.y; C.needCalib = false; }
       C.yawOffset -= C.lookDX * sens;
@@ -160,7 +177,7 @@
       tmp.e.setFromQuaternion(camera.quaternion, 'YXZ'); P.yaw = tmp.e.y; P.pitch = tmp.e.x;
     } else {
       P.yaw -= C.lookDX * sens;
-      P.pitch = G.clamp(P.pitch - C.lookDY * sens, -1.45, 1.45);
+      P.pitch = G.clamp(P.pitch - C.lookDY * sensY, -1.45, 1.45);
       camera.quaternion.setFromEuler(tmp.e.set(P.pitch, P.yaw, 0, 'YXZ'));
     }
     let cx, cy, cz;
@@ -447,7 +464,8 @@
       G.Tutorial.render();
     };
     $('b-journal').onclick = () => Game.openJournal();
-    $('b-sound').onclick = () => { G.Audio.init(); const m = G.Audio.toggleMute(); $('b-sound').classList.toggle('off', m); $('b-sound').textContent = m ? 'Звук выкл' : 'Звук'; };
+    $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
+    $('b-intro-settings').onclick = () => G.Settings.open();
     $('b-restart').onclick = restart;
     if (G.Ctl.gyroAvailable()) {
       $('b-gyro').hidden = false;
