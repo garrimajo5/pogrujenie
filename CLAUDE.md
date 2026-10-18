@@ -40,7 +40,8 @@
 - Сцена собирается из кода (`Bootstrap`). Сцена `Assets/Scenes/Main.unity` создаётся сборкой или меню «Погружение → Создать сцену Main»; в репозиторий её не кладём, пока не понадобятся ручные правки.
 - Оси в Unity: нос в −Z, пол y=0, как в браузере, но система координат левая. Лицом к носу правый борт — это −X (в браузере +X), поэтому x из `js/` при переносе меняет знак. Курс игрока: вперёд = (sin yaw, cos yaw), yaw = π — лицом к носу.
 - Отсеки: `Core/ShipLayout.cs` — бруски стен (`Boxes`), люки, препятствия, `CanStand`, посты кнопки действия (`Inter`, `Nearest`). Новый пост — `Layout.Inter.Add(new Interactable(x, z, r, label, act))`. Рисует отсеки `Game/ShipView.cs`.
-- Ввод: `TouchInput` (крестовина, кнопка действия, свайп). В тестах `Controls.PadOverride`, `Controls.InjectLook`, `Controls.PressAction()`. Логика касаний в `Core/TouchControls.cs`.
+- Ход корабля: `Core/Helm.cs` — `ShipPhysics` (тяга × `Reactor.K(Engines)`, курс: нос в (−sin Yaw, −cos Yaw), Yaw растёт — поворот вправо) и `SeaCurrent` (0,3 м/с, смена раз в 180 с). Шаг в сцене — `Bootstrap.Step`, за штурвалом `Player.Piloting`.
+- Ввод: `TouchInput` (крестовина, кнопка действия, свайп). В тестах `Controls.PadOverride`, `Controls.VertOverride`, `Controls.InjectLook`, `Controls.PressAction()`, `Controls.PressLight()`. Логика касаний в `Core/TouchControls.cs`.
 - Тесты: `unity/Assets/Tests/EditMode` (NUnit, логика из Core) и `unity/Assets/Tests/PlayMode` (сцена, `[UnityTest]`). Новая фича — с тестами, как и в браузерной версии.
 - Редактора Unity в облачной сессии нет: тесты и сборка идут только в GitHub Actions, проверка «Unity» (`.github/workflows/unity.yml`, GameCI, секреты `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`). Перед PR внимательно перечитать C#: компилятор увидим только в CI. PR сливается, когда зелёные и «Тесты», и «Unity».
 - APK — артефакт `pogrujenie-apk` у запуска «Unity».

@@ -7,6 +7,7 @@ namespace Pogrujenie.Game
     /// <summary>
     /// Заготовка Unity-версии: собирает сцену из кода — тёмная вода, дно, «Ковчег-7» с прожектором
     /// и стайка светляков. Прожектор питается от реактора: его дальность — доля «Прожектор».
+    /// Корабль ведут за штурвалом (ShipPhysics): тяга зависит от доли «Двигатели», течение сносит всегда.
     /// Сцена Main создаётся меню «Погружение → Создать сцену Main» или сборкой; в пустой сцене
     /// заготовка тоже поднимается сама при нажатии Play.
     /// </summary>
@@ -25,6 +26,11 @@ namespace Pogrujenie.Game
         public Player Player { get; private set; }
         public ShipLayout Layout { get; private set; }
         public ShipView View { get; private set; }
+        public ShipPhysics Motion { get; private set; }
+        public SeaCurrent Current { get; private set; }
+        public Transform Wheel { get; private set; }
+
+        public const float FloorY = -32f; // ровное дно, пока нет рельефа отмели
 
         /// <summary>Прожектор включён (кнопкой действия). Светит, только если у него есть энергия.</summary>
         public bool LampOn = true;
@@ -47,6 +53,9 @@ namespace Pogrujenie.Game
             Instance = this;
             Reactor = new Reactor();
             Reactor.Message += (title, text) => lastMsg = title;
+            Motion = new ShipPhysics { Ground = (x, z) => FloorY };
+            Current = new SeaCurrent();
+            Current.Changed += i => Say("Течение сменилось");
             Application.targetFrameRate = 60;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             Build();
@@ -82,7 +91,7 @@ namespace Pogrujenie.Game
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "Дно";
             floor.transform.SetParent(transform);
-            floor.transform.position = new Vector3(0, -12f, 0);
+            floor.transform.position = new Vector3(ShipPhysics.StartX, FloorY, ShipPhysics.StartZ);
             floor.transform.localScale = new Vector3(20, 1, 20);
             Paint(floor, new Color(0.18f, 0.2f, 0.17f));
 
@@ -90,6 +99,7 @@ namespace Pogrujenie.Game
             var ship = new GameObject("Ковчег-7").transform;
             ship.SetParent(transform);
             Ship = ship;
+            ship.position = new Vector3(Motion.X, Motion.Y, Motion.Z);
             var hull = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             hull.name = "Корпус";
             hull.transform.SetParent(ship, false);
@@ -101,11 +111,31 @@ namespace Pogrujenie.Game
 
             // отсеки: полы, стены, переборки и люки
             Layout = new ShipLayout();
-            Layout.Inter.Add(new Interactable(0, -4.3f, 1.7f,
-                () => LampOn ? "Погасить прожектор" : "Включить прожектор", ToggleLamp));
+            Layout.Inter.Add(new Interactable(0, Player.SeatZ, 1.7f, () => "Сесть за штурвал", () => Player.SitAtHelm()));
             View = new GameObject("Отсеки").AddComponent<ShipView>();
             View.transform.SetParent(ship, false);
             View.Build(Layout);
+
+            // штурвал на пульте: поворачивается вместе с кораблём
+            var wheel = new GameObject("Штурвал").transform;
+            wheel.SetParent(ship, false);
+            wheel.localPosition = new Vector3(0, 0.95f, -5.25f);
+            wheel.localRotation = Quaternion.Euler(-20, 0, 0);
+            Wheel = wheel;
+            var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            rim.name = "Обод штурвала";
+            Destroy(rim.GetComponent<Collider>());
+            rim.transform.SetParent(wheel, false);
+            rim.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            rim.transform.localScale = new Vector3(0.6f, 0.02f, 0.6f);
+            Paint(rim, new Color(0.12f, 0.17f, 0.19f));
+            var spoke = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            spoke.name = "Спица штурвала";
+            Destroy(spoke.GetComponent<Collider>());
+            spoke.transform.SetParent(wheel, false);
+            spoke.transform.localPosition = new Vector3(0, 0, 0.03f); // со стороны пилота (+Z)
+            spoke.transform.localScale = new Vector3(0.62f, 0.06f, 0.03f);
+            Paint(spoke, new Color(0.75f, 0.6f, 0.3f));
 
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
@@ -152,7 +182,10 @@ namespace Pogrujenie.Game
             Lamp.range = LampRange * k;
         }
 
-        /// <summary>Кнопка действия на мостике: включить или погасить прожектор.</summary>
+        /// <summary>Строка-сообщение на приборах.</summary>
+        public void Say(string msg) { lastMsg = msg; }
+
+        /// <summary>Кнопка «Свет» за штурвалом: включить или погасить прожектор.</summary>
         public void ToggleLamp()
         {
             LampOn = !LampOn;
@@ -164,13 +197,28 @@ namespace Pogrujenie.Game
         {
             // перегрев реактора (Reactor.Update) включится вместе с машинным отделением
             ApplyPower();
+            Step(Time.deltaTime);
             float t = Time.time;
             for (int i = 0; i < Fireflies.Length; i++)
             {
+                // стайка живёт у места старта, перед носом; корабль может от неё уплыть
                 float a = t * 0.4f + i * 0.26f;
                 float r = 6f + Mathf.Sin(i * 1.7f) * 2f;
-                Fireflies[i].position = Ship.position + new Vector3(Mathf.Cos(a) * r, Mathf.Sin(t + i) * 1.5f - 2f, -20f + Mathf.Sin(a) * r);
+                Fireflies[i].position = new Vector3(ShipPhysics.StartX + Mathf.Cos(a) * r,
+                    ShipPhysics.StartY + Mathf.Sin(t + i) * 1.5f - 2f, ShipPhysics.StartZ - 20f + Mathf.Sin(a) * r);
             }
+        }
+
+        /// <summary>Шаг хода корабля: течение, тяга от доли двигателей, положение и курс в сцене.</summary>
+        public void Step(float dt)
+        {
+            if (dt <= 0f) return;
+            dt = Mathf.Min(dt, 0.25f); // после паузы не прыгаем
+            Current.Update(dt);
+            Motion.Update(dt, Reactor.K(ShipSystem.Engines), Current.X, Current.Z);
+            Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
+                Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
+            Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
         }
 
         void OnGUI()
@@ -180,7 +228,8 @@ namespace Pogrujenie.Game
             style.normal.textColor = new Color(0.75f, 0.95f, 1f);
             GUI.Label(new Rect(16 * s, 16 * s, 900 * s, 40 * s), "Погружение · Unity 0.1", style);
             style.fontSize = Mathf.RoundToInt(16 * s);
-            string line = $"{ShipLayout.RoomName(Player.Room)} · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
+            string place = Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room);
+            string line = $"{place} · глубина {Motion.Depth:0} м · ход {Motion.Speed:0.0} м/с · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
             if (lastMsg.Length > 0) line += " · " + lastMsg;
             GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), line, style);
         }

@@ -170,5 +170,103 @@ namespace Pogrujenie.Tests
             w.Look(0, 100000);
             Assert.AreEqual(Walker.MaxPitch, w.Pitch, 1e-5f, "не дальше зенита");
         }
+
+        static TouchRouter PilotRouter(float w = 2400, float h = 1080)
+        {
+            var r = Router(w, h);
+            TouchLayout.ComputePilot(0, 0, w, h, out var up, out var down, out var light);
+            r.SetPilotLayout(up, down, light);
+            r.PilotButtons = true;
+            return r;
+        }
+
+        static bool Overlap(Circle a, Circle b) => (a.C - b.C).Length < a.R + b.R;
+
+        [TestCase(2400f, 1080f)]
+        [TestCase(1920f, 1080f)]
+        [TestCase(1600f, 720f)]
+        [TestCase(1280f, 600f)]
+        public void КнопкиПилотаНаЭкранеИНеПерекрываются(float w, float h)
+        {
+            TouchLayout.Compute(0, 0, w, h, out var pad, out var act);
+            TouchLayout.ComputePilot(0, 0, w, h, out var up, out var down, out var light);
+            foreach (var c in new[] { up, down, light })
+            {
+                Assert.GreaterOrEqual(c.Left, 0f);
+                Assert.GreaterOrEqual(c.Bottom, 0f);
+                Assert.LessOrEqual(c.Right, w);
+                Assert.LessOrEqual(c.Top, h);
+                Assert.Greater(c.C.X, w / 2, "кнопки пилота справа, под большим пальцем");
+                Assert.IsFalse(Overlap(c, pad), "не задевает крестовину");
+                Assert.IsFalse(Overlap(c, act), "не задевает кнопку действия");
+                Assert.Greater(c.R, h * 0.06f, "в кнопку легко попасть");
+            }
+            Assert.IsFalse(Overlap(up, down));
+            Assert.IsFalse(Overlap(up, light));
+            Assert.IsFalse(Overlap(down, light));
+            Assert.Greater(up.C.Y, down.C.Y, "«Всплыть» над «Вниз»");
+            Assert.Greater((up.C - pad.C).Length, pad.R + up.R + h * 0.2f, "между ними место для свайпа");
+        }
+
+        [Test]
+        public void КнопкиПилотаУчитываютВырезЭкрана()
+        {
+            TouchLayout.ComputePilot(0, 0, 2310, 1080, out var up, out var down, out var light);
+            Assert.LessOrEqual(light.Right, 2310f);
+            Assert.LessOrEqual(up.Right, 2310f);
+        }
+
+        [Test]
+        public void ВсплытьИВнизДержатсяПальцем()
+        {
+            var r = PilotRouter();
+            Assert.AreEqual(0, r.Vert);
+            r.Begin(1, r.Up.C);
+            Assert.AreEqual(1, r.Vert, "держим «Всплыть»");
+            r.EndFrame();
+            Assert.AreEqual(1, r.Vert, "удержание, а не одно нажатие");
+            r.End(1);
+            Assert.AreEqual(0, r.Vert);
+            r.Begin(2, r.Down.C);
+            Assert.AreEqual(-1, r.Vert, "держим «Вниз»");
+            Assert.AreEqual(0f, r.LookDX);
+            r.End(2);
+            Assert.AreEqual(0, r.Vert);
+        }
+
+        [Test]
+        public void СветНажимаетсяОдинРаз()
+        {
+            var r = PilotRouter();
+            r.Begin(4, r.Light.C);
+            Assert.IsTrue(r.LightPressed);
+            Assert.IsFalse(r.ActionPressed, "это не кнопка действия");
+            r.EndFrame();
+            Assert.IsFalse(r.LightPressed, "нажатие — один кадр");
+        }
+
+        [Test]
+        public void НеЗаШтурваломКнопокПилотаНет()
+        {
+            var r = PilotRouter();
+            r.PilotButtons = false;
+            r.Begin(1, r.Up.C);
+            r.Move(1, new P2(r.Up.C.X + 40, r.Up.C.Y));
+            Assert.AreEqual(0, r.Vert, "вне штурвала здесь обычный свайп");
+            Assert.AreEqual(40f, r.LookDX, 1e-4f);
+            r.Begin(2, r.Light.C);
+            Assert.IsFalse(r.LightPressed);
+        }
+
+        [Test]
+        public void КрестовинаИВсплытиеОдновременно()
+        {
+            var r = PilotRouter();
+            var c = r.Pad.C;
+            r.Begin(1, new P2(c.X, c.Y + r.Pad.R * 0.7f));
+            r.Begin(2, r.Up.C);
+            Assert.AreEqual(1, r.MoveY, "полный вперёд");
+            Assert.AreEqual(1, r.Vert, "и всплываем");
+        }
     }
 }
