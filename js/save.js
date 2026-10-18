@@ -10,7 +10,7 @@
     const species = {};
     G.SPECIES_ORDER.forEach(k => { species[k] = { scanned: !!G.SPECIES[k].scanned, seen: [...G.SPECIES[k].seen] }; });
     const pois = G.World.pois.filter(p => p.found || p.pinged).map(p => ({ key: p.key, found: !!p.found, pinged: !!p.pinged }));
-    return { v: 1, species, pois };
+    return { v: 1, species, pois, tutorial: G.Tutorial ? G.Tutorial.state() : null };
   };
   S.apply = function (data) {
     if (!data || data.v !== 1 || typeof data.species !== 'object') return false;
@@ -23,6 +23,7 @@
       const p = G.World.pois.find(x => x.key === d.key); if (!p) return;
       p.found = !!d.found; p.pinged = !!d.pinged;
     });
+    if (data.tutorial && G.Tutorial) G.Tutorial.apply(data.tutorial);
     return true;
   };
   S.save = function () {
