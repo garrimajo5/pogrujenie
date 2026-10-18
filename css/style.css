@@ -118,6 +118,8 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .j-card.unk { opacity: .6; border-style: dashed; }
 .j-card.unk h4 { color: var(--dim); }
 .j-card.focus { border-color: var(--amber); }
+.j-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--dim); }
+.chip.warn { color: var(--alarm); border-color: rgba(255, 93, 108, .5); }
 .j-prog { font-size: 10px; color: var(--dim); letter-spacing: .08em; }
 
 #dbg { position: absolute; left: var(--sl); top: calc(var(--st) + 120px); width: min(420px, 70vw); background: rgba(0, 0, 0, .78); border: 1px solid var(--amber); padding: 8px; display: grid; gap: 6px; pointer-events: auto; z-index: 5; }

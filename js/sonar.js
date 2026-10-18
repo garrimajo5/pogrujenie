@@ -27,7 +27,7 @@
     So.blips = G.Eco.scanTargets()
       .filter(tg => Math.hypot(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z) < So.range)
       .map(tg => ({ x: tg.pos.x, z: tg.pos.z, sp: tg.sp }));
-    G.World.pois.forEach(p => { if (Math.hypot(p.pos.x - S.pos.x, p.pos.z - S.pos.z) < 170) p.pinged = true; });
+    G.World.pois.forEach(p => { if (!p.pinged && Math.hypot(p.pos.x - S.pos.x, p.pos.z - S.pos.z) < 170) { p.pinged = true; G.Save.mark(); } });
     G.Eco.onPing(S.center.clone());
   };
 
