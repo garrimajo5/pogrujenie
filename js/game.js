@@ -46,6 +46,39 @@
       }
       G.Ctl.lookDX = G.Ctl.lookDY = 0;
     },
+    /* полный кадр логики, как в игре: ввод, взаимодействия, сканирование, события */
+    frame(n, dt) {
+      dt = dt || 0.05;
+      for (let i = 0; i < n; i++) {
+        Game.t += dt; G.timeU.value = Game.t; G.Ctl.read();
+        if (Game.state === 'play') simulate(dt);
+        else if (Game.state === 'journal' && G.Ctl.journalPressed) closeJournal();
+        clearOneShots();
+      }
+    },
+    /* смотреть из текущего места на точку мира */
+    lookAt(world) {
+      const P = Game.player, loc = G.Ship.group.worldToLocal(world.clone());
+      const eye = Game.piloting ? new V3(0, 1.62, -4.3) : new V3(P.x, 1.65, P.z);
+      const d = loc.sub(eye);
+      P.yaw = Math.atan2(-d.x, -d.z); P.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
+      updatePlayer(0);
+    },
+    /* вернуть мир и игрока в исходное состояние (для тестов) */
+    reset() {
+      G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
+      G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
+      G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
+      if (Game.piloting) Game.toggleHelm();
+      const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
+      Object.assign(G.Ctl.padMove, { x: 0, y: 0 }); G.Ctl.btnVert = 0; G.Ctl.actionDown = false; G.Ctl.keys = {};
+      Game.scan.key = null; Game.scan.prog = 0; Game.done = false;
+      ['journal', 'lost', 'intro'].forEach(id => { $(id).hidden = true; }); $('hud').hidden = false;
+      Game.state = 'play'; updateCounts(); updatePlayer(0);
+    },
+    get camera() { return camera; },
+    actionLabel: () => $('act-label').textContent,
     feed: () => [...document.querySelectorAll('#feed div')].map(d => d.textContent)
   };
 
@@ -76,13 +109,7 @@
     const S = G.Ship, C = G.Ctl;
     C.read();
     if (Game.state === 'play') {
-      if (C.journalPressed) Game.openJournal();
-      if (C.lightPressed) Game.toggleLight();
-      if (C.standPressed && Game.piloting) Game.toggleHelm();
-      if (C.pingPressed) G.Sonar.ping();
-      updatePlayer(dt);
-      S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
-      handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
+      simulate(dt);
     } else if (Game.state === 'intro') {
       camera.quaternion.setFromEuler(tmp.e.set(-0.04, Math.sin(Game.t * 0.08) * 0.7, 0, 'YXZ'));
       S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
@@ -90,10 +117,26 @@
     } else if (Game.state === 'journal') {
       if (C.journalPressed) closeJournal();
     }
-    C.actionPressed = false; C.pingPressed = false; C.lightPressed = false; C.journalPressed = false; C.standPressed = false;
-    C.lookDX = C.lookDY = 0;
+    clearOneShots();
     updateEnv(); updateHUD(dt);
     renderer.render(scene, camera);
+  }
+
+  /* один шаг игровой логики в режиме «play» (без рендера) */
+  function simulate(dt) {
+    const S = G.Ship, C = G.Ctl;
+    if (C.journalPressed) Game.openJournal();
+    if (C.lightPressed) Game.toggleLight();
+    if (C.standPressed && Game.piloting) Game.toggleHelm();
+    if (C.pingPressed) G.Sonar.ping();
+    updatePlayer(dt);
+    S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
+    handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
+  }
+  function clearOneShots() {
+    const C = G.Ctl;
+    C.actionPressed = false; C.pingPressed = false; C.lightPressed = false; C.journalPressed = false; C.standPressed = false;
+    C.lookDX = C.lookDY = 0;
   }
 
   /* ---------- игрок ---------- */
