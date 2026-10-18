@@ -14,6 +14,8 @@ jobs:
           node-version: 20
       - name: Синтаксис JS
         run: for f in js/*.js; do node --check "$f"; done
+      - name: Сервер синхронизации
+        run: node server/test.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

@@ -26,6 +26,7 @@
     const cost = G.Cargo.has('sonar') ? 4 : 6; // фильтр сонара из ракушек
     if (S.energy < cost) { G.Game.toast('Мало энергии', `Для импульса нужно ${cost} единиц`); return; }
     So.range = 110 * G.Power.k('son'); // дальность импульса — от доли сонара в реакторе
+    if (G.Net.isGuest()) G.Net.pendingPing = G.Game.t; // и хост делает импульс у себя
     S.energy -= cost; So.pingT = G.Game.t; G.Audio.ping();
     if (G.Silt && G.Silt.inside) { // сонарная тьма: импульс вязнет в иле, на столе одни помехи
       So.blips = []; So.jamT = G.Game.t;
