@@ -12,6 +12,12 @@
 - [ ] Unity: закоммитить `.meta`-файлы (GUID меняются при каждом импорте) и зафиксировать `m_EditorVersionWithRevision` в `ProjectVersion.txt`. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 - [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки. Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
+## Концепт-арт
+Рисует Codex по `art/ARTIST.md`, заказы — в `art/REQUESTS.md`, работы — в ветке `art/concepts`.
+- [x] Роль художника: инструкция, очередь заказов, порядок приёмки; первые 7 заказов (корабль, мостик, серпохвост, флора, карта отмели, стеклоуст и скребун, эхоловец)
+- [ ] Принять ART-001 «Ковчег-7» снаружи и построить по нему корпус в Unity
+- [ ] Принять ART-002 мостик и пересобрать по нему мостик в Unity
+
 ## Этап 0. Проверка идеи
 - [x] Включить GitHub Pages: https://garrimajo5.github.io/pogrujenie/ (ссылка в README)
 - [x] GitHub Actions: смоук-тест `tools/smoke.py` на каждую PR
