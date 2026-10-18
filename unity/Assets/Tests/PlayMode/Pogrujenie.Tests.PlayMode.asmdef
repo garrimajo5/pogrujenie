@@ -1,0 +1,12 @@
+{
+  "name": "Pogrujenie.Tests.PlayMode",
+  "rootNamespace": "Pogrujenie.Tests",
+  "references": ["Pogrujenie.Core", "Pogrujenie.Game", "UnityEngine.TestRunner"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["nunit.framework.dll"],
+  "autoReferenced": false,
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
