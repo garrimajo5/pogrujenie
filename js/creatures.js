@@ -8,10 +8,11 @@
    радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека;
    мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника;
    монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке;
-   гротовик носит на спине риф, где живёт и прячется одна из стай светляков. */
+   гротовик носит на спине риф, где живёт и прячется одна из стай светляков;
+   скальник прикидывается камнем у норы кольчужника и выгоняет краба с бедным панцирем обратно в нору. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, skalnik: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -67,9 +68,12 @@
       notes: { ambush: 'Хватает монетников, которые проплывают над ним.', sonar: 'На сонаре не виден, но монетники шарахаются от него.', eyes: 'В луче прожектора глаза вспыхивают отражённым светом.' } },
     grot: { name: 'Гротовик', acc: 'гротовика', gen: 'гротовика', unom: 'ходячий риф', uacc: 'ходячий риф', ugen: 'ходячего рифа',
       desc: 'Медлительное панцирное существо длиной около 6 метров. На спине растёт настоящий риф с огнецветом и мхом, в нём живёт стая светляков.',
-      notes: { drift: 'Неспешно бредёт по отмели, на спине растёт риф.', hide: 'Напуганная стая прячется в рифе на его спине — хищник её теряет.', shy: 'Если задеть его корпусом, прячет ноги под панцирь и замирает.' } }
+      notes: { drift: 'Неспешно бредёт по отмели, на спине растёт риф.', hide: 'Напуганная стая прячется в рифе на его спине — хищник её теряет.', shy: 'Если задеть его корпусом, прячет ноги под панцирь и замирает.' } },
+    skalnik: { name: 'Скальник', acc: 'скальника', gen: 'скальника', unom: 'живой камень', uacc: 'живой камень', ugen: 'живого камня',
+      desc: 'Рогатый спрут около 2 метров. Меняет цвет и рисунок кожи под окружающие камни и часами сидит неподвижно у нор.',
+      notes: { mimic: 'Неподвижный неотличим от камня, но в луче прожектора меняет цвет.', hunt: 'Подстерегает кольчужника и загоняет его обратно в нору.', armor: 'Не трогает кольчужника, если панцирь того весь в иглах.', curious: 'Любопытен: к тихому тёмному кораблю подплывает к самому стеклу.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot', 'skalnik'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -948,7 +952,7 @@
     }
     switch (cr.state) {
       case 'den':
-        if (cr.hunger > 1) {
+        if (cr.hunger > 1 && !(cr.scared > 0)) {
           let best = null, bd = CRAB_R;
           for (const u of E.urchins) { if (!u.alive) continue; const d = u.p.distanceTo(cr.den); if (d < bd) { bd = d; best = u; } }
           if (best) { cr.state = 'hunt'; cr.target = best; cr.timer = 60; }
@@ -976,7 +980,7 @@
         break;
       }
       case 'home':
-        goal = cr.den; speed = 0.8;
+        goal = cr.den; speed = cr.scared > 0 ? 2 : 0.8; // напуганный скальником краб удирает бегом
         if (cr.p.distanceTo(cr.den) < 0.4) { cr.state = 'den'; cr.dir.copy(cr.out); }
         break;
       case 'guard':
@@ -1363,8 +1367,109 @@
   }
   E.grotShelter = grotShelter;
 
+  /* ======================= СКАЛЬНИК ======================= */
+  /* Рогатый спрут у норы кольчужника. Неподвижный — неотличим от камня (на сонаре и в прицеле его нет),
+     в луче прожектора меняет цвет и выдаёт себя. Подстерегает кольчужника, вышедшего на охоту:
+     краба с бедным панцирем выгоняет обратно в нору, от краба в полной броне из игл отступает.
+     Любопытен: к неподвижному кораблю с погашенным светом подплывает к самому стеклу. */
+  const SK_ARMS = 8, SK_SEG = 6, SK_ARMOR = 7;
+  const skRock = new THREE.Color(0x4f4a5c), skSkin = new THREE.Color(0xb8553c);
+  function initSkalnik(scene) {
+    const cr = E.crab; if (!cr) return;
+    const side = new V3(-cr.out.z, 0, cr.out.x);
+    const home = cr.den.clone().addScaledVector(side, 7); home.y = H(home.x, home.z);
+    const mantle = new THREE.SphereGeometry(1, 12, 8); mantle.scale(0.6, 0.5, 0.75); mantle.translate(0, 0.45, -0.15);
+    const parts = [{ g: mantle }];
+    [-1, 1].forEach(sx => {
+      const horn = new THREE.ConeGeometry(0.08, 0.45, 5); horn.rotateZ(-sx * 0.5); horn.translate(sx * 0.35, 0.95, 0.15); parts.push({ g: horn });
+      const eye = new THREE.SphereGeometry(0.08, 6, 4); eye.translate(sx * 0.3, 0.55, 0.45); parts.push({ g: eye });
+    });
+    const body = new THREE.Mesh(G.merge(parts), new THREE.MeshLambertMaterial({ color: skRock.clone(), flatShading: true }));
+    const arms = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), body.material, SK_ARMS * SK_SEG);
+    arms.frustumCulled = false; scene.add(body); scene.add(arms);
+    E.skalnik = { home, p: home.clone(), v: new V3(), dir: cr.out.clone().negate(), body, arms, state: 'rock', timer: 0, cd: 20, curCd: 0, camo: 1, reveal: 0, lit: false, mimicCd: 0, goal: new V3() };
+  }
+  function skUpdate(sk, dt, t) {
+    const S = G.Ship, cr = E.crab;
+    sk.timer -= dt; sk.cd -= dt; sk.curCd -= dt; sk.reveal -= dt; sk.mimicCd -= dt;
+    const wasLit = sk.lit; sk.lit = inBeam(tv3.copy(sk.p).setY(sk.p.y + 0.5));
+    if (sk.lit && !wasLit && sk.camo > 0.6) { // камень ожил: в луче спрут меняет цвет
+      sk.reveal = 6;
+      if (sk.mimicCd <= 0) { sk.mimicCd = 40; E.emit('skalnik', 'mimic', sk.p, () => SP.skalnik.scanned ? 'Скальник в луче прожектора сбросил маскировку' : 'Камень в луче прожектора меняет цвет — это живое существо'); }
+    }
+    let speed = 0;
+    const still = Math.abs(S.speed) < 0.5 && !S.light && S.hull > 0;
+    switch (sk.state) {
+      case 'rock':
+        sk.goal.copy(sk.home);
+        if (sk.cd <= 0 && cr && (cr.state === 'hunt' || cr.state === 'crack') && cr.p.distanceTo(cr.den) > 2.5) { sk.state = 'stalk'; sk.timer = 30; }
+        else if (sk.curCd <= 0 && still && S.front.distanceTo(sk.home) < 25) {
+          sk.state = 'curious'; sk.timer = 14; sk.curCd = 60;
+        }
+        break;
+      case 'stalk':
+        speed = 1.6; sk.goal.copy(cr.p);
+        if (sk.timer <= 0 || !(cr.state === 'hunt' || cr.state === 'crack')) { sk.state = 'back'; break; }
+        if (Math.hypot(sk.p.x - cr.p.x, sk.p.z - cr.p.z) < 1.4) {
+          if (cr.spines >= SK_ARMOR) {
+            E.emit('skalnik', 'armor', cr.p, () => `${cap(G.nm('skalnik'))} отступает: панцирь ${G.nm('krab', 'gen')} весь в иглах`);
+          } else {
+            if (cr.target) { cr.target = null; }
+            cr.state = 'home'; cr.scared = 6;
+            E.emit('skalnik', 'hunt', cr.p, () => `${cap(G.nm('skalnik'))} набросился на ${G.nm('krab', 'acc')} — тот удирает в нору`);
+          }
+          sk.state = 'back'; sk.cd = 60;
+        }
+        break;
+      case 'curious': {
+        speed = 1.2;
+        tv.set(0, 0, -1).applyQuaternion(S.group.quaternion);
+        sk.goal.copy(S.front).addScaledVector(tv, 2.6); sk.goal.y -= 0.8;
+        if (sk.p.distanceTo(sk.goal) < 1 && sk.timer < 11 && !sk.seen) { sk.seen = true; E.emit('skalnik', 'curious', sk.p, () => `${cap(G.nm('skalnik'))} подплыл к самому стеклу и разглядывает корабль`); }
+        if (S.light || Math.abs(S.speed) > 1.5) { sk.state = 'back'; sk.reveal = 4; speed = 0; break; } // спугнули
+        if (sk.timer <= 0) sk.state = 'back';
+        break;
+      }
+      case 'back':
+        speed = 1.8; sk.goal.copy(sk.home); sk.seen = false;
+        if (sk.p.distanceTo(sk.home) < 0.5) { sk.state = 'rock'; sk.p.copy(sk.home); }
+        break;
+    }
+    if (speed > 0) {
+      tv.copy(sk.goal).sub(sk.p); const d = tv.length();
+      if (d > 0.05) { sk.v.copy(tv).multiplyScalar(Math.min(speed, d * 2) / d); sk.p.addScaledVector(sk.v, dt); tv2.copy(sk.v).setY(0); if (tv2.lengthSq() > 1e-4) sk.dir.lerp(tv2.normalize(), Math.min(1, dt * 3)).normalize(); }
+      else sk.v.set(0, 0, 0);
+      const h = H(sk.p.x, sk.p.z); if (sk.p.y < h) sk.p.y = h;
+      if (sk.state === 'stalk' || sk.state === 'back') sk.p.y = Math.max(h, sk.p.y + (h + 0.2 - sk.p.y) * Math.min(1, dt * 3));
+    } else sk.v.set(0, 0, 0);
+    const camoWant = sk.state === 'rock' && sk.reveal <= 0 ? 1 : 0;
+    sk.camo += (camoWant - sk.camo) * Math.min(1, dt * (camoWant ? 0.5 : 4));
+    if (cr && cr.scared > 0) cr.scared -= dt;
+  }
+  function skRender(sk, t) {
+    const b = sk.body;
+    b.position.copy(sk.p); b.rotation.set(0, Math.atan2(sk.dir.x, sk.dir.z), 0);
+    b.material.color.copy(skRock).lerp(skSkin, 1 - sk.camo);
+    b.material.emissive.setRGB(0.12 * (1 - sk.camo), 0.03 * (1 - sk.camo), 0.02 * (1 - sk.camo));
+    const moving = sk.v.lengthSq() > 0.01, spread = sk.state === 'rock' ? 0.55 : 1;
+    tv2.copy(sk.v).normalize();
+    for (let a = 0; a < SK_ARMS; a++) {
+      const ang = a / SK_ARMS * 6.283 + 0.2, ca = Math.cos(ang), sa = Math.sin(ang);
+      for (let j = 0; j < SK_SEG; j++) {
+        const r = (0.35 + j * 0.24) * spread, w = Math.sin(t * 2.5 + a + j * 0.7) * 0.06 * j;
+        tv.set(sk.p.x + ca * r + w, sk.p.y + 0.25 - j * 0.05, sk.p.z + sa * r - w);
+        if (moving) tv.addScaledVector(tv2, -j * 0.22);
+        const h = H(tv.x, tv.z) + 0.06; if (tv.y < h) tv.y = h;
+        dummy.position.copy(tv); dummy.rotation.set(0, 0, 0);
+        const s = 0.2 * (1 - j / SK_SEG * 0.65); dummy.scale.set(s, s * 0.75, s); dummy.updateMatrix();
+        sk.arms.setMatrixAt(a * SK_SEG + j, dummy.matrix);
+      }
+    }
+    sk.arms.instanceMatrix.needsUpdate = true;
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initSkalnik(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1377,6 +1482,7 @@
       E.urchins.forEach(u => { urchinUpdate(u, dt, t); urchinRender(u, t); });
       E.urchBodyIM.instanceMatrix.needsUpdate = true; E.urchSpIM.instanceMatrix.needsUpdate = true;
       kelpUpdate(dt); if (E.crab) crabUpdate(E.crab, dt, t);
+      if (E.skalnik) { skUpdate(E.skalnik, dt, t); skRender(E.skalnik, t); }
     }
     if (E.rdIM) {
       E.flare = 0; E.flareSw = null;
@@ -1416,6 +1522,7 @@
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
     if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
+    if (E.skalnik) { const h = E.skalnik.camo >= 0.5; L.push({ sp: 'skalnik', pos: E.skalnik.p, r: 1, hidden: h, noSonar: h }); } // замаскированного не видно ни в прицеле, ни на сонаре
     E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
@@ -1463,10 +1570,12 @@
     E.schools.forEach(sc => { sc.scatter = 0; sc.scatCd = 0; sc.grazeCd = G.rr(5, 15); });
     E.glazuns.forEach(gz => { gz.cd = G.rr(8, 20); gz.lunge = 0; gz.lit = false; gz.eyesCd = 0; });
     E.coins.forEach(coinSpawn);
+    const sk = E.skalnik;
+    if (sk) { sk.p.copy(sk.home); sk.v.set(0, 0, 0); sk.state = 'rock'; sk.timer = 0; sk.cd = 20; sk.curCd = 0; sk.camo = 1; sk.reveal = 0; sk.lit = false; sk.mimicCd = 0; sk.seen = false; }
     const gt = E.grot;
     if (gt) { gt.p.copy(gt.route[0]); gt.wp = 1; gt.yaw = 0; gt.shy = 0; gt.shyCd = 0; gt.lift = 1; gt.hideCd = 0; gt.driftCd = 0; grotPlace(gt, 0, 0); }
     const cr = E.crab;
-    if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
+    if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; cr.scared = 0; crabSpines(cr); }
     /* хищники, рыбы и ледокрылы — на исходные места (после гротовика: стая на его спине): тесты не зависят от предыдущих */
     E.shoals.forEach(sh => { sh.alarm = 0; sh.follow = null; sh.followT = 0; sh.gt = 0; sh.fleeCd = 0; sh.threat = null; sh.goal.copy(sh.home); sh.c.copy(sh.home); });
     E.fish.forEach(f => { f.alive = true; f.t = 0; f.p.copy(f.s.home).add(f.o); f.v.copy(f.v0); });
