@@ -75,7 +75,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -383,15 +383,9 @@
   }
 
   /* ---------- атмосфера ---------- */
-  let callT = 8;
   function ambience(dt) {
     const S = G.Ship, E = G.Eco;
-    callT -= dt;
-    if (callT <= 0) {
-      callT = G.rr(14, 26);
-      let nd = 1e9; E.rays.forEach(r => { nd = Math.min(nd, r.p.distanceTo(S.center)); });
-      if (nd < 110) G.Audio.whale(nd); else G.Audio.creak();
-    }
+    G.Sound.update(dt); // песни ледокрылов, гул рифа, тревоги
     G.Audio.engine(Math.abs(S.input.thrust) * 0.8 + Math.abs(S.speed) / 7 * 0.4);
     let danger = 0, warn = '';
     E.preds.forEach(p => { if (p.state === 'charge') danger = Math.max(danger, 1 - p.p.distanceTo(S.center) / 40); });
