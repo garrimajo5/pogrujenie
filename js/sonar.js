@@ -25,7 +25,7 @@
     if (S.energy < 6) { G.Game.toast('Мало энергии', 'Для импульса нужно 6 единиц'); return; }
     S.energy -= 6; So.pingT = G.Game.t; G.Audio.ping();
     So.blips = G.Eco.scanTargets()
-      .filter(tg => Math.hypot(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z) < So.range)
+      .filter(tg => !tg.noSonar && Math.hypot(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z) < So.range)
       .map(tg => ({ x: tg.pos.x, z: tg.pos.z, sp: tg.sp }));
     G.World.pois.forEach(p => { if (!p.pinged && Math.hypot(p.pos.x - S.pos.x, p.pos.z - S.pos.z) < 170) { p.pinged = true; G.Save.mark(); } });
     G.Eco.onPing(S.center.clone());
@@ -53,7 +53,7 @@
       const a = Math.max(0, 1 - age / 12);
       So.blips.forEach(b => {
         const [x, y] = toC(b.x, b.z);
-        const col = b.sp === 'pred' || b.sp === 'eel' || b.sp === 'leech' ? '255,93,108' : b.sp === 'ognevka' ? '255,140,60' : b.sp === 'hvaten' ? '206,130,255' : b.sp === 'krab' ? '255,170,90' : b.sp === 'ezh' ? '140,220,255' : b.sp === 'raduzh' ? '200,255,170' : b.sp === 'plankton' ? '120,255,230' : b.sp === 'veil' ? '255,138,224' : b.sp === 'ray' ? '191,246,255' : '255,210,107';
+        const col = b.sp === 'pred' || b.sp === 'eel' || b.sp === 'leech' ? '255,93,108' : b.sp === 'ognevka' ? '255,140,60' : b.sp === 'hvaten' ? '206,130,255' : b.sp === 'krab' ? '255,170,90' : b.sp === 'ezh' ? '140,220,255' : b.sp === 'raduzh' ? '200,255,170' : b.sp === 'plankton' ? '120,255,230' : b.sp === 'monet' ? '255,230,140' : b.sp === 'veil' ? '255,138,224' : b.sp === 'ray' ? '191,246,255' : '255,210,107';
         c.fillStyle = `rgba(${col},${a.toFixed(2)})`; c.beginPath(); c.arc(x, y, b.sp === 'veil' || b.sp === 'ray' ? 10 : b.sp === 'ezh' ? 3 : 6, 0, 7); c.fill();
       });
     }
