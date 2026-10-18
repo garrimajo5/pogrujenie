@@ -73,6 +73,20 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #feed div.new { border-left-color: var(--amber); }
 #feed div.new::after { content: " · " attr(data-tag); color: var(--amber); }
 
+#power { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(78vw, 340px); background: rgba(4, 20, 27, .82); border: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; font-size: 12px; }
+#power .tag { color: var(--amber); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+.pw-row { display: grid; grid-template-columns: 9.5em 1fr 2.2em; align-items: center; gap: 8px; padding: 3px 6px; border: 1px solid transparent; color: var(--dim); }
+.pw-row.sel { border-color: var(--glow); color: #fff; }
+.pw-row i { height: 8px; background: #123240; }
+.pw-row em { display: block; height: 100%; background: #3f9e90; }
+.pw-row.sel em { background: var(--glow); }
+.pw-row b { text-align: right; }
+#pw-free { color: var(--glow); }
+#pw-free.zero { color: var(--amber); }
+#pw-msg { color: var(--alarm); min-height: 1.3em; }
+#power small { color: var(--dim); font-size: 10px; }
+#hud.station #reticle, #hud.station #target { display: none; }
+@media (max-height: 460px) { #power { left: auto; right: calc(var(--sr) + 8px); top: calc(var(--st) + 50px); transform: none; width: min(46vw, 340px); padding: 7px 10px; gap: 3px; font-size: 11px; } .pw-row { padding: 1px 6px; } }
 #dpad { position: absolute; left: calc(var(--sl) + 6px); bottom: calc(var(--sb) + 6px); width: 156px; height: 156px; pointer-events: auto; touch-action: none; }
 #dpad button { position: absolute; width: 52px; height: 52px; font-size: 18px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; pointer-events: none; }
 #dpad button[data-d="up"] { left: 52px; top: 0; }

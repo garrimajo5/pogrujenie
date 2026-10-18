@@ -1,7 +1,7 @@
 'use strict';
 /* Батискаф «Ковчег-7»: отсеки, посты, люки, физика движения.
    Корабльная система координат: нос смотрит в -Z, пол на y=0.
-   Мостик z[-6,2], коридор z[2,8], лаборатория z[8,14]. */
+   Мостик z[-6,2], коридор z[2,8], лаборатория z[8,14], машинное отделение z[14,20]. */
 (function (G) {
   const V3 = THREE.Vector3;
   const tv = new V3();
@@ -9,8 +9,18 @@
     start: new V3(0, -20, 95), pos: new V3(0, -20, 95), yaw: 0, speed: 0, vy: 0, turn: 0, roll: 0, pitch: 0,
     hull: 100, energy: 100, light: true, input: { thrust: 0, turn: 0, vert: 0 },
     windows: [], inter: [], doors: [], obst: [], lights: [],
-    center: new V3(), front: new V3(), hitCd: 0, flicker: 0, depthLimit: 0, scrT: 0
+    center: new V3(), front: new V3(), hitCd: 0, flicker: 0, depthLimit: 0, scrT: 0,
+    power: {}, powerSel: 0, powerMsg: ''
   };
+  /* Реактор даёт 100 единиц, инженер делит их между пятью системами шагом 5 */
+  S.REACTOR = 100; S.POWER_STEP = 5;
+  S.POWER = [
+    { key: 'engine', name: 'Двигатели', short: 'ДВИГАТЕЛИ' },
+    { key: 'sonar', name: 'Сонар', short: 'СОНАР' },
+    { key: 'life', name: 'Жизнеобеспечение', short: 'ЖИЗНЕОБЕСП' },
+    { key: 'zap', name: 'Разряд', short: 'РАЗРЯД' },
+    { key: 'light', name: 'Прожектор', short: 'ПРОЖЕКТОР' }
+  ];
   let g, M;
 
   function roundRectPath(p, x, y, w, h, r) {
@@ -105,7 +115,7 @@
       cyan: new THREE.MeshBasicMaterial({ color: 0x5ef2d6 }),
       red: new THREE.MeshBasicMaterial({ color: 0xff5d6c })
     };
-    const bridgeC = new V3(0, 1.6, -2), corrC = new V3(0, 1.3, 5), labC = new V3(0, 1.7, 11);
+    const bridgeC = new V3(0, 1.6, -2), corrC = new V3(0, 1.3, 5), labC = new V3(0, 1.7, 11), engC = new V3(0, 1.5, 17);
     const E0 = new THREE.Euler(0, 0, 0), EL = new THREE.Euler(0, Math.PI / 2, 0), ER = new THREE.Euler(0, -Math.PI / 2, 0);
 
     /* ----- полы и потолки ----- */
@@ -135,7 +145,7 @@
     box(3.2, 3.4, 0.2, M.wall2, -2.4, 1.7, 8); box(3.2, 3.4, 0.2, M.wall2, 2.4, 1.7, 8); box(1.6, 1.1, 0.2, M.wall2, 0, 2.85, 8);
     wall(6, 3.4, [{ x: 0, y: 1.75, w: 3.6, h: 1.6, rr: 0.4 }], M.wall2, new V3(-4, 0, 11), EL, 'lab', labC);
     wall(6, 3.4, [{ x: 0, y: 1.75, w: 3.6, h: 1.6, rr: 0.4 }], M.wall2, new V3(4, 0, 11), ER, 'lab', labC);
-    wall(8, 3.4, [{ x: 0, y: 1.75, r: 1.25 }], M.wall2, new V3(0, 0, 14), E0, 'lab', labC);
+    box(3.2, 3.4, 0.2, M.wall2, -2.4, 1.7, 14); box(3.2, 3.4, 0.2, M.wall2, 2.4, 1.7, 14); box(1.6, 1.1, 0.2, M.wall2, 0, 2.85, 14);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.05, 6, 48), M.cyan); ring.rotation.x = Math.PI / 2; ring.position.set(0, 3.38, 11); g.add(ring);
     // колбы с образцами
     const tubeM = new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.18, depthWrite: false });
@@ -145,6 +155,32 @@
       const o = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshBasicMaterial({ color: [0xff7ad9, 0xffd36b, 0x7fe7ff][i] })); o.position.set(x, 1.1, z); g.add(o);
       S.obst.push({ x, z, r: 0.4 });
     });
+
+    /* ----- машинное отделение ----- */
+    box(6, 0.1, 6, M.floor, 0, -0.05, 17);
+    box(6, 0.1, 6, M.ceil, 0, 3.05, 17);
+    wall(6, 3.1, [{ x: 0, y: 1.6, r: 0.3 }], M.wall, new V3(-3, 0, 17), EL, 'eng', engC);
+    wall(6, 3.1, [{ x: 1.4, y: 1.6, r: 0.3 }], M.wall, new V3(3, 0, 17), ER, 'eng', engC);
+    wall(6, 3.1, [{ x: 0, y: 1.75, r: 0.4 }], M.wall, new V3(0, 0, 20), E0, 'eng', engC);
+    box(0.15, 0.03, 4.6, M.lamp, -1.6, 2.99, 17); box(0.15, 0.03, 4.6, M.lamp, 1.6, 2.99, 17);
+    box(0.05, 0.02, 5.6, M.trim, -2.85, 0.01, 17); box(0.05, 0.02, 5.6, M.trim, 2.85, 0.01, 17);
+    // реактор: основание, стеклянная колонна, светящееся ядро, крышка и трубы в потолок
+    const RZ = 17.8;
+    box(1.6, 0.3, 1.6, M.dark, 0, 0.15, RZ);
+    const rGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 2.1, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0x5ef2d6, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+    rGlass.position.set(0, 1.35, RZ); g.add(rGlass);
+    S.reactorCore = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 1.9, 12), new THREE.MeshBasicMaterial({ color: 0xffb259 }));
+    S.reactorCore.position.set(0, 1.35, RZ); g.add(S.reactorCore);
+    const rCap = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.3, 20), M.dark); rCap.position.set(0, 2.55, RZ); g.add(rCap);
+    [0.45, 2.3].forEach(y => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.04, 6, 28), M.trim); r.rotation.x = Math.PI / 2; r.position.set(0, y, RZ); g.add(r); });
+    [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]].forEach(([x, z]) => box(0.12, 0.35, 0.12, M.frame, x, 2.85, RZ + z));
+    S.obst.push({ x: 0, z: RZ, r: 0.95 });
+    // пульт распределения энергии (правый борт)
+    box(0.6, 0.9, 1.5, M.dark, 2.65, 0.45, 15.9);
+    box(0.25, 1.3, 1.5, M.dark, 2.85, 1.55, 15.9);
+    S.powerScreen = screen(1.15, 1.15, 256, 256, 2.71, 1.6, 15.9, 0, -Math.PI / 2);
+    S.obst.push({ x: 2.65, z: 15.9, r: 0.55 });
+    S.inter.push({ x: 2.1, z: 15.9, r: 1.5, label: () => 'Пульт реактора', fn: () => G.Game.usePower() });
 
     /* ----- свет внутри ----- */
     plight(0xffcf96, 1.1, 13, 0, 2.9, -2.5);
@@ -192,7 +228,7 @@
     S.inter.push({ x: 2.9, z: 12.6, r: 1.6, label: () => 'Открыть журнал', fn: () => G.Game.openJournal() });
 
     /* ----- люки ----- */
-    [2, 8].forEach(z => {
+    [2, 8, 14].forEach(z => {
       const d = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.3, 0.08), M.door); d.position.set(0, 1.15, z); g.add(d);
       const st = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.1), M.trim); st.position.y = 0.2; d.add(st);
       const wnd = new THREE.Mesh(new THREE.CircleGeometry(0.16, 20), M.cyan); wnd.position.set(0, 0.55, 0.05); d.add(wnd);
@@ -224,8 +260,8 @@
   /* Слить неподвижные детали отсеков с одинаковым материалом в один меш: меньше вызовов отрисовки.
      Подвижное (люки, штурвал, рычаг, экраны, прожектор) помечается userData.dynamic и не трогается. */
   S.mergeStatic = function () {
-    [S.wheel, S.lever, S.beam, S.spot].concat(S.doors.map(d => d.mesh)).forEach(o => o && o.traverse(c => { c.userData.dynamic = true; }));
-    const canvasMaps = new Set([S.helmScreen, S.engScreen].filter(Boolean));
+    [S.wheel, S.lever, S.beam, S.spot, S.reactorCore].concat(S.doors.map(d => d.mesh)).forEach(o => o && o.traverse(c => { c.userData.dynamic = true; }));
+    const canvasMaps = new Set([S.helmScreen, S.engScreen, S.powerScreen].filter(Boolean));
     const groups = new Map();
     g.traverse(o => {
       if (!o.isMesh || o.userData.dynamic || o.isInstancedMesh || Array.isArray(o.material)) return;
@@ -238,7 +274,7 @@
     S.merged = removed;
   };
 
-  const FOOT = [[0, -6.6], [-5, -6], [5, -6], [-5, 2], [5, 2], [-1.1, 8], [1.1, 8], [-4, 14], [4, 14], [0, 11]];
+  const FOOT = [[0, -6.6], [-5, -6], [5, -6], [-5, 2], [5, 2], [-1.1, 8], [1.1, 8], [-4, 14], [4, 14], [0, 11], [-3, 20], [3, 20]];
   S.clearance = function (px, pz, yaw) {
     let m = -1e9; const c = Math.cos(yaw), s = Math.sin(yaw);
     for (const [lx, lz] of FOOT) m = Math.max(m, G.World.height(px + lx * c + lz * s, pz - lx * s + lz * c));
@@ -250,7 +286,30 @@
     S.speed = S.vy = S.turn = S.roll = S.pitch = 0;
     S.hull = 100; S.energy = 100; S.light = true;
     S.input.thrust = S.input.turn = S.input.vert = 0;
+    S.resetPower();
     S.applyTransform();
+  };
+
+  /* ----- распределение энергии реактора ----- */
+  S.resetPower = function () {
+    S.POWER.forEach(p => { S.power[p.key] = S.REACTOR / S.POWER.length; });
+    S.powerSel = 0; S.powerMsg = '';
+  };
+  S.powerUsed = () => S.POWER.reduce((a, p) => a + S.power[p.key], 0);
+  S.powerFree = () => S.REACTOR - S.powerUsed();
+  /* изменить долю системы; больше, чем свободно у реактора, не дать. Возвращает true, если доля изменилась */
+  S.adjustPower = function (key, delta) {
+    const cur = S.power[key];
+    const v = G.clamp(cur + delta, 0, cur + S.powerFree());
+    S.powerMsg = delta > 0 && v === cur ? (cur >= S.REACTOR ? 'Вся энергия уже здесь' : 'Свободной энергии нет: сначала убавьте другую систему')
+      : delta < 0 && v === cur ? 'Система уже обесточена' : '';
+    if (v === cur) return false;
+    S.power[key] = v; S.scrT = 0;
+    return true;
+  };
+  S.selectPower = function (dir) {
+    const n = S.POWER.length;
+    S.powerSel = ((S.powerSel + dir) % n + n) % n; S.powerMsg = ''; S.scrT = 0;
   };
   S.applyTransform = function () {
     g.position.copy(S.pos); g.rotation.set(S.pitch, S.yaw, S.roll, 'YXZ'); g.updateMatrixWorld(true);
@@ -266,13 +325,15 @@
       if (z >= 2.45 && z <= 7.55) ok = true;
       else if (z > 1.4 && z < 2.6 && S.doors[0].t > 0.85) ok = true;
       else if (z > 7.4 && z < 8.6 && S.doors[1].t > 0.85) ok = true;
+      else if (z > 13.4 && z < 14.6 && S.doors[2].t > 0.85) ok = true;
     }
     if (!ok && x > -4 + r && x < 4 - r && z > 8 + r && z < 14 - r) ok = true;
+    if (!ok && x > -3 + r && x < 3 - r && z > 14 + r && z < 20 - r) ok = true;
     if (!ok) return false;
     for (const o of S.obst) if (Math.hypot(x - o.x, z - o.z) < o.r + r) return false;
     return true;
   };
-  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : 'lab');
+  S.roomAt = z => (z < 1.9 ? 'bridge' : z < 8 ? 'corr' : z < 14 ? 'lab' : 'eng');
 
   /* Проходит ли взгляд (из точки p в направлении d, всё в координатах корабля) через иллюминатор */
   S.throughWindow = function (p, d, room) {
@@ -348,6 +409,10 @@
     S.doors.forEach(d => { d.t = G.clamp(d.t + (d.open ? 1 : -1) * dt * 1.8, 0, 1); d.mesh.position.x = G.smooth(0, 1, d.t) * 1.75; });
     S.wheel.rotation.z = -S.turn * 1.4;
     S.lever.rotation.z = S.flicker > 0 ? -0.9 : 0;
+    // ядро реактора дышит, ярче при большей нагрузке
+    const load = S.powerUsed() / S.REACTOR, pulse = 0.85 + 0.15 * Math.sin(t * 3.1);
+    S.reactorCore.material.color.setRGB((0.55 + 0.45 * load) * pulse * fl, (0.35 + 0.35 * load) * pulse * fl, 0.2 * pulse * fl);
+    S.reactorCore.scale.set(0.9 + 0.1 * pulse, 1, 0.9 + 0.1 * pulse);
 
     S.scrT -= dt;
     if (S.scrT <= 0) { S.scrT = 0.25; drawScreens(); }
@@ -377,5 +442,20 @@
     x.font = '600 15px monospace'; x.fillStyle = '#d8e8ea'; x.fillText('РАЗРЯД: 15 ед.', 14, 186);
     if (G.Eco.latched) { x.fillStyle = (Date.now() / 300 | 0) % 2 ? '#ff5d6c' : '#04141b'; x.fillRect(8, 200, 240, 44); x.fillStyle = '#fff'; x.fillText('СТЕКЛОУСТ НА КОРПУСЕ', 18, 228); }
     S.engScreen.needsUpdate = true;
+
+    x = S.powerScreen.userData.ctx;
+    x.fillStyle = '#04141b'; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = '#ffb259'; x.font = '600 17px monospace'; x.textAlign = 'left'; x.fillText('РЕАКТОР · ' + S.REACTOR + ' ЕД.', 12, 28);
+    S.POWER.forEach((p, i) => {
+      const y = 52 + i * 38, v = S.power[p.key], sel = i === S.powerSel;
+      if (sel) { x.strokeStyle = '#5ef2d6'; x.lineWidth = 2; x.strokeRect(6, y - 16, 244, 36); }
+      x.fillStyle = sel ? '#ffffff' : '#86a3aa'; x.font = '600 13px monospace'; x.textAlign = 'left'; x.fillText(p.short, 12, y);
+      x.textAlign = 'right'; x.fillText(String(v), 244, y);
+      x.fillStyle = '#123240'; x.fillRect(12, y + 6, 232, 8); x.fillStyle = sel ? '#5ef2d6' : '#3f9e90'; x.fillRect(12, y + 6, 232 * v / S.REACTOR, 8);
+    });
+    const free = S.powerFree();
+    x.textAlign = 'left'; x.font = '600 14px monospace'; x.fillStyle = free > 0 ? '#5ef2d6' : '#ffb259';
+    x.fillText('СВОБОДНО ' + free + ' ЕД.', 12, 246);
+    S.powerScreen.needsUpdate = true;
   }
 })(window.G);

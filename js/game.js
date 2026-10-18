@@ -4,7 +4,7 @@
   const V3 = THREE.Vector3;
   const $ = id => document.getElementById(id);
   const Game = G.Game = {
-    state: 'intro', t: 0, piloting: false, room: 'bridge', done: false, shake: 0,
+    state: 'intro', t: 0, piloting: false, station: null, room: 'bridge', done: false, shake: 0,
     player: { x: 0, z: -3.0, yaw: 0, pitch: -0.08, bob: 0 },
     scan: { key: null, prog: 0 }
   };
@@ -79,6 +79,7 @@
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
       if (Game.piloting) Game.toggleHelm();
+      if (Game.station) Game.leaveStation();
       const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
       Object.assign(G.Ctl.padMove, { x: 0, y: 0 }); G.Ctl.btnVert = 0; G.Ctl.actionDown = false; G.Ctl.keys = {};
       Game.scan.key = null; Game.scan.prog = 0; Game.done = false;
@@ -91,6 +92,7 @@
     teleport: key => G.DebugPanel.teleport(key),
     get pixelRatio() { return curPR; },
     actionLabel: () => $('act-label').textContent,
+    hud() { hudT = 0; updateHUD(0); },
     feed: () => [...document.querySelectorAll('#feed div')].map(d => d.textContent)
   };
 
@@ -156,7 +158,9 @@
     if (C.journalPressed) Game.openJournal();
     if (C.lightPressed) Game.toggleLight();
     if (C.standPressed && Game.piloting) Game.toggleHelm();
+    if (C.standPressed && Game.station) Game.leaveStation();
     if (C.pingPressed) G.Sonar.ping();
+    if (Game.station === 'power') powerInput(dt);
     updatePlayer(dt);
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); ambience(dt);
@@ -187,6 +191,10 @@
     if (Game.piloting) {
       S.input.thrust = C.move.y; S.input.turn = C.move.x; S.input.vert = C.vert;
       cx = 0; cy = 1.62; cz = -4.3;
+    } else if (Game.station) { // у пульта игрок стоит на месте, крестовина занята пультом
+      S.input.thrust = S.input.turn = S.input.vert = 0;
+      Game.room = S.roomAt(P.z);
+      cx = P.x; cy = 1.65; cz = P.z;
     } else {
       S.input.thrust = S.input.turn = S.input.vert = 0;
       let mx = C.move.x, my = C.move.y;
@@ -217,6 +225,58 @@
     $('pilotbtns').hidden = !Game.piloting;
     if (G.Ctl.gyro) G.Ctl.needCalib = true;
   };
+  /* ---------- пульт реактора: крестовина ▲▼ выбирает систему, ◀▶ меняет долю ---------- */
+  Game.usePower = function () {
+    if (Game.piloting || Game.station) return;
+    Game.station = 'power';
+    const P = Game.player; P.x = 1.1; P.z = 15.9; P.yaw = -Math.PI / 2; P.pitch = -0.08;
+    padPrev.x = G.Ctl.move.x; padPrev.y = G.Ctl.move.y; padRep = 0; // уже зажатая кнопка не срабатывает
+    $('power').hidden = false; $('hud').classList.add('station');
+    renderPower(); G.Audio.beep(600);
+    if (G.Ctl.gyro) G.Ctl.needCalib = true;
+  };
+  Game.leaveStation = function () {
+    if (!Game.station) return;
+    Game.station = null; G.Ship.powerMsg = '';
+    $('power').hidden = true; $('hud').classList.remove('station');
+    Game.player.x = 1.5; G.Audio.beep(440);
+    if (G.Ctl.gyro) G.Ctl.needCalib = true;
+  };
+  const padPrev = { x: 0, y: 0 }; let padRep = 0;
+  function powerInput(dt) {
+    const S = G.Ship, C = G.Ctl, mx = C.move.x, my = C.move.y;
+    let changed = false;
+    if (my !== 0 && my !== padPrev.y) { S.selectPower(my > 0 ? -1 : 1); G.Audio.beep(560); changed = true; }
+    if (mx !== 0) {
+      let fire = false;
+      if (mx !== padPrev.x) { fire = true; padRep = 0.4; } // удержание повторяет шаг
+      else { padRep -= dt; if (padRep <= 0) { fire = true; padRep = 0.12; } }
+      if (fire) {
+        const ok = S.adjustPower(S.POWER[S.powerSel].key, mx * S.POWER_STEP);
+        G.Audio.beep(ok ? (mx > 0 ? 720 : 480) : 200); changed = true;
+      }
+    }
+    padPrev.x = mx; padPrev.y = my;
+    if (changed) renderPower();
+  }
+  function renderPower() {
+    const S = G.Ship, rows = $('pw-rows');
+    if (rows.children.length !== S.POWER.length) {
+      rows.innerHTML = S.POWER.map(p => `<div class="pw-row" data-k="${p.key}"><span>${p.name}</span><i><em></em></i><b></b></div>`).join('');
+    }
+    S.POWER.forEach((p, i) => {
+      const el = rows.children[i], v = S.power[p.key];
+      el.classList.toggle('sel', i === S.powerSel);
+      el.querySelector('em').style.width = (v / S.REACTOR * 100).toFixed(0) + '%';
+      el.querySelector('b').textContent = v;
+    });
+    const free = S.powerFree();
+    $('pw-free').textContent = `Свободно ${free} из ${S.REACTOR}`;
+    $('pw-free').classList.toggle('zero', free === 0);
+    $('pw-msg').textContent = S.powerMsg;
+  }
+  Game.renderPower = renderPower;
+
   Game.toggleLight = function () {
     const S = G.Ship;
     if (!S.light && S.energy < 3) { Game.toast('Мало энергии', 'Прожектор не включить'); return; }
@@ -241,6 +301,7 @@
   function lose() {
     Game.state = 'lost'; $('lost').hidden = false; G.Audio.alarm();
     if (Game.piloting) Game.toggleHelm();
+    if (Game.station) Game.leaveStation();
   }
   function restart() {
     G.Ship.reset(); G.Eco.reset();
@@ -282,13 +343,14 @@
     $('reticle').classList.toggle('aim', !!tgt);
     $('target').textContent = tgt ? `${SP[tgt.sp].scanned ? SP[tgt.sp].name : 'Неизвестный вид'} · ${Math.round(tgt.dist)} м` : '';
     let act = null;
-    let it = Game.piloting ? null : nearestInter();
+    let it = Game.piloting || Game.station ? null : nearestInter();
     if (it && tgt) { // если в прицеле существо, пост перехватывает кнопку только при прямом взгляде на него
       const P = Game.player, ld = camera.getWorldDirection(tmp.v2).applyQuaternion(tmp.q.copy(G.Ship.group.quaternion).invert());
       const dx = it.x - P.x, dy = 1.0 - 1.65, dz = it.z - P.z, d = Math.hypot(dx, dy, dz);
       if ((dx * ld.x + dy * ld.y + dz * ld.z) / d < 0.94) it = null;
     }
-    if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false };
+    if (Game.station) act = { label: 'Отойти от пульта', fn: () => Game.leaveStation() };
+    else if (it) act = { label: it.label(), fn: it.fn, dis: it.ok ? !it.ok() : false };
     else if (tgt) {
       const sp = SP[tgt.sp];
       act = sp.scanned ? { label: 'Сведения: ' + sp.name, fn: () => Game.openJournal(tgt.sp) } : { label: 'Сканировать (держать)', hold: tgt.sp };
@@ -388,7 +450,7 @@
     $('s-head').textContent = String(Math.round(((-S.yaw * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, '0');
     $('s-speed').textContent = Math.abs(S.speed).toFixed(1);
     setBar('s-hull', S.hull); setBar('s-energy', S.energy);
-    $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория' }[Game.room];
+    $('s-place').textContent = Game.piloting ? 'За штурвалом' : Game.station ? 'Пульт реактора' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное отделение' }[Game.room];
     $('b-light').classList.toggle('lit', S.light);
   }
   function feed(text, isNew) {
