@@ -98,7 +98,7 @@
   /* образец в шлюзе: попадает в колбу лаборатории */
   M.stow = function (s) {
     M.state = 'idle'; M.target = null; M.prog = 0; M.arm.carry.visible = false;
-    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name, i: s.i });
+    G.Ship.cargo.push({ kind: s.kind, name: KIND[s.kind].name, i: s.i }); G.Run.note('samples');
     M.got.add(s.i); // поднятый образец больше не лежит на дне, даже если его потратят на улучшение
     G.Ship.showTubes && G.Ship.showTubes();
     G.Save.mark();

@@ -56,6 +56,7 @@
         if (Game.state === 'play') simulate(dt);
         else if (Game.state === 'journal' && G.Ctl.journalPressed) closeJournal();
         else if (Game.state === 'settings' && G.Ctl.journalPressed) G.Settings.close();
+        else if (Game.state === 'vote') G.Run.voteNav(G.Ctl.move.x);
         clearOneShots();
       }
     },
@@ -144,7 +145,7 @@
       if (C.journalPressed) closeJournal();
     } else if (Game.state === 'settings') {
       if (C.journalPressed) G.Settings.close();
-    }
+    } else if (Game.state === 'vote') G.Run.voteNav(C.move.x); // решение экипажа: мир ждёт
     clearOneShots();
     updateEnv(); updateHUD(dt);
     renderer.render(scene, camera);
@@ -341,7 +342,7 @@
   }
   function completeScan(key) {
     const sp = G.SPECIES[key]; if (sp.scanned) return;
-    sp.scanned = true; G.Audio.scanDone(); G.Save.mark();
+    sp.scanned = true; G.Audio.scanDone(); G.Save.mark(); G.Run.note('species');
     Game.toast('Новый вид: ' + sp.name, sp.desc);
     feed('Вид занесён в журнал: ' + sp.name, true);
     updateCounts(); checkComplete();
@@ -362,7 +363,7 @@
     for (const p of G.World.pois) {
       if (p.found) continue;
       if (Math.hypot(p.pos.x - S.pos.x, p.pos.z - S.pos.z) < p.rd) {
-        p.found = true; G.Audio.discover(); G.Save.mark();
+        p.found = true; G.Audio.discover(); G.Save.mark(); G.Run.note('places');
         Game.toast('Открытие: ' + p.name, p.desc);
         feed('Место отмечено на сонаре: ' + p.name, true);
         updateCounts(); checkComplete();
@@ -504,6 +505,7 @@
     $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
     $('b-intro-settings').onclick = () => G.Settings.open();
     $('b-restart').onclick = restart;
+    $('b-newrun').onclick = () => { G.Run.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); restart(); };
     if (G.Ctl.gyroAvailable()) {
       $('b-gyro').hidden = false;
       $('b-gyro').onclick = async () => {
