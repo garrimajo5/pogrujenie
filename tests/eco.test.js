@@ -35,6 +35,13 @@ T.describe('Связи', () => {
     G.Game.debug.step(240);
     T.ok(ev.some(e => e.sp === 'pred' && e.note === 'catch'), 'нет поимки');
   });
+  T.test('сброс мира возвращает хищников, рыб и ледокрылов на исходные места', () => {
+    const D = G.Game.debug;
+    const snap = () => JSON.stringify([E().fish.map(f => [f.alive, f.p.x.toFixed(3), f.p.z.toFixed(3)]), E().rays.map(r => r.ang.toFixed(4)), E().preds.map(p => p.p.toArray().map(v => v.toFixed(3)))]);
+    const a = snap();
+    E().fish[3].alive = false; D.step(200); D.reset();
+    T.ok(snap() === a, 'после сброса мир другой — тесты зависят от предыдущих кадров');
+  });
   T.test('погибшая рыба возвращается в стаю', () => {
     const f = E().fish[0]; f.alive = false; f.t = 1;
     G.Game.debug.step(30);
