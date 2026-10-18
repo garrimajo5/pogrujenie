@@ -268,7 +268,7 @@
     pr.hunger = Math.min(1, pr.hunger + dt * (pr.state === 'clean' ? 0.01 : pr.leech ? 0.05 : 0.03)); pr.timer -= dt; pr.cd -= dt; pr.avoidCd -= dt; pr.truceCd -= dt; pr.angryCd -= dt; pr.flareCd -= dt;
     const dShip = pr.p.distanceTo(S.center), atStation = nearStation(pr.p);
     const reach = pr.leech ? 48 : 32; // заражённый пиявником замечает корабль издалека
-    const lured = ((dShip < reach && (S.light || G.Game.t - E.lastPing < 12 || E.shipWake > 0.5)) || hearsShip(pr, dShip)) && !E.shipHidden && S.hull > 0;
+    const lured = ((dShip < reach * (G.Silt.inside ? 0.4 : 1) && (S.light || G.Game.t - E.lastPing < 12 || E.shipWake > 0.5)) || hearsShip(pr, dShip)) // в иле свет корабля почти не виден && !E.shipHidden && S.hull > 0;
     const canAttack = pr.cd <= 0 && pr.hunger > (pr.leech ? 0.1 : 0.2) && lured && !E.shipSheltered && !atStation;
     /* вспышка радужников выдаёт корабль издалека: хищник плывёт проверить */
     if (E.flare > 0.5 && dShip >= reach && dShip < FLARE_REACH && !E.shipHidden && !E.shipSheltered && S.hull > 0 && pr.cd <= 0 && (pr.state === 'patrol' || pr.state === 'investigate')) {
@@ -774,7 +774,7 @@
     if (fresh) updateBeam();
     if (!S.light || S.energy <= 0.5) return false;
     tv.copy(p).sub(beamO); const d = tv.length();
-    if (d > BEAM_R * Math.sqrt(G.Power.k('lamp')) || d < 0.01) return false; // луч длиннее при большей доле прожектора
+    if (d > BEAM_R * Math.sqrt(G.Power.k('lamp')) * (G.Silt.inside ? 0.45 : 1) || d < 0.01) return false; // луч длиннее при большей доле прожектора, в иле рассеивается
     return tv.dot(beamD) / d > Math.cos(BEAM_ANG);
   }
   E.inBeam = p => inBeam(p, true);
@@ -2005,6 +2005,7 @@
     E.rays.forEach(r => rayUpdate(r, dt, t));
     if (E.kmCrownIM) masonsUpdate(dt, t);
     if (E.rmIM) remorasUpdate(dt, t);
+    if (G.Silt.pts) G.Silt.update(dt, t);
   };
 
   E.scanTargets = function () {
