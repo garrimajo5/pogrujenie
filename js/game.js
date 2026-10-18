@@ -76,7 +76,7 @@
       G.seed(12345); G.Save.wipe(); G.Tutorial.skip(); G.Save.dirty = false;
       if (G.Settings.isOpen()) G.Settings.close();
       G.Settings.reset(true);
-      G.Roles.reset(); G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
+      G.Roles.reset(); G.Voice.reset(); G.Sound.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Manip.reset(); G.Cargo.reset(); G.Run.reset(); G.Ship.reset(); G.Eco.reset(); G.Eco.events.length = 0;
       G.SPECIES_ORDER.forEach(k => { G.SPECIES[k].scanned = false; G.SPECIES[k].seen.clear(); });
       G.World.pois.forEach(p => { p.found = false; p.pinged = false; });
       G.Ship.doors.forEach(d => { d.open = false; d.t = 0; });
@@ -183,6 +183,7 @@
     S.update(dt, Game.t); G.World.update(dt, Game.t); G.Eco.update(dt, Game.t); G.Sonar.update(dt, Game.t);
     handleEvents(); updateInteraction(dt); updateDiscover(); G.Run.update(dt); ambience(dt);
     G.Net.update(dt); // хост рассылает корабль, гость тянется к нему
+    G.Voice.update(); // кнопка «Связь»
     G.Tutorial.update();
     G.Save.tick(dt);
   }
