@@ -85,6 +85,8 @@
       Game.state = 'play'; updateCounts(); updatePlayer(0);
     },
     get camera() { return camera; },
+    /* отрисовать один кадр и вернуть нагрузку (для проверки бюджета) */
+    render() { updatePlayer(0); updateEnv(); renderer.render(scene, camera); return Game.debug.info(); },
     teleport: key => G.DebugPanel.teleport(key),
     get pixelRatio() { return curPR; },
     actionLabel: () => $('act-label').textContent,
