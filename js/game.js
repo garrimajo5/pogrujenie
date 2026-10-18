@@ -83,6 +83,7 @@
       if (Game.piloting) Game.toggleHelm();
       const P = Game.player; P.x = 0; P.z = -3; P.yaw = 0; P.pitch = -0.08;
       Object.assign(G.Ctl.padMove, { x: 0, y: 0 }); G.Ctl.btnVert = 0; G.Ctl.actionDown = false; G.Ctl.keys = {};
+      $('feed-list').textContent = ''; Game.feedUnread = 0; Game.renderFeed();
       Game.scan.key = null; Game.scan.prog = 0; Game.done = false; Game.shake = 0; Game.vignette = 0;
       ['journal', 'lost', 'intro', 'settings'].forEach(id => { $(id).hidden = true; }); $('hud').hidden = false;
       Game.state = 'play'; updateCounts(); updatePlayer(0);
@@ -93,7 +94,7 @@
     teleport: key => G.DebugPanel.teleport(key),
     get pixelRatio() { return curPR; },
     actionLabel: () => $('act-label').textContent,
-    feed: () => [...document.querySelectorAll('#feed div')].map(d => d.textContent)
+    feed: () => [...document.querySelectorAll('#feed-list > div')].map(d => d.textContent)
   };
 
   function resize() {
@@ -437,13 +438,39 @@
     $('s-place').textContent = Game.piloting ? 'За штурвалом' : { bridge: 'Мостик', corr: 'Коридор', lab: 'Лаборатория', eng: 'Машинное', cargo: 'Трюм' }[Game.room];
     $('b-light').classList.toggle('lit', S.light);
   }
+  /* лента событий: до 4 строк, новые сверху; свёрнутая — одна последняя строка и число новых на кнопке */
+  Game.feedUnread = 0;
   function feed(text, isNew) {
-    const box = $('feed'), d = document.createElement('div');
+    const box = $('feed-list'), d = document.createElement('div');
     d.textContent = text; if (isNew) { d.className = 'new'; d.dataset.tag = 'в журнал'; }
     box.prepend(d);
     while (box.children.length > 4) box.lastChild.remove();
-    setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 1000); }, 9000);
+    if (G.Settings.v.feedMin) { Game.feedUnread++; Game.renderFeed(); } else fitFeed();
+    setTimeout(() => { d.style.opacity = '0'; setTimeout(() => { d.remove(); fitFeed(); }, 1000); }, 9000);
   }
+  /* на низком экране развёрнутая лента не залезает на приборы: старые строки, которые не влезли, прячутся */
+  function fitFeed() {
+    const box = $('feed-list'), st = $('stats'); if (!box || !st) return;
+    const rows = [...box.children]; rows.forEach(d => d.classList.remove('over'));
+    if (G.Settings.v.feedMin) return;
+    const lim = st.getBoundingClientRect().bottom + 6;
+    for (let i = rows.length - 1; i > 0 && $('feed').getBoundingClientRect().top < lim; i--) rows[i].classList.add('over');
+  }
+  Game.renderFeed = function () {
+    const box = $('feed'), btn = $('b-feed'), badge = $('feed-new'); if (!box || !btn) return;
+    const min = G.Settings.v.feedMin;
+    if (!min) Game.feedUnread = 0;
+    box.classList.toggle('min', min);
+    btn.firstChild.textContent = min ? 'Лог ▸' : 'Лог ▾';
+    btn.setAttribute('aria-label', min ? 'Развернуть ленту событий' : 'Свернуть ленту событий');
+    badge.hidden = !(min && Game.feedUnread > 0);
+    badge.textContent = '+' + Game.feedUnread;
+    fitFeed();
+  };
+  Game.toggleFeed = function (min) {
+    G.Settings.set('feedMin', typeof min === 'boolean' ? min : !G.Settings.v.feedMin);
+    Game.feedUnread = 0; Game.renderFeed();
+  };
   let toastTimer = 0;
   Game.toast = function (title, text, ms) {
     const el = $('toast');
@@ -518,6 +545,7 @@
     $('s-net').onclick = () => G.Roles.cycle(); // смена роли в экипаже
     $('b-ar').onclick = () => (G.AR.active ? G.AR.stop() : G.AR.start(renderer));
     $('b-settings').onclick = () => { G.Audio.init(); G.Settings.open(); };
+    $('b-feed').onclick = () => Game.toggleFeed();
     $('b-intro-settings').onclick = () => G.Settings.open();
     $('b-restart').onclick = restart;
     $('b-newrun').onclick = () => { G.Run.reset(); G.Power.reset(); G.Breach.reset(); G.Silt.reset(); G.Echo.reset(); G.Manip.reset(); G.Cargo.reset(); restart(); };

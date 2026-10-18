@@ -1,9 +1,10 @@
 'use strict';
-/* Настройки: чувствительность обзора, инверсия по вертикали, громкость, качество графики, защита от укачивания.
+/* Настройки: чувствительность обзора, инверсия по вертикали, громкость, качество графики, защита от укачивания,
+   свёрнутая лента событий.
    Хранятся отдельно от журнала (сброс прогресса их не трогает) и применяются сразу. */
 (function (G) {
   const KEY = 'pogrujenie.settings.v1';
-  const DEF = { sens: 1, invert: false, volume: 0.7, quality: 'auto', comfort: true };
+  const DEF = { sens: 1, invert: false, volume: 0.7, quality: 'auto', comfort: true, feedMin: false };
   const QUALITY = ['auto', 'low', 'mid', 'high'];
   const QNAME = { auto: 'Авто', low: 'Низкое', mid: 'Среднее', high: 'Высокое' };
   const St = G.Settings = { KEY, QUALITY, QNAME, v: Object.assign({}, DEF), el: null, back: null };
@@ -19,12 +20,14 @@
     if (typeof o.volume === 'number' && isFinite(o.volume)) r.volume = round1(G.clamp(o.volume, 0, 1));
     if (QUALITY.includes(o.quality)) r.quality = o.quality;
     if (typeof o.comfort === 'boolean') r.comfort = o.comfort;
+    if (typeof o.feedMin === 'boolean') r.feedMin = o.feedMin;
     return r;
   }
   St.defaults = () => Object.assign({}, DEF);
   St.apply = function () {
     G.Audio.setVolume(St.v.volume);
     if (G.Game.setQuality) G.Game.setQuality(St.v.quality);
+    if (G.Game.renderFeed) G.Game.renderFeed();
   };
   St.set = function (key, val) {
     const next = Object.assign({}, St.v); next[key] = val;
