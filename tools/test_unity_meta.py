@@ -35,6 +35,22 @@ class Project(unittest.TestCase):
                 self.assertIn('folderAsset: yes', text, rel)
 
 
+class ProjectVersion(unittest.TestCase):
+    """Закрепляет отчёт qa/2026-10-18-unity-pervyy-zapusk: Unity при открытии дописывала ревизию в ProjectVersion.txt."""
+
+    def read(self, *parts):
+        with open(os.path.join(os.path.dirname(um.ROOT), *parts), encoding='utf-8') as fh:
+            return fh.read()
+
+    def test_version_with_revision_matches_ci(self):
+        text = self.read('unity', 'ProjectSettings', 'ProjectVersion.txt')
+        ci = re.search(r'(?m)^\s*UNITY_VERSION:\s*(\S+)', self.read('.github', 'workflows', 'unity.yml')).group(1)
+        self.assertRegex(text, r'(?m)^m_EditorVersion: ' + re.escape(ci) + '$')
+        m = re.search(r'(?m)^m_EditorVersionWithRevision: (\S+) \(([0-9a-f]{12})\)$', text)
+        self.assertIsNotNone(m, 'нет строки m_EditorVersionWithRevision')
+        self.assertEqual(m.group(1), ci)
+
+
 class Generator(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
