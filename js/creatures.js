@@ -2,10 +2,11 @@
 /* Живая экосистема отмели.
    Пищевые связи: серпохвосты охотятся на светляков; вуали жалят рыб, хищники их обходят;
    скребуны пасутся на мху; стеклоусты подстерегают скребунов и рыб; за ледокрылами ходят стаи;
-   огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников. */
+   огнёвки держат станции чистки на огнецвете: там серпохвосты не охотятся и избавляются от пиявников;
+   хватни ловят светляков в темноте, пестрянки подманивают к ним стаи и доедают остатки. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -34,11 +35,17 @@
       notes: { clean: 'Снимают пиявников с серпохвостов, которые приплывают на станцию.', truce: 'У станции чистки серпохвост не охотится.', shelter: 'Корабль может переждать у станции: хищник отворачивает.' } },
     leech: { name: 'Пиявник', acc: 'пиявника', unom: 'паразит', uacc: 'паразита',
       desc: 'Плоский червь около 20 см. Присасывается к жабрам серпохвостов.',
-      notes: { infest: 'Присасывается к жабрам серпохвоста.', angry: 'Заражённый хищник медленнее, но злее: замечает корабль издалека.', cleaned: 'Огнёвки снимают пиявников на станциях чистки.' } }
+      notes: { infest: 'Присасывается к жабрам серпохвоста.', angry: 'Заражённый хищник медленнее, но злее: замечает корабль издалека.', cleaned: 'Огнёвки снимают пиявников на станциях чистки.' } },
+    hvaten: { name: 'Хватень', acc: 'хватня', gen: 'хватня', unom: 'донный анемон', uacc: 'донный анемон', ugen: 'донного анемона',
+      desc: 'Анемон-хищник высотой около метра с сотней стрекающих щупалец. Сидит на дне рядом со стаями светляков.',
+      notes: { catch: 'Ловит светляков, подплывших к щупальцам в темноте.', hide: 'Прячет щупальца от луча прожектора и раскрывает их снова только в темноте.' } },
+    pestr: { name: 'Пестрянка', acc: 'пестрянку', unom: 'пёстрая рыбка', uacc: 'пёструю рыбку',
+      desc: 'Рыбка длиной около 12 см в оранжево-белую полоску. Живёт среди щупалец хватня и не боится его стрекал.',
+      notes: { lure: 'Выплывает к стае светляков и заманивает рыб в щупальца хозяина.', leftovers: 'Доедает остатки добычи хватня.', immune: 'Прячется в сжатых щупальцах: стрекала её не трогают.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
-  G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'acc' ? s.uacc : s.unom); };
+  G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
   E.emit = (sp, note, pos, msg) => { E.events.push({ sp, note, pos: pos.clone(), msg }); };
   function killFish(f) { f.alive = false; f.t = G.rr(25, 40); }
@@ -625,14 +632,137 @@
     E.shrimpIM.instanceMatrix.needsUpdate = true;
   }
 
+  /* ======================= ХВАТНИ И ПЕСТРЯНКИ ======================= */
+  /* Хватень — анемон-засадчик у стай светляков. В темноте раскрывает щупальца,
+     пестрянки подманивают стаю, хватень ловит неосторожную рыбу, пестрянки доедают остатки.
+     В луче прожектора щупальца быстро прячутся. */
+  const HV_TENT = 22, HV_PESTR = 3, HV_REACH = 1.9, BEAM_R = 45, BEAM_ANG = 0.5;
+  const beamO = new V3(), beamD = new V3();
+  function inBeam(p, fresh) {
+    const S = G.Ship;
+    if (fresh) updateBeam();
+    if (!S.light || S.energy <= 0.5) return false;
+    tv.copy(p).sub(beamO); const d = tv.length();
+    if (d > BEAM_R || d < 0.01) return false;
+    return tv.dot(beamD) / d > Math.cos(BEAM_ANG);
+  }
+  E.inBeam = p => inBeam(p, true);
+  function updateBeam() {
+    const g = G.Ship.group;
+    beamO.set(0, 0.8, -6.8); g.localToWorld(beamO);
+    beamD.set(0, -10.8, -33.2).normalize().applyQuaternion(g.quaternion);
+  }
+  function tentGeo() {
+    const g = new THREE.CylinderGeometry(0.015, 0.05, 1, 4, 3); g.translate(0, 0.5, 0);
+    const p = g.attributes.position, col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { const k = p.getY(i); col[i * 3] = 0.55 + k * 0.45; col[i * 3 + 1] = 0.25 + k * 0.6; col[i * 3 + 2] = 0.6 + k * 0.35; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return g;
+  }
+  function hvBodyGeo() {
+    const col = new THREE.CylinderGeometry(0.32, 0.45, 0.8, 9); col.translate(0, 0.4, 0);
+    const disc = new THREE.CylinderGeometry(0.4, 0.32, 0.08, 9); disc.translate(0, 0.82, 0);
+    return G.merge([{ g: col, c: new THREE.Color(0.48, 0.22, 0.42) }, { g: disc, c: new THREE.Color(0.95, 0.55, 0.75) }]);
+  }
+  function initAnemones(scene) {
+    const N = Math.min(4, E.shoals.length);
+    if (!N) return;
+    E.hvBodyIM = new THREE.InstancedMesh(hvBodyGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a0a24 }), N);
+    E.hvTentIM = new THREE.InstancedMesh(tentGeo(), new THREE.MeshBasicMaterial({ vertexColors: true }), N * HV_TENT);
+    const pg = new THREE.SphereGeometry(1, 6, 4); pg.scale(0.035, 0.05, 0.12);
+    E.pestrIM = new THREE.InstancedMesh(pg, new THREE.MeshBasicMaterial({ color: 0xffffff }), N * HV_PESTR);
+    [E.hvBodyIM, E.hvTentIM, E.pestrIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+    const pc = [new THREE.Color(0xff7a2a), new THREE.Color(0xfff1d0), new THREE.Color(0xff9a4a)];
+    for (let i = 0; i < N; i++) {
+      const sh = E.shoals[i], a = i * 2.1 + 0.7;
+      const base = new V3(sh.home.x + Math.cos(a) * 5, 0, sh.home.z + Math.sin(a) * 5); base.y = H(base.x, base.z);
+      const top = base.clone().add(new V3(0, 0.85, 0));
+      const hv = { i, base, top, mouth: top.clone().add(new V3(0, 0.7, 0)), open: 1, lit: false, digest: 0, lure: null, lureT: 0, lureCd: G.rr(4, 12), leftT: 0, hideCd: 0, msgCd: 0,
+        tent: Array.from({ length: HV_TENT }, (_, k) => ({ a: k / HV_TENT * 6.283 + G.rr(-0.1, 0.1), tilt: G.rr(0.35, 1.0), len: G.rr(0.9, 1.4), ph: G.rr(0, 6) })),
+        pestr: Array.from({ length: HV_PESTR }, (_, k) => ({ ph: k / HV_PESTR * 6.283, r: G.rr(0.3, 0.6), p: top.clone(), c: new V3() })), pc: new V3() };
+      dummy.position.copy(base); dummy.rotation.set(0, a, 0); dummy.scale.setScalar(1); dummy.updateMatrix(); E.hvBodyIM.setMatrixAt(i, dummy.matrix);
+      hv.pestr.forEach((p, k) => E.pestrIM.setColorAt(i * HV_PESTR + k, pc[k % pc.length]));
+      E.anemones.push(hv);
+    }
+    E.hvBodyIM.instanceMatrix.needsUpdate = true;
+    if (E.pestrIM.instanceColor) E.pestrIM.instanceColor.needsUpdate = true;
+  }
+  function anemoneUpdate(hv, dt, t) {
+    hv.digest -= dt; hv.lureCd -= dt; hv.hideCd -= dt; hv.msgCd -= dt;
+    const say = fn => (hv.msgCd > 0 ? null : fn); // не засорять ленту: у одного хватня — одна история за раз
+    const wasLit = hv.lit; hv.lit = inBeam(hv.top);
+    /* щупальца: в луче быстро прячутся, в темноте медленно раскрываются */
+    const want = hv.lit ? 0 : hv.digest > 0 ? 0.5 : 1;
+    hv.open = want < hv.open ? Math.max(want, hv.open - dt * 2.5) : Math.min(want, hv.open + dt * 0.35);
+    if (hv.lit && !wasLit && hv.open > 0.5 && hv.hideCd <= 0) {
+      hv.hideCd = 30;
+      E.emit('hvaten', 'hide', hv.top, () => `${cap(G.nm('hvaten'))} прячет щупальца от прожектора`);
+      E.emit('pestr', 'immune', hv.top, () => `${cap(G.nm('pestr'))} ныряет в сжатые щупальца ${G.nm('hvaten', 'gen')}`);
+    }
+    if (hv.lit) { if (hv.lure) hv.lure = null; }
+    /* пестрянки подманивают ближайшую стаю */
+    if (!hv.lure && hv.open > 0.85 && hv.digest <= 0 && hv.lureCd <= 0) {
+      let best = null, bd = 30;
+      for (const sh of E.shoals) { const d = sh.c.distanceTo(hv.top); if (sh.n >= 3 && !sh.follow && sh.alarm <= 0 && d < bd) { bd = d; best = sh; } }
+      hv.lureCd = G.rr(25, 45);
+      if (best) {
+        hv.lure = best; hv.lureT = 14;
+        E.emit('pestr', 'lure', hv.top, say(() => `${cap(G.nm('pestr'))} выманивает ${G.nm('fish', 'acc')} к щупальцам`));
+      }
+    }
+    if (hv.lure) {
+      const sh = hv.lure; hv.lureT -= dt;
+      if (hv.lureT <= 0 || sh.follow || sh.alarm > 0) hv.lure = null;
+      else { sh.goal.set(hv.top.x, hv.top.y + 1.1, hv.top.z); sh.gt = Math.max(sh.gt, 0.5); }
+    }
+    /* ловля: только раскрытые щупальца и только в темноте */
+    if (hv.open > 0.7 && hv.digest <= 0) {
+      for (const f of E.fish) {
+        if (!f.alive) continue;
+        const d = f.p.distanceTo(hv.mouth);
+        if (d < HV_REACH * hv.open && G.rng() < dt * 1.5) {
+          killFish(f); hv.digest = 35; hv.lure = null; hv.leftT = 3;
+          E.emit('hvaten', 'catch', hv.mouth, say(() => `${cap(G.nm('hvaten'))} поймал ${G.nm('fish', 'acc')} щупальцами`));
+          break;
+        }
+      }
+    }
+    if (hv.leftT > 0) { hv.leftT -= dt; if (hv.leftT <= 0) { E.emit('pestr', 'leftovers', hv.mouth, say(() => `${cap(G.nm('pestr'))} доедает остатки добычи ${G.nm('hvaten', 'gen')}`)); hv.msgCd = 90; } }
+    /* отрисовка щупалец */
+    const o = hv.open, base = hv.i * HV_TENT;
+    hv.tent.forEach((tn, k) => {
+      const sway = Math.sin(t * 1.4 + tn.ph) * 0.18 * o;
+      dummy.position.set(hv.top.x + Math.cos(tn.a) * 0.3, hv.top.y, hv.top.z + Math.sin(tn.a) * 0.3);
+      dummy.rotation.set(0, -tn.a, 0, 'YXZ');
+      dummy.rotateZ(-(tn.tilt * (0.25 + 0.75 * o) + sway));
+      const L = tn.len * (0.12 + 0.88 * o);
+      dummy.scale.set(1 + (1 - o), L, 1 + (1 - o)); dummy.updateMatrix();
+      E.hvTentIM.setMatrixAt(base + k, dummy.matrix);
+    });
+    /* пестрянки: среди щупалец, при подманивании выплывают к стае */
+    hv.pc.set(0, 0, 0);
+    hv.pestr.forEach((p, k) => {
+      const a = t * (hv.lure ? 1.6 : 0.9) + p.ph;
+      if (hv.lure) tv.copy(hv.top).lerp(hv.lure.c, 0.45 + Math.sin(t * 2 + p.ph) * 0.2).add(tv2.set(Math.cos(a) * 0.6, 0.3, Math.sin(a) * 0.6));
+      else tv.set(hv.top.x + Math.cos(a) * p.r * (0.4 + 0.6 * o), hv.top.y + 0.25 + 0.35 * o + Math.sin(t * 2.3 + p.ph) * 0.08, hv.top.z + Math.sin(a) * p.r * (0.4 + 0.6 * o));
+      tv3.copy(p.p); p.p.lerp(tv, Math.min(1, dt * 2.5)); hv.pc.add(p.p);
+      tv2.subVectors(p.p, tv3); if (tv2.lengthSq() < 1e-8) tv2.set(-Math.sin(a), 0, Math.cos(a));
+      dummy.position.copy(p.p); dummy.lookAt(tv3.copy(p.p).add(tv2)); dummy.rotation.z += Math.sin(t * 9 + p.ph) * 0.2;
+      dummy.scale.setScalar(1); dummy.updateMatrix(); E.pestrIM.setMatrixAt(hv.i * HV_PESTR + k, dummy.matrix);
+    });
+    hv.pc.divideScalar(HV_PESTR);
+  }
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
     E.veils.forEach(v => veilUpdate(v, dt, t));
     E.shipHidden = E.veils.some(vl => Math.hypot(S.center.x - vl.p.x, S.center.z - vl.p.z) < vl.r + 6 && S.center.y < vl.p.y + 1 && S.center.y > vl.p.y - vl.len - 6);
     stationsUpdate(dt, t);
+    updateBeam(); E.anemones.forEach(hv => anemoneUpdate(hv, dt, t));
+    if (E.hvTentIM) { E.hvTentIM.instanceMatrix.needsUpdate = true; E.pestrIM.instanceMatrix.needsUpdate = true; }
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -652,6 +782,7 @@
     E.rays.forEach(r => L.push({ sp: 'ray', pos: r.p, r: 7 }));
     E.stations.forEach(st => L.push({ sp: 'ognevka', pos: st.top, r: 1.6 }));
     E.preds.forEach(p => { if (p.leech) L.push({ sp: 'leech', pos: p.leechP, r: 0.7 }); });
+    E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
   };
 
@@ -685,5 +816,6 @@
     if (E.latched) { E.latched.state = 'flee'; E.latched.cd = 40; E.latched = null; }
     E.preds.forEach((pr, i) => { pr.state = 'patrol'; pr.timer = 0; pr.cd = 30; pr.target = null; setLeech(pr, i === 0); pr.leechCd = G.rr(90, 160); pr.truceCd = 0; pr.angryCd = 0; });
     E.stations.forEach(st => { st.busy = null; st.work = 0; });
+    E.anemones.forEach(hv => { hv.open = 1; hv.lit = false; hv.digest = 0; hv.lure = null; hv.lureT = 0; hv.lureCd = G.rr(4, 12); hv.leftT = 0; hv.hideCd = 0; hv.msgCd = 0; });
   };
 })(window.G);

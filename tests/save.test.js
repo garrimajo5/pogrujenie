@@ -50,6 +50,6 @@ T.describe('Сохранение', () => {
     T.ok(G.SPECIES.veil.scanned, 'стёрлось с первого нажатия');
     document.getElementById('j-reset').click();
     T.ok(!G.SPECIES.veil.scanned); T.eq(stored(), null);
-    T.eq(document.getElementById('j-count').textContent, '0/8 · 0/6');
+    T.eq(document.getElementById('j-count').textContent, '0/10 · 0/6');
   });
 });
