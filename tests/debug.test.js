@@ -14,7 +14,7 @@ T.describe('Отладочная панель', () => {
     G.DebugPanel.set(true);
     const el = document.getElementById('dbg');
     T.ok(el && !el.hidden, 'панель не видна');
-    T.eq(el.querySelectorAll('#dbg-tp button').length, G.World.pois.length + G.Eco.stations.length + 5);
+    T.eq(el.querySelectorAll('#dbg-tp button').length, G.World.pois.length + G.Eco.stations.length + 6);
     G.DebugPanel.tick(0.6);
     T.ok(/FPS \d+/.test(el.querySelector('#dbg-text').textContent));
     const s = G.DebugPanel.stats();

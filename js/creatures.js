@@ -7,10 +7,11 @@
    светляки прячутся в ленточнике, шипоежи объедают его до стеблей, кольчужники раскалывают ежей;
    радужники вспыхивают в луче прожектора, и серпохвосты замечают корабль издалека;
    мерцающий планктон вспыхивает от быстрого движения: светящийся след выдаёт и корабль, и бросок хищника;
-   монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке. */
+   монетники пасутся на мху и рассыпаются от сонара прочь от угрозы, песчаные глазуны подстерегают их в песке;
+   гротовик носит на спине риф, где живёт и прячется одна из стай светляков. */
 (function (G) {
   const V3 = THREE.Vector3;
-  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
+  const E = G.Eco = { fish: [], shoals: [], preds: [], stations: [], anemones: [], groves: [], urchins: [], crab: null, swarms: [], flare: 0, flareSw: null, clouds: [], shipWake: 0, coins: [], schools: [], glazuns: [], grot: null, shipSheltered: null, veils: [], grazers: [], eels: [], rays: [], events: [], shipHidden: false, latched: null, lastPing: -99 };
   const tv = new V3(), tv2 = new V3(), tv3 = new V3(), dummy = new THREE.Object3D();
   const H = (x, z) => G.World.height(x, z);
   const cap = G.cap;
@@ -63,9 +64,12 @@
       notes: { graze: 'Стайкой пасутся на светящемся мху.', scatter: 'От импульса сонара рассыпаются прочь от угрозы — по бегству видно, откуда она.' } },
     glazun: { name: 'Песчаный глазун', acc: 'песчаного глазуна', gen: 'песчаного глазуна', unom: 'глаза в песке', uacc: 'глаза в песке', ugen: 'глаз в песке',
       desc: 'Плоская рыба около 80 см. Зарывается в песок у пятен мха, наружу торчат только глаза на стебельках.',
-      notes: { ambush: 'Хватает монетников, которые проплывают над ним.', sonar: 'На сонаре не виден, но монетники шарахаются от него.', eyes: 'В луче прожектора глаза вспыхивают отражённым светом.' } }
+      notes: { ambush: 'Хватает монетников, которые проплывают над ним.', sonar: 'На сонаре не виден, но монетники шарахаются от него.', eyes: 'В луче прожектора глаза вспыхивают отражённым светом.' } },
+    grot: { name: 'Гротовик', acc: 'гротовика', gen: 'гротовика', unom: 'ходячий риф', uacc: 'ходячий риф', ugen: 'ходячего рифа',
+      desc: 'Медлительное панцирное существо длиной около 6 метров. На спине растёт настоящий риф с огнецветом и мхом, в нём живёт стая светляков.',
+      notes: { drift: 'Неспешно бредёт по отмели, на спине растёт риф.', hide: 'Напуганная стая прячется в рифе на его спине — хищник её теряет.', shy: 'Если задеть его корпусом, прячет ноги под панцирь и замирает.' } }
   };
-  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun'];
+  G.SPECIES_ORDER = ['fish', 'pred', 'veil', 'grazer', 'eel', 'ray', 'ognevka', 'leech', 'hvaten', 'pestr', 'ezh', 'krab', 'raduzh', 'plankton', 'monet', 'glazun', 'grot'];
   Object.values(SP).forEach(s => { s.scanned = false; s.seen = new Set(); });
   G.nm = (sp, cs) => { const s = SP[sp]; return s.scanned ? (cs === 'gen' ? s.gen || s.acc : cs === 'acc' ? s.acc : s.name.toLowerCase()) : (cs === 'gen' ? s.ugen || s.uacc : cs === 'acc' ? s.uacc : s.unom); };
 
@@ -103,7 +107,7 @@
   }
   function nearestFish(p, R) {
     let best = null, bd = R;
-    for (const f of E.fish) { if (!f.alive || nearStation(f.p) || kelpShelter(f)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
+    for (const f of E.fish) { if (!f.alive || nearStation(f.p) || kelpShelter(f) || grotShelter(f)) continue; const d = f.p.distanceTo(p); if (d < bd) { bd = d; best = f; } }
     return best;
   }
   function updateFish(dt, t) {
@@ -117,7 +121,7 @@
       if (sh.follow) { sh.goal.copy(sh.follow.p).addScaledVector(sh.follow.dir, -12); sh.goal.y -= 3; }
       else if (sh.gt <= 0) {
         sh.gt = G.rr(6, 12);
-        sh.goal.set(sh.home.x + G.rr(-14, 14), 0, sh.home.z + G.rr(-14, 14));
+        const R = sh.range || 14; sh.goal.set(sh.home.x + G.rr(-R, R), 0, sh.home.z + G.rr(-R, R));
         sh.goal.y = Math.min(H(sh.goal.x, sh.goal.z) + G.rr(2, 7), -4);
       }
       sh.threat = null; let best = 16;
@@ -272,6 +276,12 @@
           if (gr) {
             pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
             if (gr.msgCd <= 0) { gr.msgCd = 40; E.emit('fish', 'kelp', gr.c, () => `${cap(G.nm('fish'))}: стая спряталась в ленточнике, ${G.nm('pred')} её потерял`); }
+            break;
+          } }
+        { const gr = grotShelter(pr.target); // стая нырнула в риф на спине гротовика
+          if (gr) {
+            pr.state = 'patrol'; pr.timer = G.rr(4, 8); pr.target = null;
+            if (gr.hideCd <= 0) { gr.hideCd = 40; E.emit('grot', 'hide', gr.back, () => `${cap(G.nm('fish'))}: стая спряталась в рифе на спине ${G.nm('grot', 'gen')}, ${G.nm('pred')} её потерял`); }
             break;
           } }
         pr.goal.copy(pr.target.v).multiplyScalar(0.4).add(pr.target.p);
@@ -1257,8 +1267,102 @@
     }
   }
 
+  /* ======================= ГРОТОВИК ======================= */
+  /* Живой остров: панцирное существо с рифом на спине бредёт по отмели. Одна стая светляков
+     живёт в его рифе и кочует вместе с ним; напуганные рыбы прячутся в риф, и хищник их теряет.
+     Если задеть гротовика корпусом, он прячет ноги и замирает. */
+  const GR_R = 3.2, GR_SPEED = 0.45, GR_HIDE_R = 5;
+  function grotGeo() {
+    const shell = new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2); shell.scale(2.4, 1.1, 3.2);
+    const rim = new THREE.TorusGeometry(1, 0.12, 5, 20); rim.rotateX(Math.PI / 2); rim.scale(2.4, 1, 3.2);
+    const head = new THREE.SphereGeometry(0.55, 10, 6); head.scale(1, 0.7, 1.2); head.translate(0, 0.25, 3.4);
+    const eyes = []; [-1, 1].forEach(sx => { const e = new THREE.SphereGeometry(0.09, 6, 4); e.translate(sx * 0.3, 0.45, 3.85); eyes.push(e); });
+    return G.merge([{ g: shell, c: new THREE.Color(0x5b5a4a) }, { g: rim, c: new THREE.Color(0x3e3b30) }, { g: head, c: new THREE.Color(0x6b6656) },
+      ...eyes.map(g => ({ g, c: new THREE.Color(0xffe08a) }))]);
+  }
+  function grotLegsGeo() {
+    const lp = [];
+    [-1, 1].forEach(sx => [-1.8, 0, 1.8].forEach(z => {
+      const g = new THREE.CylinderGeometry(0.22, 0.3, 1.1, 6); g.translate(0, -0.55, 0);
+      lp.push({ g, m: new THREE.Matrix4().makeTranslation(sx * 2.1, 0.35, z).multiply(new THREE.Matrix4().makeRotationZ(sx * 0.5)), c: new THREE.Color(0x4a473a) });
+    }));
+    return G.merge(lp);
+  }
+  function grotReefGeo() { // риф на спине: ветки огнецвета, светящиеся кончики, мшистые бугры
+    const parts = [], wood = new THREE.Color(0.7, 0.35, 0.2), tip = new THREE.Color(1, 0.75, 0.35), moss = new THREE.Color(0.35, 0.8, 0.55);
+    for (let k = 0; k < 11; k++) {
+      const a = k * 2.39996, r = Math.sqrt((k + 0.5) / 11) * 0.85;
+      const x = Math.cos(a) * r * 2.1, z = Math.sin(a) * r * 2.8, y = Math.sqrt(Math.max(0, 1 - r * r)) * 1.05;
+      const L = 0.9 + (k % 3) * 0.35;
+      const br = new THREE.CylinderGeometry(0.06, 0.14, L, 5); br.translate(0, L / 2, 0);
+      const m = new THREE.Matrix4().makeTranslation(x, y, z).multiply(new THREE.Matrix4().makeRotationAxis(new V3(Math.sin(a), 0, -Math.cos(a)), 0.25 + (k % 2) * 0.2));
+      parts.push({ g: br, m, c: wood });
+      const tp = new THREE.SphereGeometry(0.16, 6, 4); tp.translate(0, L, 0); parts.push({ g: tp, m: m.clone(), c: tip });
+    }
+    for (let k = 0; k < 6; k++) {
+      const a = k * 1.1 + 0.4, g = new THREE.SphereGeometry(0.45, 8, 5); g.scale(1, 0.45, 1);
+      g.translate(Math.cos(a) * 1.5, 0.8, Math.sin(a) * 2.1); parts.push({ g, c: moss });
+    }
+    return G.merge(parts);
+  }
+  function initGrot(scene) {
+    if (E.shoals.length < 6) return;
+    const route = [[-22, 62], [18, 44], [30, 4], [-14, 12]].map(([x, z]) => new V3(x, H(x, z), z));
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(grotGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x0e0c08 }));
+    const legs = new THREE.Mesh(grotLegsGeo(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const reef = new THREE.Mesh(grotReefGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a1004 }));
+    g.add(body, legs, reef); scene.add(g);
+    const p = route[0].clone();
+    const ob = { x: p.x, z: p.z, r: GR_R, top: p.y + 4, grot: true };
+    G.World.obstacles.push(ob);
+    const sh = E.shoals[5]; sh.range = 4;
+    E.grot = { g, body, legs, reef, route, wp: 1, p, yaw: 0, back: new V3(), sh, ob, shy: 0, lift: 1, shyCd: 0, hideCd: 0, driftCd: 0, homeOld: sh.home.clone() };
+    grotPlace(E.grot, 0, 0);
+  }
+  function grotPlace(gr, dt, t) {
+    const y = H(gr.p.x, gr.p.z) + 0.6 + 0.55 * gr.lift;
+    gr.g.position.set(gr.p.x, y, gr.p.z); gr.g.rotation.set(0, gr.yaw, 0);
+    gr.back.set(gr.p.x, y + 1.6, gr.p.z);
+    gr.ob.x = gr.p.x; gr.ob.z = gr.p.z; gr.ob.top = y + 3.5;
+    gr.sh.home.set(gr.back.x, gr.back.y + 0.6, gr.back.z);
+  }
+  function grotUpdate(gr, dt, t) {
+    const S = G.Ship;
+    gr.shy -= dt; gr.shyCd -= dt; gr.hideCd -= dt; gr.driftCd -= dt;
+    /* корабль задел панцирь */
+    const dx = S.pos.x - gr.p.x, dz = S.pos.z - gr.p.z;
+    if (Math.hypot(dx, dz) < GR_R + 6.4 && S.pos.y < gr.ob.top && gr.shy <= 0 && gr.shyCd <= 0) {
+      gr.shy = 10; gr.shyCd = 25; gr.sh.alarm = Math.max(gr.sh.alarm, 3); gr.sh.threat = null;
+      E.emit('grot', 'shy', gr.back, () => `${cap(G.nm('grot'))} прячет ноги под панцирь и замирает`);
+    }
+    const moving = gr.shy <= 0;
+    gr.lift += ((moving ? 1 : 0) - gr.lift) * Math.min(1, dt * 2);
+    if (moving) {
+      const tg = gr.route[gr.wp];
+      tv.set(tg.x - gr.p.x, 0, tg.z - gr.p.z); const d = tv.length();
+      if (d < 1.5) gr.wp = (gr.wp + 1) % gr.route.length;
+      else {
+        let da = Math.atan2(tv.x, tv.z) - gr.yaw; da = Math.atan2(Math.sin(da), Math.cos(da));
+        gr.yaw += da * Math.min(1, dt * 0.3);
+        gr.p.x += Math.sin(gr.yaw) * GR_SPEED * dt; gr.p.z += Math.cos(gr.yaw) * GR_SPEED * dt;
+      }
+      if (gr.driftCd <= 0 && S.center.distanceTo(gr.back) < 35) { gr.driftCd = 90; E.emit('grot', 'drift', gr.back, () => `${cap(G.nm('grot'))} неспешно бредёт по отмели, на спине у него риф`); }
+    }
+    gr.legs.rotation.x = moving ? Math.sin(t * 2.2) * 0.08 : 0;
+    gr.legs.scale.y = 0.35 + 0.65 * gr.lift;
+    grotPlace(gr, dt, t);
+  }
+  /* светляк его стаи прячется в рифе на спине */
+  function grotShelter(f) {
+    const gr = E.grot;
+    if (!gr || f.s !== gr.sh || !(f.s.alarm > 0)) return null;
+    return f.p.distanceTo(gr.back) < GR_HIDE_R ? gr : null;
+  }
+  E.grotShelter = grotShelter;
+
   /* ======================= ОБЩЕЕ ======================= */
-  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
+  E.init = function (scene) { initVeils(scene); initFish(scene); initStations(scene); initAnemones(scene); initKelp(scene); initSwarms(scene); initClouds(scene); initCoins(scene); initGrot(scene); initPreds(scene); initGrazers(scene); initEels(scene); initRays(scene); };
 
   E.update = function (dt, t) {
     const S = G.Ship;
@@ -1284,6 +1388,7 @@
       E.plPts.geometry.attributes.position.needsUpdate = true; E.plPts.geometry.attributes.color.needsUpdate = true;
     }
     if (E.coinIM) { coinsUpdate(dt, t); coinsRender(t); }
+    if (E.grot) grotUpdate(E.grot, dt, t);
     updateFish(dt, t);
     E.preds.forEach((p, i) => { predUpdate(p, dt); predRender(p, i, t); });
     E.predSegIM.instanceMatrix.needsUpdate = true; E.predDotIM.instanceMatrix.needsUpdate = true;
@@ -1308,6 +1413,7 @@
     E.swarms.forEach(sw => L.push({ sp: 'raduzh', pos: sw.c, r: RD_R }));
     E.clouds.forEach(cl => L.push({ sp: 'plankton', pos: cl.c, r: 4 }));
     E.schools.forEach(sc => { const a = sc.members.filter(c => c.alive); if (a.length >= 3) L.push({ sp: 'monet', pos: a[0].p, r: 1.2 }); });
+    if (E.grot) L.push({ sp: 'grot', pos: E.grot.back, r: 3 });
     E.glazuns.forEach(gz => L.push({ sp: 'glazun', pos: gz.eyeC, r: 0.6, noSonar: true })); // на сонаре не виден
     E.anemones.forEach(hv => { L.push({ sp: 'hvaten', pos: hv.top, r: 1.2 }); L.push({ sp: 'pestr', pos: hv.pc, r: 0.6 }); });
     return L;
@@ -1355,6 +1461,8 @@
     E.schools.forEach(sc => { sc.scatter = 0; sc.scatCd = 0; sc.grazeCd = G.rr(5, 15); });
     E.glazuns.forEach(gz => { gz.cd = G.rr(8, 20); gz.lunge = 0; gz.lit = false; gz.eyesCd = 0; });
     E.coins.forEach(coinSpawn);
+    const gt = E.grot;
+    if (gt) { gt.p.copy(gt.route[0]); gt.wp = 1; gt.yaw = 0; gt.shy = 0; gt.shyCd = 0; gt.lift = 1; gt.hideCd = 0; gt.driftCd = 0; grotPlace(gt, 0, 0); }
     const cr = E.crab;
     if (cr) { cr.p.copy(cr.den); cr.dir.copy(cr.out); cr.state = 'den'; cr.hunger = 0.3; cr.target = null; cr.timer = 0; cr.spines = 3; cr.guardCd = 0; cr.pinchCd = 0; cr.raise = 0; crabSpines(cr); }
   };
