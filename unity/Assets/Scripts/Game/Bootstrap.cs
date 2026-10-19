@@ -47,6 +47,17 @@ namespace Pogrujenie.Game
 
         string lastMsg = "";
 
+        /// <summary>Ключ сохранения в PlayerPrefs (как localStorage в браузере).</summary>
+        public const string SaveKeyMain = "pogrujenie.save.v1";
+        /// <summary>В тестовых сценах сохранение выключено, пока тест не задаст свой ключ.</summary>
+        public static string TestSaveKey;
+        /// <summary>Куда пишется сохранение; null — не сохраняем.</summary>
+        public static string SaveKey => SceneManager.GetActiveScene().name.StartsWith("InitTestScene") ? TestSaveKey : SaveKeyMain;
+        /// <summary>Есть несохранённые изменения; запись через SaveDelay после первого из них.</summary>
+        public bool SaveDirty { get; private set; }
+        public const float SaveDelay = 1f;
+        float saveTimer;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoStart()
         {
@@ -130,6 +141,8 @@ namespace Pogrujenie.Game
             // образцы на дне (как js/manip.js) и лебёдка у кормовой кромки шлюза
             Samples = new Samples();
             Samples.Message += Say;
+            Load();
+            Samples.Changed += () => SaveDirty = true;
             Winch = Samples.MakePost(Layout.Lock, Motion);
             Layout.Inter.Add(Winch);
             SampleView = new GameObject("Образцы на дне").AddComponent<SamplesView>();
@@ -262,7 +275,35 @@ namespace Pogrujenie.Game
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
             SampleView.Sync(Motion, Layout.Lock.T);
+            if (SaveDirty)
+            {
+                saveTimer += dt;
+                if (saveTimer >= SaveDelay) Save();
+            }
         }
+
+        /// <summary>Записать груз трюма и поднятые образцы (Core/SaveGame.cs) в PlayerPrefs.</summary>
+        public bool Save()
+        {
+            SaveDirty = false; saveTimer = 0f;
+            string key = SaveKey;
+            if (string.IsNullOrEmpty(key)) return false;
+            PlayerPrefs.SetString(key, SaveGame.Write(Samples));
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        /// <summary>Прочитать сохранение при запуске; нет его или оно битое — начинаем с чистого трюма.</summary>
+        public bool Load()
+        {
+            string key = SaveKey;
+            if (string.IsNullOrEmpty(key) || !PlayerPrefs.HasKey(key)) return false;
+            return SaveGame.Read(PlayerPrefs.GetString(key), Samples);
+        }
+
+        // телефон сворачивает игру без выхода — пишем сразу
+        void OnApplicationPause(bool paused) { if (paused && SaveDirty) Save(); }
+        void OnApplicationQuit() { if (SaveDirty) Save(); }
 
         /// <summary>Подсказка у открытого шлюза: что можно достать и как далеко.</summary>
         public string SampleHint()

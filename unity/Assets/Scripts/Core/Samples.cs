@@ -95,6 +95,8 @@ namespace Pogrujenie.Core
 
         /// <summary>Сообщение на приборы.</summary>
         public event Action<string> Message;
+        /// <summary>Изменилось то, что сохраняется: груз трюма или поднятые образцы (для записи сохранения).</summary>
+        public event Action Changed;
 
         float back;
         bool holding;
@@ -217,6 +219,7 @@ namespace Pogrujenie.Core
             State = GrabState.Idle; Target = null; Progress = 0f; back = 0f;
             Cargo.Add(new CargoItem(s.Kind, s.I));
             Got.Add(s.I);
+            Changed?.Invoke();
             Message?.Invoke($"В трюме: {s.Name.ToLowerInvariant()} (образцов {Cargo.Count})");
         }
 
@@ -230,6 +233,34 @@ namespace Pogrujenie.Core
             foreach (var s in All) s.Taken = false;
             Cargo.Clear(); Got.Clear();
             State = GrabState.Idle; Target = null; Progress = 0f; back = 0f; holding = false;
+            Version++;
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Восстановить из сохранения (как M.restore в js/manip.js): поднятые образцы убраны со дна;
+        /// груз трюма — по порядку, образец со дна принимается, только если номер есть, вид совпадает
+        /// и он ещё не лежит в трюме. Неверные номера и записи пропускаются.
+        /// </summary>
+        public void Restore(IEnumerable<int> got, IEnumerable<CargoItem> cargo)
+        {
+            foreach (var s in All) s.Taken = false;
+            Cargo.Clear(); Got.Clear();
+            State = GrabState.Idle; Target = null; Progress = 0f; back = 0f; holding = false;
+            if (got != null)
+                foreach (int i in got)
+                    if (i >= 0 && i < All.Count) { All[i].Taken = true; Got.Add(i); }
+            var used = new HashSet<int>();
+            if (cargo != null)
+                foreach (var c in cargo)
+                {
+                    if (c.I >= 0)
+                    {
+                        if (c.I >= All.Count || All[c.I].Kind != c.Kind || !used.Add(c.I)) continue;
+                        All[c.I].Taken = true; Got.Add(c.I);
+                    }
+                    Cargo.Add(new CargoItem(c.Kind, c.I < 0 ? -1 : c.I));
+                }
             Version++;
         }
 
