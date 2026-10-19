@@ -40,6 +40,8 @@ namespace Pogrujenie.Core
         public readonly EcoShip Ship = new EcoShip();
         /// <summary>Высота дна в точке (x, z) в осях Unity, например Seabed.Height; null — дна нет.</summary>
         public Func<float, float, float> Ground;
+        /// <summary>Просканирован ли вид (для названий в сообщениях); null — ничего не просканировано.</summary>
+        public Func<string, bool> Scanned;
         /// <summary>Секунды с последнего сброса.</summary>
         public float Time { get; private set; }
         /// <summary>Сколько подшагов сделано с последнего сброса.</summary>
@@ -125,6 +127,10 @@ namespace Pogrujenie.Core
             }
             return best;
         }
+
+        /// <summary>Название вида для сообщения (G.nm): описательное, пока вид не просканирован.</summary>
+        public string Name(string species, NameCase c = NameCase.Nom) =>
+            Species.Called(species, c, Scanned != null && Scanned(species));
 
         /// <summary>Отправить событие экосистемы (E.emit).</summary>
         public EcoEvent Emit(string species, string note, EcoVec pos, Func<string> message = null) =>
