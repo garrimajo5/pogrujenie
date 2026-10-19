@@ -107,13 +107,13 @@ namespace Pogrujenie.Tests
             Save(s =>
             {
                 Make(s, "Погружение").AddComponent<Bootstrap>();
-                Make(s, "Метка");
+                Make(s, "Marker"); // латиница: кириллицу Unity пишет в YAML как \u-коды
             });
             string before = File.ReadAllText(Tmp);
             Assert.IsNull(BuildScript.SceneProblem(Tmp));
             Assert.IsFalse(BuildScript.PrepareScene(Tmp));
             Assert.AreEqual(before, File.ReadAllText(Tmp), "исправная сцена не пересохраняется");
-            StringAssert.Contains("Метка", File.ReadAllText(Tmp));
+            StringAssert.Contains("m_Name: Marker", File.ReadAllText(Tmp));
         }
     }
 }
