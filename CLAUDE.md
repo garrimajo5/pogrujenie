@@ -36,7 +36,7 @@
 - 3D-модели художник делает через Meshy (заказы `MOD-…`, правила — `art/ARTIST.md`, «3D-модели»): GLB до 5 МБ,
   подвижные части отдельно. Модель заказываем только по принятому концепту. Принятый GLB кладём в `models/` и запускаем
   `python3 tools/glb_to_unity.py` — он пишет меш `unity/Assets/Resources/Models/<имя>.bytes` (формат PGM1, x со знаком минус)
-  и текстуру `<имя>-tex.bytes` (PNG, раскрывается `Texture2D.LoadImage`); потом `python3 tools/unity_meta.py`. FBX в Unity не импортируем (материалы Standard в APK розовые).
+  и текстуру `<имя>-tex.bytes` (PGT1: RGB24 в deflate, `Core/TexturePack.cs`; нужен Pillow); потом `python3 tools/unity_meta.py`. FBX в Unity не импортируем (материалы Standard в APK розовые).
 
 ## Процесс
 - Ветка `feat/<кратко>` или `fix/<кратко>` от свежего `main`.

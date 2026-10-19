@@ -9,12 +9,16 @@
 - `<имя>.bytes` — свой простой формат (читает `Core/MeshPack.cs`):
   "PGM1", int32 число вершин, int32 число индексов, затем позиции (3 float), нормали (3 float),
   UV (2 float) и индексы (uint16), всё little-endian;
-- `<имя>-tex.bytes` — текстура цвета: PNG как есть из GLB. Unity читает её как TextAsset и раскрывает
-  `Texture2D.LoadImage` — так не зависим от настроек импорта текстур (с минимальным .meta Unity её не загрузил).
+- `<имя>-tex.bytes` — текстура цвета в своём формате PGT1 (читает `Core/TexturePack.cs`): "PGT1", int32 ширина,
+  int32 высота, затем пиксели RGB24 строками снизу вверх (как в Unity), сжатые raw deflate. Не PNG: импорт PNG
+  с минимальным .meta Unity не загрузил, а `Texture2D.LoadImage` в проекте нет (модуль ImageConversion не подключён).
+  PNG раскрывает Pillow (`pip install pillow`).
 glTF правый, Unity левый: x меняет знак (как при переносе из браузерной версии), поэтому порядок вершин
 в треугольниках разворачивается, а v текстуры переворачивается (в glTF v идёт сверху вниз).
 """
 import argparse
+import io
+import zlib
 import glob
 import json
 import os
@@ -91,13 +95,23 @@ def convert(path):
     return bytes(out), png
 
 
+def texture(png):
+    """PNG → PGT1: RGB24 строками снизу вверх, raw deflate (уровень 9, детерминированно)."""
+    from PIL import Image
+    im = Image.open(io.BytesIO(png)).convert('RGB')
+    w, h = im.size
+    raw = im.transpose(Image.FLIP_TOP_BOTTOM).tobytes()
+    c = zlib.compressobj(9, zlib.DEFLATED, -15)
+    return b'PGT1' + struct.pack('<ii', w, h) + c.compress(raw) + c.flush()
+
+
 def build(dst):
     os.makedirs(dst, exist_ok=True)
     made = []
     for path in sorted(glob.glob(os.path.join(SRC, '*.glb'))):
         name = os.path.splitext(os.path.basename(path))[0]
         mesh, png = convert(path)
-        for fname, data in ((name + '.bytes', mesh), (name + '-tex.bytes', png)):
+        for fname, data in ((name + '.bytes', mesh), (name + '-tex.bytes', texture(png))):
             with open(os.path.join(dst, fname), 'wb') as fh:
                 fh.write(data)
             made.append(fname)

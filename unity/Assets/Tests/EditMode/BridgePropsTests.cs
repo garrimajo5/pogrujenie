@@ -122,6 +122,28 @@ namespace Pogrujenie.Tests
             Assert.IsFalse(BridgeProps.GlowingLights(BridgeProps.Chair));
         }
 
+        [TestCase(BridgeProps.Wheel)]
+        [TestCase(BridgeProps.Stand)]
+        [TestCase(BridgeProps.Chair)]
+        [TestCase(BridgeProps.Table)]
+        public void ТекстураЧитаетсяЦеликом(string model)
+        {
+            var t = TexturePack.Read(File.ReadAllBytes(Path.Combine("Assets", "Resources", "Models", model + "-tex.bytes")));
+            Assert.AreEqual(1024, t.Width);
+            Assert.AreEqual(1024, t.Height);
+            Assert.AreEqual(1024 * 1024 * 3, t.Rgb.Length);
+            Assert.IsTrue(t.Rgb.Any(b => b > 40), "не пустая");
+        }
+
+        [Test]
+        public void БитаяТекстураНеЧитается()
+        {
+            Assert.Throws<InvalidDataException>(() => TexturePack.Read(new byte[] { 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0 }));
+            var good = File.ReadAllBytes(Path.Combine("Assets", "Resources", "Models", BridgeProps.Wheel + "-tex.bytes"));
+            var cut = good.Take(good.Length / 2).ToArray();
+            Assert.Throws<InvalidDataException>(() => TexturePack.Read(cut), "обрезанный файл");
+        }
+
         [Test]
         public void БитыйФайлНеЧитается()
         {
