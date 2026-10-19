@@ -80,14 +80,44 @@ namespace Pogrujenie.Tests
             Assert.Less(renderers, 120, "мешей на весь корабль немного: бюджет 260 вызовов отрисовки");
             // пол трюма вокруг проёма и детали люка шлюза — по одному мешу на группу
             int cube = Shapes.MeshOf(Shape.Cube).vertexCount;
-            foreach (var g in new[] { "Пол трюма", "Кромка люка шлюза", "Решётка люка", "Шахта шлюза" })
+            foreach (var g in new[] { "Пол трюма", "Кромка люка шлюза", "Решётка люка", "Шахта шлюза", "Носовая стена", "Борт мостика" })
             {
                 Assert.IsTrue(boot.View.Merged.ContainsKey(g), g);
                 int pieces = ShipLayout.Boxes.Count(b => ShipView.MergeGroup(b.Name) == g);
                 Assert.Greater(pieces, 1, g);
                 Assert.AreEqual(pieces * cube, boot.View.Merged[g].sharedMesh.vertexCount, g);
             }
-            Assert.AreEqual(4, boot.View.Merged.Count);
+            Assert.AreEqual(6, boot.View.Merged.Count);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ОболочкаМостикаПоКраскамОдинМешНаКраску()
+        {
+            // ART-002: рама и переплёты окна, скос потолка, рёбра, плафоны, решётки — по мешу на краску
+            int cube = Shapes.MeshOf(Shape.Cube).vertexCount;
+            var paints = BridgePlan.Parts.Select(p => p.Paint).Distinct().ToArray();
+            Assert.AreEqual(paints.Length, boot.View.Bridge.Count);
+            foreach (var paint in paints)
+            {
+                int pieces = BridgePlan.Parts.Count(p => p.Paint == paint);
+                Assert.AreEqual(pieces * cube, boot.View.Bridge[paint].sharedMesh.vertexCount, paint.ToString());
+            }
+            // скос потолка в меше наклонён: самая высокая вершина металла у потолка, а не над ним
+            var bounds = boot.View.Bridge[BridgePaint.Metal].sharedMesh.bounds;
+            Assert.AreEqual(BridgePlan.Ceiling, bounds.max.y, 0.05f);
+            Assert.AreEqual(-6.1f, bounds.min.z, 0.02f, "переплёты в проёме носовой стены");
+
+            var lamp = boot.View.Bridge[BridgePaint.Plafond].GetComponent<Renderer>().sharedMaterial;
+            Assert.Greater(lamp.GetColor("_Glow").r, 0.5f, "плафоны светятся тёплым");
+            Assert.Greater(lamp.GetColor("_Glow").r, lamp.GetColor("_Glow").b);
+            var wall = boot.View.Merged["Борт мостика"].GetComponent<Renderer>().sharedMaterial;
+            Assert.AreEqual(0x8C / 255f, wall.color.r, 0.01f, "борта мостика — металл #8C806B");
+            Assert.AreEqual(0x6B / 255f, wall.color.b, 0.01f);
+            var floor = boot.View.transform.Find("Пол мостика").GetComponent<Renderer>().sharedMaterial;
+            Assert.AreEqual(0x48 / 255f, floor.color.g, 0.01f, "пол мостика #34484C");
+            var corridor = boot.View.transform.Find("Пол коридора").GetComponent<Renderer>().sharedMaterial;
+            Assert.AreNotSame(floor, corridor, "коридор в прежней окраске");
             yield return null;
         }
     }
