@@ -13,12 +13,14 @@ namespace Pogrujenie.Core
         void Step(EcoWorld world, float dt);
     }
 
-    /// <summary>Что экосистема знает о корабле: где он, как быстро идёт, горит ли прожектор.</summary>
+    /// <summary>Что экосистема знает о корабле: где он, как быстро идёт, горит ли прожектор, когда был сонар.</summary>
     public sealed class EcoShip
     {
         public EcoVec Pos;
         public float Speed;
         public bool Light;
+        /// <summary>Время мира (<see cref="EcoWorld.Time"/>) последнего импульса сонара (E.lastPing); −99 — не было.</summary>
+        public float LastPing = -99f;
     }
 
     /// <summary>
@@ -38,6 +40,15 @@ namespace Pogrujenie.Core
         public readonly EcoBus Bus = new EcoBus();
         public readonly List<EcoAgent> Agents = new List<EcoAgent>();
         public readonly EcoShip Ship = new EcoShip();
+        /// <summary>
+        /// Существо ударило по корпусу (Game.hullHit). Подписывается корабль (поток А) и решает, что удар
+        /// с ним делает; экосистема только сообщает.
+        /// </summary>
+        public event Action<ShipHit> ShipStruck;
+        /// <summary>Сколько ударов по корпусу с последнего сброса.</summary>
+        public int Hits { get; private set; }
+        /// <summary>Последний удар по корпусу (для тестов и приборов); null — ударов не было.</summary>
+        public ShipHit? LastHit { get; private set; }
         /// <summary>Высота дна в точке (x, z) в осях Unity, например Seabed.Height; null — дна нет.</summary>
         public Func<float, float, float> Ground;
         /// <summary>Просканирован ли вид (для названий в сообщениях); null — ничего не просканировано.</summary>
@@ -73,6 +84,8 @@ namespace Pogrujenie.Core
             Bus.Clear();
             Agents.Clear();
             Time = 0; Steps = 0;
+            Hits = 0; LastHit = null;
+            Ship.LastPing = -99f;
             foreach (var s in systems) s.Reset(this);
         }
 
@@ -131,6 +144,14 @@ namespace Pogrujenie.Core
         /// <summary>Название вида для сообщения (G.nm): описательное, пока вид не просканирован.</summary>
         public string Name(string species, NameCase c = NameCase.Nom) =>
             Species.Called(species, c, Scanned != null && Scanned(species));
+
+        /// <summary>Сообщить кораблю об ударе по корпусу.</summary>
+        public void HitShip(ShipHit hit)
+        {
+            Hits++;
+            LastHit = hit;
+            ShipStruck?.Invoke(hit);
+        }
 
         /// <summary>Отправить событие экосистемы (E.emit).</summary>
         public EcoEvent Emit(string species, string note, EcoVec pos, Func<string> message = null) =>
