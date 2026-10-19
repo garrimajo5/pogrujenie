@@ -16,3 +16,5 @@ jobs:
           python-version: '3.12'
       - name: Unity .meta и файлы проекта
         run: python tools/test_unity_meta.py
+      - name: Модели художника совпадают с исходниками в models/
+        run: python tools/glb_to_unity.py --check

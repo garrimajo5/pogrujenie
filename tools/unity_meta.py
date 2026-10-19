@@ -25,6 +25,8 @@ IMPORTERS = {
     '.cs': "MonoImporter:\n  externalObjects: {}\n  serializedVersion: 2\n  defaultReferences: []\n"
            "  executionOrder: 0\n  icon: {instanceID: 0}\n" + TAIL,
     '.asmdef': "AssemblyDefinitionImporter:\n  externalObjects: {}\n" + TAIL,
+    # текстуры моделей художника: настройки по умолчанию (sRGB, mipmaps), Unity дополнит остальное
+    '.png': "TextureImporter:\n  externalObjects: {}\n" + TAIL,
     '.shader': "ShaderImporter:\n  externalObjects: {}\n  defaultTextures: []\n"
                "  nonModifiableTextures: []\n" + TAIL,
 }

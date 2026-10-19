@@ -30,6 +30,8 @@ namespace Pogrujenie.Game
         public ShipPhysics Motion { get; private set; }
         public SeaCurrent Current { get; private set; }
         public Transform Wheel { get; private set; }
+        /// <summary>Колесо штурвала (модель MOD-001), дочернее Wheel.</summary>
+        public MeshRenderer WheelModel { get; private set; }
         public SeabedView Seafloor { get; private set; }
         public HullView Hull { get; private set; }
         /// <summary>Роторы и рули глубины по ART-001: следуют за тягой и вертикалью пилота.</summary>
@@ -149,18 +151,15 @@ namespace Pogrujenie.Game
             SampleView.transform.SetParent(transform, false);
             SampleView.Build(Samples);
 
-            // штурвал на пульте: поворачивается вместе с кораблём
+            // штурвал на стойке: колесо MOD-001 поворачивается вместе с кораблём, стойка — в ShipView
             var wheel = new GameObject("Штурвал").transform;
             wheel.SetParent(ship, false);
-            wheel.localPosition = new Vector3(0, 0.95f, -5.25f);
-            wheel.localRotation = Quaternion.Euler(-20, 0, 0);
+            wheel.localPosition = new Vector3(0, BridgeProps.WheelY, BridgeProps.WheelZ);
+            wheel.localRotation = Quaternion.Euler(BridgeProps.WheelTilt, 0, 0);
             Wheel = wheel;
-            var rim = Part(Shape.Cylinder, "Обод штурвала", wheel, new Color(0.12f, 0.17f, 0.19f));
-            rim.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            rim.transform.localScale = new Vector3(0.6f, 0.02f, 0.6f);
-            var spoke = Part(Shape.Cube, "Спица штурвала", wheel, new Color(0.75f, 0.6f, 0.3f));
-            spoke.transform.localPosition = new Vector3(0, 0, 0.03f); // со стороны пилота (+Z)
-            spoke.transform.localScale = new Vector3(0.62f, 0.06f, 0.03f);
+            var wheelMat = Models.Paint(BridgeProps.Wheel);
+            ownMats.Add(wheelMat);
+            WheelModel = Models.Make(BridgeProps.Wheel, "Колесо штурвала", wheel, wheelMat).GetComponent<MeshRenderer>();
 
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
@@ -221,7 +220,6 @@ namespace Pogrujenie.Game
         }
 
         /// <summary>Деталь корабля своим материалом (без CreatePrimitive: ни коллайдеров, ни Standard).</summary>
-        GameObject Part(Shape s, string name, Transform parent, Color c) => Shapes.Make(s, name, parent, Mat(c, name));
 
         /// <summary>Прожектор берёт силу из реактора: доля 0 или аварийный сброс — света нет.</summary>
         public void ApplyPower()
@@ -273,7 +271,7 @@ namespace Pogrujenie.Game
             Samples.Update(dt);
             Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
-            Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
+            Wheel.localRotation = Quaternion.Euler(BridgeProps.WheelTilt, 0f, -Motion.Turn * 80f);
             SampleView.Sync(Motion, Layout.Lock.T);
             if (SaveDirty)
             {
