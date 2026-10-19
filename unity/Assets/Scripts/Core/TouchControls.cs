@@ -201,7 +201,7 @@ namespace Pogrujenie.Core
             Reset();
         }
 
-        public void Reset() { X = 0; Z = -3f; Yaw = (float)Math.PI; Pitch = -0.08f; }
+        public void Reset() { X = 0; Z = CameraView.StandZ; Yaw = (float)Math.PI; Pitch = CameraView.StandPitch; }
 
         public float ForwardX => (float)Math.Sin(Yaw);
         public float ForwardZ => (float)Math.Cos(Yaw);

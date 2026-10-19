@@ -11,7 +11,7 @@ namespace Pogrujenie.Game
     /// </summary>
     public sealed class Player : MonoBehaviour
     {
-        public const float SeatZ = CameraView.SeatZ, SeatEye = CameraView.SeatEye, StandZ = -3.2f;
+        public const float SeatZ = CameraView.SeatZ, SeatEye = CameraView.SeatEye, StandZ = CameraView.StandZ;
         /// <summary>Сообщение, пока игрок за штурвалом; гаснет, когда он встаёт.</summary>
         public const string HelmMessage = "Вы за штурвалом";
 
@@ -49,7 +49,7 @@ namespace Pogrujenie.Game
             Apply();
         }
 
-        /// <summary>Встать из-за штурвала за креслом пилота; корабль глушит тягу и дрейфует.</summary>
+        /// <summary>Встать из-за штурвала туда же, где стояли на старте: за креслом пилота, лицом к носу; корабль глушит тягу и дрейфует.</summary>
         public void Stand()
         {
             if (!Piloting) return;

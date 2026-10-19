@@ -49,5 +49,36 @@ namespace Pogrujenie.Tests
             Assert.IsTrue(CameraView.InView(1.6f, -4f, 0f, 72f, Phone, 0, 1.6f, -8f), "прямо по курсу");
             Assert.IsFalse(CameraView.InView(1.6f, -4f, 0f, 72f, Phone, 9f, 1.6f, -5f), "далеко сбоку");
         }
+
+        // верх спинки кресла пилота: кромка к корме (+Z), на неё и смотрит вставший игрок
+        static readonly float ChairTopZ = BridgeProps.ChairZ + BridgeProps.ChairD / 2f;
+
+        /// <summary>По отчёту qa/2026-10-19-1315-bridge-models-status: после «Встать» кресла почти не было видно.</summary>
+        [Test]
+        public void ВсталиЗаКресломИСпинкаВКадре()
+        {
+            Assert.Greater(CameraView.StandZ - Walker.Radius, ChairTopZ, "стоим за креслом, не в нём");
+            foreach (var aspect in new[] { Phone, 1f / Phone, 16f / 9f })
+                Assert.IsTrue(CameraView.InView(Walker.Eye, CameraView.StandZ, CameraView.StandPitch, CameraView.Fov(aspect), aspect,
+                    0, BridgeProps.ChairH, ChairTopZ), "спинка кресла в кадре при соотношении " + aspect);
+        }
+
+        [Test]
+        public void СоСтаройТочкойСпинкаУходилаЗаКрай()
+        {
+            // так было: вставали на z = −3,2 — верх спинки ниже нижнего края кадра
+            Assert.IsFalse(CameraView.InView(Walker.Eye, -3.2f, CameraView.StandPitch, 72f, Phone, 0, BridgeProps.ChairH, ChairTopZ));
+        }
+
+        [Test]
+        public void НаСтартеСтоимТамЖеКудаВстаём()
+        {
+            var w = new Walker();
+            w.X = 2f; w.Z = 0f; w.Yaw = 0f; w.Pitch = 0.5f;
+            w.Reset();
+            Assert.AreEqual(0f, w.X); Assert.AreEqual(CameraView.StandZ, w.Z);
+            Assert.AreEqual((float)System.Math.PI, w.Yaw, 1e-6f, "лицом к носу");
+            Assert.AreEqual(CameraView.StandPitch, w.Pitch);
+        }
     }
 }

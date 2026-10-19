@@ -30,6 +30,8 @@ namespace Pogrujenie.Core
         public const float StandZ = WheelZ - WheelHalfDepth - ShaftFront;
 
         public const float ChairZ = -3.95f, TableZ = -1.2f;
+        /// <summary>Кресло MOD-002: ширина, высота спинки и глубина (м); спинка — к корме (+Z).</summary>
+        public const float ChairW = 0.65f, ChairH = 1.2f, ChairD = 0.7f;
 
         /// <summary>
         /// Пульт MOD-004: 2,5 × 1,42 × 0,65 м, лицом к пилоту (+Z), опорная точка — центр основания.
