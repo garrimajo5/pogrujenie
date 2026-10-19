@@ -34,6 +34,11 @@ namespace Pogrujenie.Game
         public HullView Hull { get; private set; }
         /// <summary>Роторы и рули глубины по ART-001: следуют за тягой и вертикалью пилота.</summary>
         public HullMotion HullAnim { get; private set; }
+        /// <summary>Образцы на дне и груз трюма; подбор — лебёдкой через открытый нижний шлюз.</summary>
+        public Samples Samples { get; private set; }
+        public SamplesView SampleView { get; private set; }
+        /// <summary>Пост лебёдки шлюза в трюме (кнопку действия держат).</summary>
+        public Interactable Winch { get; private set; }
         /// <summary>Свет сквозь лёд: слабеет с глубиной.</summary>
         public Light Sun { get; private set; }
 
@@ -121,6 +126,15 @@ namespace Pogrujenie.Game
             View.transform.SetParent(ship, false);
             View.Build(Layout);
             Layout.Lock.Message += Say;
+
+            // образцы на дне (как js/manip.js) и лебёдка у кормовой кромки шлюза
+            Samples = new Samples();
+            Samples.Message += Say;
+            Winch = Samples.MakePost(Layout.Lock, Motion);
+            Layout.Inter.Add(Winch);
+            SampleView = new GameObject("Образцы на дне").AddComponent<SamplesView>();
+            SampleView.transform.SetParent(transform, false);
+            SampleView.Build(Samples);
 
             // штурвал на пульте: поворачивается вместе с кораблём
             var wheel = new GameObject("Штурвал").transform;
@@ -243,9 +257,20 @@ namespace Pogrujenie.Game
             HullAnim.Update(dt, Motion.InThrust, Motion.InVert, k);
             Hull.Animate(HullAnim);
             Hull.AnimateLock(Layout.Lock);
+            Samples.Update(dt);
             Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
+            SampleView.Sync(Motion);
+        }
+
+        /// <summary>Подсказка у открытого шлюза: что можно достать и как далеко.</summary>
+        public string SampleHint()
+        {
+            Samples.LockPoint(Motion, out float x, out float y, out float z);
+            var s = Samples.Find(x, y, z);
+            if (s == null) return "образцов рядом нет";
+            return $"внизу {s.Name.ToLowerInvariant()}, {Samples.DistanceTo(s, x, y, z):0} м";
         }
 
         void OnGUI()
@@ -257,7 +282,8 @@ namespace Pogrujenie.Game
             style.fontSize = Mathf.RoundToInt(16 * s);
             string place = Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room);
             string line = $"{place} · глубина {Motion.Depth:0} м · ход {Motion.Speed:0.0} м/с · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
-            if (Layout.Lock.FullyOpen) line += " · шлюз открыт";
+            if (Layout.Lock.FullyOpen) line += " · шлюз открыт · " + SampleHint();
+            if (Samples.Cargo.Count > 0) line += $" · образцов в трюме {Samples.Cargo.Count}";
             if (lastMsg.Length > 0) line += " · " + lastMsg;
             GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), line, style);
         }

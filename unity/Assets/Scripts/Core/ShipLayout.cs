@@ -45,6 +45,8 @@ namespace Pogrujenie.Core
         public Func<string> Label;
         public Action Do;
         public Func<bool> On; // null — всегда доступен
+        /// <summary>Пост удержания: каждый кадр, пока кнопка действия зажата (шаг, с). null — только нажатие.</summary>
+        public Action<float> Hold;
         public Interactable(float x, float z, float r, Func<string> label, Action act)
         { X = x; Z = z; R = r; Label = label; Do = act; }
     }
