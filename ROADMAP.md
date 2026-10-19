@@ -16,14 +16,16 @@
 - Unity: `.utmp/` в `.gitignore`; закоммитить `Packages/packages-lock.json` и `ProjectSettings/*.asset`, которые Unity создаёт при сборке, чтобы сборки в CI и у тестера совпадали. Отчёт `qa/2026-10-19-0150-unity-shader-fix`, мелочь по репозиторию — разделено на две части:
   - [x] `.utmp/` в `.gitignore`, «Unity» выкладывает эти файлы артефактом `unity-project-files` после сборки APK
   - [x] Положить файлы из артефакта `unity-project-files` в `unity/` (без машинных путей и секретов), «Unity» зелёная — `Packages/packages-lock.json` и 21 файл `ProjectSettings/*.asset` из сборки CI, проверка в «Тесты» (`tools/test_unity_meta.py`, `ProjectFiles`)
-- [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки (в Unity Issue Tracker похожая ошибка `AssetPackStateUpdateListener ClassNotFoundException` в пустом проекте — возможно, настройкой не убирается). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
+- [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки (в Unity Issue Tracker похожая ошибка `AssetPackStateUpdateListener ClassNotFoundException` в пустом проекте — возможно, настройкой не убирается). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи — **ждёт владельца**: в Unity Issue Tracker (1379427) ошибка появляется, когда выключено «Split Application Binary»; включить его для APK нельзя (появится отдельный OBB, установка одним файлом сломается). Убрать можно только подключив в Gradle библиотеку Play Asset Delivery (`com.google.android.play:asset-delivery`) — это внешняя зависимость из Maven ради строки в логе. Нужно решение: оставить как есть или подключать
 
 ## Концепт-арт
 Рисует Codex по `art/ARTIST.md`, заказы — в `art/REQUESTS.md`, работы — в ветке `art/concepts`.
 - [x] Роль художника: инструкция, очередь заказов, порядок приёмки; первые 7 заказов (корабль, мостик, серпохвост, флора, карта отмели, стеклоуст и скребун, эхоловец)
 - Принять ART-001 «Ковчег-7» снаружи и построить по нему корпус в Unity — разделено на две части:
   - [x] Принять ART-001: лист ракурсов и сцена в `docs/concept-art/kovcheg-7-*`, решения по вопросам художника в `art/REQUESTS.md`
-  - [ ] Корпус по ART-001 в Unity: 28 простых частей по `docs/concept-art/kovcheg-7.md`, подогнать к отсекам `ShipLayout`
+  - Корпус по ART-001 в Unity — разделено на две части:
+    - [x] 28 простых частей по `docs/concept-art/kovcheg-7.md` (`Core/HullPlan.cs`, `Game/HullView.cs`), подогнаны к отсекам `ShipLayout`: все стены внутри, окна и стекло на местах, изнутри корпус не виден
+    - [ ] Анимация корпуса по заметкам ART-001: роторы крутятся от тяги, рули глубины следуют за подъёмом и спуском, крышка нижнего шлюза открывается
 - [ ] Принять ART-002 мостик и пересобрать по нему мостик в Unity
 - [ ] Принять ART-003…ART-007 (серпохвост, флора, карта отмели, стеклоуст и скребун, эхоловец) — сданы в `art/concepts` 2026-10-19, по одной PR на заказ
 

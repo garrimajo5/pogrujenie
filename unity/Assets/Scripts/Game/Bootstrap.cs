@@ -31,6 +31,7 @@ namespace Pogrujenie.Game
         public SeaCurrent Current { get; private set; }
         public Transform Wheel { get; private set; }
         public SeabedView Seafloor { get; private set; }
+        public HullView Hull { get; private set; }
         /// <summary>Свет сквозь лёд: слабеет с глубиной.</summary>
         public Light Sun { get; private set; }
 
@@ -105,10 +106,10 @@ namespace Pogrujenie.Game
             ship.SetParent(transform);
             Ship = ship;
             ship.position = new Vector3(Motion.X, Motion.Y, Motion.Z);
-            var hull = Part(Shape.Capsule, "Корпус", ship, new Color(0.55f, 0.5f, 0.42f));
-            hull.transform.localPosition = new Vector3(0, 1.5f, 9f);
-            hull.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            hull.transform.localScale = new Vector3(11f, 16f, 5f); // 32 м: от носа z=−7 до кормы; изнутри не виден
+            // корпус снаружи по ART-001: 28 деталей, изнутри не виден (Core/HullPlan.cs)
+            Hull = new GameObject("Корпус снаружи").AddComponent<HullView>();
+            Hull.transform.SetParent(ship, false);
+            Hull.Build();
 
             // отсеки: полы, стены, переборки и люки
             Layout = new ShipLayout();
@@ -132,7 +133,7 @@ namespace Pogrujenie.Game
 
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
-            lampGo.transform.localPosition = new Vector3(0, -0.5f, -7.2f);
+            lampGo.transform.localPosition = new Vector3(0, HullPlan.SearchlightY, HullPlan.LensZ - 0.1f); // перед линзой
             lampGo.transform.localRotation = Quaternion.Euler(15, 180, 0);
             Lamp = lampGo.AddComponent<Light>();
             Lamp.type = LightType.Spot;
