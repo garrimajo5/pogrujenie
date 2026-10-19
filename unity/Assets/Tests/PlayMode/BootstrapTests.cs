@@ -47,10 +47,12 @@ namespace Pogrujenie.Tests
             boot.Reactor.Set(ShipSystem.Engines, 20); // освобождаем 10 единиц
             boot.Reactor.Set(ShipSystem.Lamp, 20);
             yield return null;
-            Assert.AreEqual(Bootstrap.LampRange * 2f, boot.Lamp.range, 0.01f, "двойная доля — луч вдвое дальше");
+            Assert.AreEqual(Bootstrap.LampRange * Mathf.Sqrt(2f), boot.Lamp.range, 0.01f, "двойная доля — луч в √2 раз дальше, как в браузере");
+            Assert.AreEqual(Mathf.Sqrt(2f), boot.Beam.transform.localScale.z, 0.01f, "и видимый конус длиннее");
             boot.Reactor.Set(ShipSystem.Lamp, 0);
             yield return null;
             Assert.IsFalse(boot.Lamp.enabled, "без энергии прожектор гаснет");
+            Assert.IsFalse(boot.Beam.enabled, "и конуса луча не видно");
         }
 
         [UnityTest]

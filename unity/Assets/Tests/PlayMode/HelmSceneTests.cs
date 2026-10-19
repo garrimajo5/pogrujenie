@@ -150,6 +150,55 @@ namespace Pogrujenie.Tests
             Assert.IsTrue(boot.Lamp.enabled, "снова светит");
         }
 
+        // По отчёту qa/2026-10-19-0950-bridge-shell, замечание 3: после «Свет» кнопка выглядела так же, луча не было видно
+        [UnityTest]
+        public IEnumerator СветМеняетКнопкуИЛучВВоде()
+        {
+            yield return Sit();
+            Assert.IsTrue(boot.Beam.enabled, "конус луча виден в воде");
+            Assert.AreEqual("Свет вкл", boot.Controls.LightLabel);
+            Color on = boot.Controls.LightColor;
+            boot.Controls.PressLight();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(boot.Beam.enabled, "погасили — конуса нет");
+            Assert.AreEqual("Свет выкл", boot.Controls.LightLabel);
+            Assert.AreEqual("Прожектор погашен", boot.Status.Text);
+            Color off = boot.Controls.LightColor;
+            Assert.Greater(on.a - off.a, 0.5f, "горящая кнопка заметно плотнее");
+            Assert.Greater(on.r - on.b, 0.4f, "и янтарная");
+            boot.Controls.PressLight();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(boot.Beam.enabled);
+            Assert.AreEqual("Свет вкл", boot.Controls.LightLabel);
+            Assert.AreEqual("Прожектор включён", boot.Status.Text);
+        }
+
+        [UnityTest]
+        public IEnumerator ЛучДостаётДнаНаСтарте()
+        {
+            yield return null;
+            var lamp = boot.Lamp;
+            Assert.AreEqual(LightRenderMode.ForcePixel, lamp.renderMode, "попиксельно и на телефоне — пятно на дне видно");
+            Assert.AreEqual(Searchlight.SpotAngleDeg, lamp.spotAngle, 0.01f);
+            Vector3 p = lamp.transform.position, f = lamp.transform.forward;
+            Assert.AreEqual(Searchlight.PitchDeg, Mathf.Asin(-f.y) * Mathf.Rad2Deg, 0.1f, "вниз на 18°");
+            // нижний край конуса: ось, опущенная ещё на половину раскрытия
+            Vector3 edge = Quaternion.AngleAxis(lamp.spotAngle / 2f, lamp.transform.right) * f;
+            float hit = -1f;
+            for (float t = 0.25f; t <= lamp.range; t += 0.25f)
+            {
+                Vector3 q = p + edge * t;
+                if (q.y <= Seabed.Height(q.x, q.z)) { hit = t; break; }
+            }
+            Assert.Greater(hit, 0f, "нижний край луча ложится на дно в пределах дальности");
+            Assert.Less(hit, lamp.range * 0.5f, "и пятно не на излёте");
+            var beam = boot.Beam.GetComponent<MeshFilter>().sharedMesh;
+            Assert.Greater(beam.bounds.size.z, 50f, "конус в воде длиной 55 м");
+            Assert.AreEqual("Pogrujenie/Beam", boot.Beam.sharedMaterial.shader.name);
+        }
+
         [UnityTest]
         public IEnumerator ВсталИКрестовинаСноваВедётИгрока()
         {
