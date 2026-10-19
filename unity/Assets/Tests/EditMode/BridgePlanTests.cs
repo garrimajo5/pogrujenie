@@ -172,7 +172,7 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(BridgePaint.Seam, BridgePlan.PaintOf(Find("Потолок мостика")));
             Assert.AreEqual(BridgePaint.Metal, BridgePlan.PaintOf(Find("Борт мостика")));
             Assert.AreEqual(BridgePaint.Metal, BridgePlan.PaintOf(Find("Нос: над окном")));
-            Assert.AreEqual(BridgePaint.Shadow, BridgePlan.PaintOf(Find("Пульт штурвала")));
+            Assert.IsFalse(ShipLayout.Boxes.Any(b => b.Name == "Пульт штурвала"), "брусок пульта заменён моделью MOD-004");
             Assert.IsNull(BridgePlan.PaintOf(Find("Пол коридора")));
             Assert.IsNull(BridgePlan.PaintOf(Find("Стена коридора")));
             Assert.IsNull(BridgePlan.PaintOf(Find("Корма")));

@@ -49,12 +49,14 @@ namespace Pogrujenie.Game
             return t;
         }
 
-        /// <summary>Материал модели: белый цвет, её текстура; у голостола светятся голубые огни.</summary>
+        /// <summary>Материал модели: белый цвет, её текстура; у голостола и пульта светятся голубые огни, экраны пульта — целиком.</summary>
         public static Material Paint(string model)
         {
             var mat = Shapes.Paint(Color.white, model);
             mat.mainTexture = TextureOf(model);
             if (BridgeProps.GlowingLights(model)) mat.SetFloat("_TexGlow", 1f);
+            if (BridgeProps.GlowingScreen(model))
+                mat.SetColor("_Glow", new Color(BridgeProps.ScreenGlowR, BridgeProps.ScreenGlowG, BridgeProps.ScreenGlowB));
             return mat;
         }
 

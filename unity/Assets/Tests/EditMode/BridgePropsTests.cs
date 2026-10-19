@@ -19,6 +19,7 @@ namespace Pogrujenie.Tests
         [TestCase(BridgeProps.Stand, 0.35f, 0.8f, 0.35f, 1500)]
         [TestCase(BridgeProps.Chair, 0.65f, 1.2f, 0.7f, 3000)]
         [TestCase(BridgeProps.Table, 2.2f, 0.9f, 2.2f, 4000)]
+        [TestCase(BridgeProps.Console, 2.5f, 1.42f, 0.65f, 3000)]
         public void ГабаритыИБюджетКакВЗаказе(string model, float w, float h, float d, int budget)
         {
             var m = Load(model);
@@ -38,6 +39,8 @@ namespace Pogrujenie.Tests
         [TestCase(BridgeProps.Stand)]
         [TestCase(BridgeProps.Chair)]
         [TestCase(BridgeProps.Table)]
+        [TestCase(BridgeProps.Console)]
+        [TestCase(BridgeProps.Screens)]
         public void ТреугольникиЛицомПоНормалямИUVВТекстуре(string model)
         {
             // зеркало по x при переводе из glTF разворачивает обход: лицевая сторона (как у Shapes) — по нормали
@@ -151,6 +154,60 @@ namespace Pogrujenie.Tests
             var bad = File.ReadAllBytes(Path.Combine("Assets", "Resources", "Models", BridgeProps.Wheel + ".bytes"));
             bad[bad.Length - 1] = 0xFF; bad[bad.Length - 2] = 0xFF; // последний индекс 65535 — вне меша
             Assert.Throws<InvalidDataException>(() => MeshPack.Read(bad));
+        }
+
+        [Test]
+        public void ЭкраныПультаЛицомКПилоту()
+        {
+            // MOD-004: три наклонные плоскости одной сеткой, над тёмными полями корпуса
+            var m = Load(BridgeProps.Screens);
+            Assert.AreEqual(6, m.Triangles, "три прямоугольника");
+            m.Bounds(out var min, out var max);
+            Assert.AreEqual(2.06f, max[0] - min[0], 0.02f, "три экрана по ширине пульта");
+            Assert.Greater(min[1], 0.95f, "экраны над рабочей поверхностью");
+            Assert.LessOrEqual(max[1], BridgeProps.ConsoleH);
+            for (int i = 0; i < m.Vertices; i++)
+            {
+                Assert.Greater(m.Nrm[i * 3 + 2], 0.8f, "смотрят к пилоту, в +Z");
+                Assert.Greater(m.Nrm[i * 3 + 1], 0.1f, "и чуть вверх — наклонены");
+            }
+            // корпус тоже лицом к пилоту: верх (козырёк экранов) отодвинут к носу
+            var c = Load(BridgeProps.Console);
+            double sum = 0; int n = 0;
+            for (int i = 0; i < c.Vertices; i++)
+                if (c.Pos[i * 3 + 1] > 1.3f) { sum += c.Pos[i * 3 + 2]; n++; }
+            Assert.Greater(n, 50);
+            Assert.Less(sum / n, -0.05, "козырёк у носовой стороны");
+        }
+
+        [Test]
+        public void ПультУНосаНеЗадеваетШтурвал()
+        {
+            Assert.AreEqual(-6f + 0.1f, BridgeProps.NoseInner, 1e-5f, "внутренняя грань носовой стены (ShipLayout, «Нос: под окном»)");
+            Assert.AreEqual(BridgeProps.NoseInner, BridgeProps.ConsoleZ - BridgeProps.ConsoleD * BridgeProps.ConsoleSZ / 2, 1e-5f, "спиной к стене");
+            Assert.Less(BridgeProps.ConsoleFront, BridgeProps.WheelZ - BridgeProps.WheelHalfDepth - 0.05f, "между пультом и колесом зазор");
+            // стойка штурвала (0,35 м) встаёт в проём между тумбами: внизу у середины пульта вершин нет
+            var c = Load(BridgeProps.Console);
+            for (int i = 0; i < c.Vertices; i++)
+                if (c.Pos[i * 3 + 1] < 0.6f)
+                    Assert.Greater(Math.Abs(c.Pos[i * 3]), 0.175f + 0.1f, "тумбы не в стойке");
+            // тумбы — препятствия: у краёв пульта стоять нельзя
+            var l = new ShipLayout();
+            Assert.IsFalse(l.CanStand(1.2f, -5.5f), "правая тумба");
+            Assert.IsFalse(l.CanStand(-1.2f, -5.5f), "левая тумба");
+            Assert.IsTrue(l.CanStand(1.9f, -5.5f), "за краем пульта можно");
+        }
+
+        [Test]
+        public void ИзКреслаДноВидноНадПультом()
+        {
+            // луч из глаз пилота вниз на 18° (туда ложится середина прожектора) проходит над пультом и сквозь окно
+            float eyeY = CameraView.SeatEye, eyeZ = CameraView.SeatZ;
+            float y = eyeY - (eyeZ - BridgeProps.NoseInner) * (float)Math.Tan(18.0 * Math.PI / 180.0);
+            Assert.Greater(y, BridgeProps.ConsoleTop, "пульт ниже луча зрения");
+            Assert.Greater(y, BridgePlan.WindowBottom, "луч в окне");
+            Assert.Less(BridgeProps.ConsoleTop, 1.2f);
+            Assert.Greater(BridgeProps.ConsoleTop, BridgePlan.WindowBottom, "пульт заходит на окно снизу, как на концепте");
         }
     }
 }
