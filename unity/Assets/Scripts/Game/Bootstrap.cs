@@ -8,7 +8,7 @@ namespace Pogrujenie.Game
     /// <summary>
     /// Заготовка Unity-версии: собирает сцену из кода — отмель с рельефом и льдом, вода с туманом
     /// по глубине, «Ковчег-7» с прожектором
-    /// и стайка светляков. Прожектор питается от реактора: его дальность — доля «Прожектор».
+    /// и живой мир отмели (EcoView: стаи светляков-полосников у кораллов). Прожектор питается от реактора: его дальность — доля «Прожектор».
     /// Корабль ведут за штурвалом (ShipPhysics): тяга зависит от доли «Двигатели», течение сносит всегда.
     /// Сцена Main создаётся меню «Погружение → Создать сцену Main» или сборкой; в пустой сцене
     /// заготовка тоже поднимается сама при нажатии Play.
@@ -26,7 +26,8 @@ namespace Pogrujenie.Game
         public Light Lamp { get; private set; }
         /// <summary>Видимый конус луча в воде; горит вместе с прожектором.</summary>
         public MeshRenderer Beam { get; private set; }
-        public Transform[] Fireflies { get; private set; }
+        /// <summary>Живой мир отмели (поток Б): EcoWorld из Core и его существа в сцене.</summary>
+        public EcoView Eco { get; private set; }
         public TouchInput Controls { get; private set; }
         public Player Player { get; private set; }
         public ShipLayout Layout { get; private set; }
@@ -182,16 +183,10 @@ namespace Pogrujenie.Game
             Beam = SearchlightView.MakeBeam(lampGo.transform);
             ownMats.Add(Beam.sharedMaterial);
 
-            // светляки: стайка кружит перед носом
-            Fireflies = new Transform[24];
-            var fireflyMat = Mat(new Color(0.5f, 1f, 0.8f), "Светляк");
-            fireflyMat.SetColor("_Glow", new Color(0.25f, 0.5f, 0.4f)); // светятся сами
-            for (int i = 0; i < Fireflies.Length; i++)
-            {
-                var f = Shapes.Make(Shape.Sphere, "Светляк", transform, fireflyMat);
-                f.transform.localScale = Vector3.one * 0.3f;
-                Fireflies[i] = f.transform;
-            }
+            // живой мир отмели: шесть стай светляков-полосников у кораллов (Core/EcoFish.cs)
+            Eco = new GameObject("Живой мир").AddComponent<EcoView>();
+            Eco.transform.SetParent(transform, false);
+            Eco.Build();
 
             Cam.transform.SetParent(ship, false);
             Cam.nearClipPlane = 0.05f;
@@ -261,15 +256,6 @@ namespace Pogrujenie.Game
             ApplyPower();
             Step(Time.deltaTime);
             ApplyWater();
-            float t = Time.time;
-            for (int i = 0; i < Fireflies.Length; i++)
-            {
-                // стайка живёт у места старта, перед носом; корабль может от неё уплыть
-                float a = t * 0.4f + i * 0.26f;
-                float r = 6f + Mathf.Sin(i * 1.7f) * 2f;
-                Fireflies[i].position = new Vector3(ShipPhysics.StartX + Mathf.Cos(a) * r,
-                    ShipPhysics.StartY + Mathf.Sin(t + i) * 1.5f - 2f, ShipPhysics.StartZ - 20f + Mathf.Sin(a) * r);
-            }
         }
 
         /// <summary>Шаг хода корабля: течение, тяга от доли двигателей, положение и курс в сцене.</summary>
@@ -289,6 +275,10 @@ namespace Pogrujenie.Game
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(BridgeProps.WheelTilt, 0f, -Motion.Turn * 80f);
             SampleView.Sync(Motion, Layout.Lock.T);
+            // живой мир знает, где корабль, как быстро идёт и горит ли прожектор; его события — на приборы
+            Eco.SetShip(Ship.position, Motion.Speed, Lamp.enabled);
+            Eco.Step(dt);
+            foreach (var m in Eco.TakeMessages()) Say(m);
             if (SaveDirty)
             {
                 saveTimer += dt;

@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 
 namespace Pogrujenie.Tests
 {
-    /// <summary>Заготовка сцены: корабль, камера, светляки и прожектор, который питается от реактора.</summary>
+    /// <summary>Заготовка сцены: корабль, камера, живой мир отмели и прожектор, который питается от реактора.</summary>
     public class BootstrapTests
     {
         Bootstrap boot;
@@ -27,13 +27,14 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
-        public IEnumerator СобираетКорабльКамеруИСветляков()
+        public IEnumerator СобираетКорабльКамеруИЖивойМир()
         {
             yield return null;
             Assert.AreSame(boot, Bootstrap.Instance);
             Assert.IsNotNull(boot.Ship);
             Assert.IsNotNull(boot.Cam);
-            Assert.AreEqual(24, boot.Fireflies.Length);
+            Assert.IsNotNull(boot.Eco);
+            Assert.AreEqual(132, boot.Eco.Fish.All.Count, "шесть стай светляков по 22 вместо тестовой стайки");
             Assert.IsTrue(RenderSettings.fog, "в воде туман");
             Assert.Less(boot.Lamp.transform.position.z, boot.Ship.position.z, "прожектор на носу, нос в −Z");
         }
@@ -55,13 +56,13 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
-        public IEnumerator СветлякиКружатПередНосом()
+        public IEnumerator СветлякиПлаваютПередНосом()
         {
-            Vector3 a = boot.Fireflies[0].position;
+            Vector3 a = boot.Eco.DrawnAt(0);
             yield return new WaitForSeconds(0.3f);
-            Vector3 b = boot.Fireflies[0].position;
+            Vector3 b = boot.Eco.DrawnAt(0);
             Assert.Greater(Vector3.Distance(a, b), 0.001f, "стая движется");
-            Assert.Less(b.z, boot.Ship.position.z, "стая перед носом");
+            Assert.Less(b.z, boot.Ship.position.z, "ближняя стая перед носом");
         }
     }
 }

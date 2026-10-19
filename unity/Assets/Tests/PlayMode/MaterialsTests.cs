@@ -57,7 +57,7 @@ namespace Pogrujenie.Tests
             var hull = boot.Hull.Body.sharedMaterial;
             Assert.AreEqual(Shapes.ShaderName, hull.shader.name);
             Assert.AreEqual(0.55f, hull.color.r, 0.01f, "корпус охристый, как раньше");
-            var fly = boot.Fireflies[0].GetComponent<Renderer>().sharedMaterial;
+            var fly = boot.Eco.FishRenderer.sharedMaterial;
             Assert.Greater(fly.GetColor("_Glow").g, 0.1f, "светляки светятся сами");
         }
 
