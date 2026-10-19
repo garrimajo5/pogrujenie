@@ -1,4 +1,5 @@
 using Pogrujenie.Core;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -307,22 +308,41 @@ namespace Pogrujenie.Game
         void OnGUI()
         {
             float s = Mathf.Max(1f, Screen.height / 720f);
-            var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(22 * s) };
+            var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(22 * s), wordWrap = false, clipping = TextClipping.Overflow };
             style.normal.textColor = new Color(0.75f, 0.95f, 1f);
-            GUI.Label(new Rect(16 * s, 16 * s, 900 * s, 40 * s), "Погружение · Unity 0.1", style);
+            float w = Mathf.Min(900 * s, Screen.width - 32 * s);
+            GUI.Label(new Rect(16 * s, 16 * s, w, 40 * s), "Погружение · Unity 0.1", style);
             style.fontSize = Mathf.RoundToInt(16 * s);
-            GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), StatusLine(), style);
+            float row = 24 * s, y = 52 * s;
+            foreach (var line in StatusLines(t => style.CalcSize(new GUIContent(t)).x, w))
+            {
+                GUI.Label(new Rect(16 * s, y, w, row + 6 * s), line, style);
+                y += row;
+            }
         }
 
-        /// <summary>Строка состояния на приборах: где игрок, глубина, ход, реактор, шлюз, груз и сообщение.</summary>
-        public string StatusLine()
+        /// <summary>Части строки состояния: где игрок, глубина, ход, реактор, шлюз, груз и сообщение.</summary>
+        public List<string> StatusParts()
         {
-            string place = Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room);
-            string line = $"{place} · глубина {Motion.Depth:0} м · ход {Motion.Speed:0.0} м/с · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
-            if (Layout.Lock.FullyOpen) line += " · шлюз открыт · " + SampleHint();
-            if (Samples.Cargo.Count > 0) line += $" · образцов в трюме {Samples.Cargo.Count}";
-            if (Status.Visible) line += " · " + Status.Text;
-            return line;
+            var parts = new List<string>
+            {
+                Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room),
+                $"глубина {Motion.Depth:0} м",
+                $"ход {Motion.Speed:0.0} м/с",
+                $"реактор {Reactor.Used}/{Reactor.Limit}",
+                $"прожектор {Reactor[ShipSystem.Lamp]}",
+            };
+            if (Layout.Lock.FullyOpen) { parts.Add("шлюз открыт"); parts.Add(SampleHint()); }
+            if (Samples.Cargo.Count > 0) parts.Add($"образцов в трюме {Samples.Cargo.Count}");
+            if (Status.Visible) parts.Add(Status.Text);
+            return parts;
         }
+
+        /// <summary>Строка состояния по строкам экрана ширины <paramref name="width"/> (Core/StatusBoard.cs).</summary>
+        public List<string> StatusLines(System.Func<string, float> measure, float width) =>
+            StatusBoard.Lines(StatusParts(), measure, width);
+
+        /// <summary>Строка состояния целиком, без повторов.</summary>
+        public string StatusLine() => StatusBoard.Join(StatusParts());
     }
 }
