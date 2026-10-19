@@ -85,3 +85,14 @@ jobs:
           name: pogrujenie-apk
           path: build/Android
           retention-days: 14
+      # Файлы проекта, которые Unity создаёт при сборке (отчёт qa/2026-10-19-0150-unity-shader-fix):
+      # отсюда их берём в репозиторий, чтобы сборки в CI и у тестера совпадали
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unity-project-files
+          path: |
+            unity/Packages/packages-lock.json
+            unity/ProjectSettings/*.asset
+          if-no-files-found: warn
+          retention-days: 14
