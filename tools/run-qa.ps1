@@ -10,6 +10,7 @@ $adb   = "$sdk\platform-tools\adb.exe"
 $unity = 'C:\Program Files\Unity\Hub\Editor\6000.6.6f1\Editor\Unity.exe'
 $app   = 'com.garrimajo5.pogrujenie'
 
+git -C 'D:\AI\qa-reports' pull -q origin qa/reports
 git -C $repo fetch -q origin main
 $head = (git -C $repo rev-parse --short origin/main).Trim()
 $last = if (Test-Path "$out\last-commit.txt") { (Get-Content "$out\last-commit.txt").Trim() } else { '' }
@@ -17,6 +18,8 @@ if ($head -eq $last -and -not $Force) { Write-Output "NO_CHANGES $head"; exit 0 
 # Клон только для тестов: локальные правки (сгенерированные .meta) не нужны
 git -C $repo checkout -q -f -B main origin/main
 $subject = git -C $repo log -1 --format=%s origin/main
+$range = if ($last) { "$last..origin/main" } else { '-5 origin/main' }
+$newCommits = git -C $repo log --format='%h %s%n%b' $range.Split(' ')
 
 Remove-Item -Recurse -Force $run -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $run | Out-Null
@@ -62,6 +65,8 @@ $errs = Select-String -Path "$run\app.txt" -Pattern ' E Unity|AndroidRuntime|FAT
 
 Set-Content "$out\last-commit.txt" $head
 Write-Output "OK $head $subject"
+Write-Output "previous tested: $last"
+Write-Output "commits since previous:"; $newCommits
 Write-Output "build: $buildLine"
 Write-Output "app alive after test: $alive"
 Write-Output "errors:"; $errs | Select -First 30
