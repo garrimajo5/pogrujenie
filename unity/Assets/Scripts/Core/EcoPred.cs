@@ -243,6 +243,8 @@ namespace Pogrujenie.Core
                     if (dShip < BiteDist)
                     {
                         world.HitShip(new ShipHit(Id, "bite", BiteDamage, a.P));
+                        var bitAt = a.P;
+                        world.Emit(Id, "bite", bitAt, () => $"{Species.Cap(world.Name(Id))} укусил корпус");
                         SetMode(pr, Mode.Retreat, 14f);
                         pr.Cooldown = BiteCooldown;
                         var away = a.P - ship; away.Y = 0;

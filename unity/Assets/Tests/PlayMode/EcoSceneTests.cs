@@ -37,7 +37,7 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(132, eco.Fish.All.Count);
             Assert.AreEqual(132 * EcoFishLook.VertsPerFish, eco.FishMesh.vertexCount);
             Assert.AreEqual(132 * EcoFishLook.Tris.Length, eco.FishMesh.triangles.Length);
-            Assert.AreEqual(3, eco.GetComponentsInChildren<Renderer>().Length, "рыбки, мох и скребуны — по одному вызову отрисовки");
+            Assert.AreEqual(5, eco.GetComponentsInChildren<Renderer>().Length, "рыбки, мох, скребуны, тела и огни серпохвостов — по одному вызову отрисовки");
             Assert.AreEqual("Pogrujenie/Seabed", eco.FishRenderer.sharedMaterial.shader.name, "цвет из вершин");
             foreach (Transform t in boot.transform)
                 Assert.AreNotEqual("Светляк", t.name, "тестовых шариков-светляков больше нет");
@@ -87,6 +87,62 @@ namespace Pogrujenie.Tests
             var pp = g0.Agent.P;
             var now = eco.GrazerDrawnAt(0);
             Assert.Less(Vector2.Distance(new Vector2(now.x, now.z), new Vector2(pp.X, pp.Z)), 0.5f, "меш следует за скребуном");
+        }
+
+        [UnityTest]
+        public IEnumerator СерпохвостыНарисованыИТянутЦепочку()
+        {
+            yield return null;
+            var eco = boot.Eco;
+            Assert.AreEqual(3, eco.Preds.All.Count);
+            Assert.AreEqual(3 * EcoPredLook.BodyVerts, eco.PredMesh.vertexCount);
+            Assert.AreEqual(3 * EcoPredLook.LightVerts, eco.PredLightMesh.vertexCount);
+            Assert.AreEqual(3 * EcoPredLook.BodyTris.Length, eco.PredMesh.triangles.Length);
+            Assert.AreEqual("Pogrujenie/Seabed", eco.PredRenderer.sharedMaterial.shader.name);
+            Assert.AreEqual(1f, eco.PredRenderer.sharedMaterial.GetFloat("_Lit"), 1e-4f, "тело освещается сценой");
+            Assert.AreEqual(0f, eco.PredLightRenderer.sharedMaterial.GetFloat("_Lit"), 1e-4f, "огни светятся сами");
+            Assert.Greater(eco.PredLightRenderer.sharedMaterial.GetColor("_Glow").g, 0.99f, "свечение во всю силу");
+            var eye = eco.PredLightMesh.colors[0];
+            Assert.AreEqual(1f, eye.r, 0.01f, "глаза красные");
+            Assert.Less(eye.g, 0.3f);
+            // через 3 с мира голова там, где хищник, сегменты тянутся следом
+            for (int i = 0; i < 60; i++) eco.Step(0.05f);
+            foreach (var pr in eco.Preds.All)
+            {
+                var p = new Vector3(pr.Agent.P.X, pr.Agent.P.Y, pr.Agent.P.Z);
+                Assert.Less(Vector3.Distance(eco.PredHeadAt(pr.Index), p), 0.01f, "серпохвост " + pr.Index);
+                var c = eco.PredChains[pr.Index];
+                for (int k = 1; k < EcoPredLook.Segs; k++)
+                    Assert.LessOrEqual(EcoVec.Distance(c.P[k], c.P[k - 1]), EcoPredLook.Link + 1e-3f);
+                Assert.Greater(eco.PredLightAt(pr.Index, 0).y, Seabed.Height(pr.Agent.P.X, pr.Agent.P.Z), "над дном");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator УкусСерпохвостаДоходитДоКорабля()
+        {
+            yield return null;
+            var eco = boot.Eco;
+            var pr = eco.Preds.All[0];
+            pr.Hunger = 1f;
+            pr.Cooldown = 0f;
+            var hits = new System.Collections.Generic.List<ShipHit>();
+            eco.World.ShipStruck += h => hits.Add(h);
+            var at = pr.Agent.P;
+            var ship = new Vector3(at.X + 20f, at.Y, at.Z);
+            var said = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < 200 && hits.Count == 0; i++)
+            {
+                eco.SetShip(ship, 0f, true);
+                eco.Step(0.05f);
+                said.AddRange(eco.TakeMessages());
+            }
+            Assert.AreEqual(1, hits.Count, "на свет прожектора серпохвост бросился и укусил");
+            Assert.AreEqual("pred", hits[0].SpeciesId);
+            Assert.AreEqual(EcoPred.BiteDamage, hits[0].Damage);
+            Assert.IsTrue(said.Exists(m => m.Contains("разворачивается к кораблю")), "бросок слышен на приборах");
+            Assert.IsTrue(said.Exists(m => m.Contains("укусил корпус")), "укус слышен на приборах");
+            Assert.Less(Vector3.Distance(eco.PredHeadAt(0), ship), EcoPred.BiteDist + 1f, "нарисован у корабля");
         }
 
         [UnityTest]
