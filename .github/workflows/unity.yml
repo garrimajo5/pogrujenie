@@ -51,6 +51,8 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: write # релиз apk-latest: ссылка на свежий APK для телефона
     steps:
       - uses: jlumbroso/free-disk-space@v1.3.1
         with:
@@ -85,6 +87,21 @@ jobs:
           name: pogrujenie-apk
           path: build/Android
           retention-days: 14
+      # Свежий APK из main — в релиз apk-latest: постоянная ссылка, телефон качает без входа в GitHub и без zip
+      - name: APK в релиз apk-latest
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          apk=$(find build/Android -name '*.apk' | head -1)
+          test -n "$apk"
+          cp "$apk" Pogrujenie.apk
+          notes="Сборка из main, коммит ${GITHUB_SHA::7}, $(date -u '+%Y-%m-%d %H:%M') UTC. Установка: скачать Pogrujenie.apk на телефоне и открыть."
+          gh release view apk-latest >/dev/null 2>&1 || \
+            gh release create apk-latest --prerelease --title "APK для телефона" --notes "$notes" --target "$GITHUB_SHA"
+          gh release upload apk-latest Pogrujenie.apk --clobber
+          gh release edit apk-latest --notes "$notes"
       # Файлы проекта, которые Unity создаёт при сборке (отчёт qa/2026-10-19-0150-unity-shader-fix):
       # отсюда их берём в репозиторий, чтобы сборки в CI и у тестера совпадали
       - uses: actions/upload-artifact@v4

@@ -80,6 +80,39 @@ class RepoFiles(unittest.TestCase):
         self.assertIn('unity/ProjectSettings/*.asset', m.group(1))
 
 
+class ApkRelease(unittest.TestCase):
+    """APK из main выкладывается в релиз apk-latest: постоянная ссылка для установки на телефон."""
+
+    TOP = os.path.dirname(um.ROOT)
+
+    def workflow(self):
+        with open(os.path.join(self.TOP, '.github', 'workflows', 'unity.yml'), encoding='utf-8') as fh:
+            return fh.read()
+
+    def step(self):
+        m = re.search(r'- name: APK в релиз apk-latest\n(.*?)(?:\n      - |\Z)', self.workflow(), re.S)
+        self.assertIsNotNone(m, 'нет шага выкладки APK')
+        return m.group(1)
+
+    def test_only_from_main(self):
+        cond = re.search(r'if: (.*)', self.step()).group(1)
+        self.assertIn("github.ref == 'refs/heads/main'", cond)
+        self.assertIn("github.event_name != 'pull_request'", cond, 'PR не перезаписывают APK для телефона')
+
+    def test_uploads_apk_to_release(self):
+        s = self.step()
+        self.assertIn('gh release upload apk-latest Pogrujenie.apk --clobber', s)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', s)
+
+    def test_job_may_write_release(self):
+        job = self.workflow().split('  android:', 1)[1]
+        self.assertRegex(job.split('steps:', 1)[0], r'contents: write')
+
+    def test_readme_links_release(self):
+        with open(os.path.join(self.TOP, 'README.md'), encoding='utf-8') as fh:
+            self.assertIn('releases/download/apk-latest/Pogrujenie.apk', fh.read())
+
+
 class ProjectFiles(unittest.TestCase):
     """Закрепляет отчёт qa/2026-10-19-0150-unity-shader-fix: файлы, которые Unity создаёт при сборке,
     лежат в репозитории, чтобы сборки в CI и у тестера совпадали."""
