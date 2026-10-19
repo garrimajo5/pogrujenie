@@ -5,7 +5,7 @@ namespace Pogrujenie.Game
 {
     /// <summary>
     /// Игрок от первого лица в отсеках: крестовина ведёт, свайп поворачивает взгляд, кнопка действия
-    /// работает с ближайшим постом перед игроком (люки, штурвал). Камера — дочерняя корабля.
+    /// работает с ближайшим постом перед игроком (люки, штурвал, шлюз); у лебёдки шлюза кнопку держат. Камера — дочерняя корабля.
     /// За штурвалом крестовина ведёт уже корабль: вверх-вниз — ход, влево-вправо — поворот;
     /// «Всплыть»/«Вниз» меняют глубину, «Свет» — прожектор, кнопка действия — «Встать».
     /// </summary>
@@ -81,6 +81,8 @@ namespace Pogrujenie.Game
                 Target = boot.Layout.Nearest(Walker.X, Walker.Z, Walker.Yaw);
                 // кнопку, которой только что встали, не отдаём посту в том же кадре
                 if (input.ActionPressed && Target != null && !stood) Target.Do();
+                // посты удержания (лебёдка шлюза) работают, пока кнопка зажата
+                if (input.ActionDown && Target != null && Target.Hold != null && !stood) Target.Hold(Time.deltaTime);
                 input.ActionLabel = Target != null ? Target.Label() : "";
                 input.ActionEnabled = Target != null;
             }
