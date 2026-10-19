@@ -47,7 +47,8 @@ namespace Pogrujenie.Game
         /// <summary>Прожектор включён (кнопкой действия). Светит, только если у него есть энергия.</summary>
         public bool LampOn = true;
 
-        string lastMsg = "";
+        /// <summary>Сообщение на приборах в конце строки состояния, гаснет через 4,2 с (Core/StatusMessage.cs).</summary>
+        public StatusMessage Status { get; } = new StatusMessage();
 
         /// <summary>Ключ сохранения в PlayerPrefs (как localStorage в браузере).</summary>
         public const string SaveKeyMain = "pogrujenie.save.v1";
@@ -75,7 +76,7 @@ namespace Pogrujenie.Game
         {
             Instance = this;
             Reactor = new Reactor();
-            Reactor.Message += (title, text) => lastMsg = title;
+            Reactor.Message += (title, text) => Say(title);
             Motion = new ShipPhysics { Ground = Seabed.Height };
             Current = new SeaCurrent();
             HullAnim = new HullMotion();
@@ -230,13 +231,13 @@ namespace Pogrujenie.Game
         }
 
         /// <summary>Строка-сообщение на приборах.</summary>
-        public void Say(string msg) { lastMsg = msg; }
+        public void Say(string msg) { Status.Say(msg); }
 
         /// <summary>Кнопка «Свет» за штурвалом: включить или погасить прожектор.</summary>
         public void ToggleLamp()
         {
             LampOn = !LampOn;
-            if (LampOn && Reactor.K(ShipSystem.Lamp) <= 0f) lastMsg = "Прожектор обесточен";
+            if (LampOn && Reactor.K(ShipSystem.Lamp) <= 0f) Say("Прожектор обесточен");
             ApplyPower();
         }
 
@@ -263,6 +264,7 @@ namespace Pogrujenie.Game
             if (dt <= 0f) return;
             dt = Mathf.Min(dt, 0.25f); // после паузы не прыгаем
             Current.Update(dt);
+            Status.Update(dt);
             float k = Reactor.K(ShipSystem.Engines);
             Motion.Update(dt, k, Current.X, Current.Z);
             HullAnim.Update(dt, Motion.InThrust, Motion.InVert, k);
@@ -319,12 +321,18 @@ namespace Pogrujenie.Game
             style.normal.textColor = new Color(0.75f, 0.95f, 1f);
             GUI.Label(new Rect(16 * s, 16 * s, 900 * s, 40 * s), "Погружение · Unity 0.1", style);
             style.fontSize = Mathf.RoundToInt(16 * s);
+            GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), StatusLine(), style);
+        }
+
+        /// <summary>Строка состояния на приборах: где игрок, глубина, ход, реактор, шлюз, груз и сообщение.</summary>
+        public string StatusLine()
+        {
             string place = Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room);
             string line = $"{place} · глубина {Motion.Depth:0} м · ход {Motion.Speed:0.0} м/с · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
             if (Layout.Lock.FullyOpen) line += " · шлюз открыт · " + SampleHint();
             if (Samples.Cargo.Count > 0) line += $" · образцов в трюме {Samples.Cargo.Count}";
-            if (lastMsg.Length > 0) line += " · " + lastMsg;
-            GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), line, style);
+            if (Status.Visible) line += " · " + Status.Text;
+            return line;
         }
     }
 }
