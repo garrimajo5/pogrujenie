@@ -188,8 +188,7 @@ namespace Pogrujenie.Core
             Bulkhead(b, 2, 10, 3.2f);
             // свет мостика — 10 плафонов на бортах, рама окна и скос потолка: Core/BridgePlan.cs (ART-002)
             Add("Пульт штурвала", BoxKind.Dark, 1.9f, 0.55f, 0.55f, 0, 0.275f, -5.6f);
-            Add("Кресло пилота", BoxKind.Dark, 0.6f, 0.1f, 0.6f, 0, 0.5f, -4.05f);
-            Add("Спинка кресла", BoxKind.Dark, 0.6f, 0.7f, 0.08f, 0, 0.9f, -3.75f);
+            // кресло пилота, голостол и штурвал — модели художника MOD-001…003 (Core/BridgeProps.cs)
 
             // коридор
             Add("Стена коридора", BoxKind.Wall, 0.2f, 2.6f, 6, -1.1f, 1.3f, 5);

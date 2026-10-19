@@ -21,6 +21,9 @@ namespace Pogrujenie.Game
         /// <summary>Оболочка мостика (BridgePlan.Parts): один меш на краску.</summary>
         public readonly Dictionary<BridgePaint, MeshFilter> Bridge = new Dictionary<BridgePaint, MeshFilter>();
         readonly Dictionary<BridgePaint, Material> bridgeMats = new Dictionary<BridgePaint, Material>();
+        /// <summary>Модели художника на мостике (BridgeProps.Fixed) по имени детали.</summary>
+        public readonly Dictionary<string, MeshRenderer> Props = new Dictionary<string, MeshRenderer>();
+        readonly List<Material> propMats = new List<Material>();
         readonly List<Mesh> ownMeshes = new List<Mesh>();
 
         /// <summary>В какой слитый меш идёт брусок; null — рисуется отдельно.</summary>
@@ -105,8 +108,17 @@ namespace Pogrujenie.Game
                 DoorMeshes[i] = d.transform;
             }
 
-            // голостол сонара и реактор — пока как образы, без постов
-            Cylinder("Голостол сонара", new Vector3(0, 0.475f, -1.2f), new Vector3(2.2f, 0.475f, 2.2f), M(BoxKind.Dark));
+            // кресло пилота, корпус голостола и стойка штурвала — модели MOD-001…003 по ART-002
+            foreach (var p in BridgeProps.Fixed)
+            {
+                var mat = Models.Paint(p.Model);
+                propMats.Add(mat);
+                var go = Models.Make(p.Model, p.Name, transform, mat);
+                go.transform.localPosition = new Vector3(p.X, p.Y, p.Z);
+                go.transform.localScale = new Vector3(p.SX, p.SY, p.SZ);
+                Props[p.Name] = go.GetComponent<MeshRenderer>();
+            }
+            // реактор — пока как образ, без поста
             Cylinder("Реактор", new Vector3(0, 1.5f, 17.2f), new Vector3(1.8f, 1.5f, 1.8f), M(BoxKind.Lamp));
 
             Lamp(new Vector3(0, 2.9f, -2), 12f, new Color(1f, 0.92f, 0.8f), 1.1f);
@@ -192,6 +204,7 @@ namespace Pogrujenie.Game
         {
             foreach (var m in mats.Values) Destroy(m);
             foreach (var m in bridgeMats.Values) Destroy(m);
+            foreach (var m in propMats) Destroy(m);
             foreach (var m in ownMeshes) Destroy(m);
         }
     }

@@ -92,6 +92,42 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
+        public IEnumerator МоделиХудожникаНаМостике()
+        {
+            // MOD-001…003: кресло, голостол, стойка и колесо штурвала — меши из Resources/Models с текстурой на нашем шейдере
+            Assert.AreEqual(BridgeProps.Fixed.Length, boot.View.Props.Count);
+            foreach (var p in BridgeProps.Fixed)
+            {
+                var r = boot.View.Props[p.Name];
+                Check(r, p.Model);
+                Assert.AreEqual(new Vector3(p.X, p.Y, p.Z), r.transform.localPosition, p.Name);
+            }
+            Check(boot.WheelModel, BridgeProps.Wheel);
+            Assert.AreSame(boot.Wheel, boot.WheelModel.transform.parent, "колесо крутится вместе со штурвалом");
+            Assert.AreEqual(Vector3.zero, boot.WheelModel.transform.localPosition);
+
+            var table = boot.View.Props["Голостол сонара"].sharedMaterial;
+            Assert.AreEqual(1f, table.GetFloat("_TexGlow"), "огни голостола светятся");
+            Assert.AreEqual(0f, boot.View.Props["Кресло пилота"].sharedMaterial.GetFloat("_TexGlow"));
+            Assert.IsNull(boot.View.transform.Find("Спинка кресла"), "бруски кресла убраны");
+            Assert.Less(boot.GetComponentsInChildren<Renderer>().Length, 120);
+            yield return null;
+        }
+
+        static void Check(MeshRenderer r, string model)
+        {
+            Assert.IsNotNull(r, model);
+            var mat = r.sharedMaterial;
+            Assert.AreEqual(Shapes.ShaderName, mat.shader.name, model + ": наш шейдер, не Standard");
+            Assert.IsNotNull(mat.mainTexture, model + ": текстура из Resources");
+            Assert.AreEqual(1024, mat.mainTexture.width, model);
+            var mesh = r.GetComponent<MeshFilter>().sharedMesh;
+            var pack = MeshPack.Read(Resources.Load<TextAsset>(Models.Folder + model).bytes);
+            Assert.AreEqual(pack.Triangles * 3, mesh.triangles.Length, model);
+            Assert.AreEqual(pack.Vertices, mesh.vertexCount, model);
+        }
+
+        [UnityTest]
         public IEnumerator ОболочкаМостикаПоКраскамОдинМешНаКраску()
         {
             // ART-002: рама и переплёты окна, скос потолка, рёбра, плафоны, решётки — по мешу на краску
