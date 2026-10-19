@@ -149,7 +149,12 @@ namespace Pogrujenie.Core
             return best;
         }
 
+        /// <summary>Проём в полу трюма над крышкой шлюза (квадрат, м) и глубина шахты до крышки.</summary>
+        public const float LockHole = 1.6f, ShaftDepth = 0.85f;
+        /// <summary>Прутья решётки над проёмом: по середине пусто, там идёт трос лебёдки.</summary>
+        public static readonly float[] GrateBars = { -0.6f, -0.25f, 0.25f, 0.6f };
         /// <summary>Неподвижная геометрия отсеков: полы, потолки, стены с окнами, переборки с проёмами люков.</summary>
+        // ниже GrateBars: статические поля заполняются по порядку
         public static readonly Box[] Boxes = BuildBoxes();
 
         static Box[] BuildBoxes()
@@ -162,7 +167,11 @@ namespace Pogrujenie.Core
             Add("Пол коридора", BoxKind.Floor, 2.2f, 0.1f, 6, 0, -0.05f, 5);
             Add("Пол лаборатории", BoxKind.Floor, 8, 0.1f, 6, 0, -0.1f, 11);
             Add("Пол машинного", BoxKind.Floor, 6, 0.1f, 5.5f, 0, -0.05f, 16.75f);
-            Add("Пол трюма", BoxKind.Floor, 5, 0.1f, 4.5f, 0, -0.05f, 21.75f);
+            // пол трюма — вокруг проёма люка шлюза (LockHole × LockHole над крышкой)
+            Add("Пол трюма: у машинного", BoxKind.Floor, 5, 0.1f, Airlock.Z - LockHole / 2 - 19.5f, 0, -0.05f, (19.5f + Airlock.Z - LockHole / 2) / 2);
+            Add("Пол трюма: у кормы", BoxKind.Floor, 5, 0.1f, 24f - Airlock.Z - LockHole / 2, 0, -0.05f, (24f + Airlock.Z + LockHole / 2) / 2);
+            foreach (float sx in new[] { -1f, 1f })
+                Add("Пол трюма: у борта", BoxKind.Floor, 2.5f - LockHole / 2, 0.1f, LockHole, sx * (2.5f + LockHole / 2) / 2, -0.05f, Airlock.Z);
             Add("Потолок мостика", BoxKind.Ceil, 10, 0.1f, 8, 0, 3.25f, -2);
             Add("Потолок коридора", BoxKind.Ceil, 2.2f, 0.1f, 6, 0, 2.65f, 5);
             Add("Потолок лаборатории", BoxKind.Ceil, 8, 0.1f, 6, 0, 3.45f, 11);
@@ -207,7 +216,17 @@ namespace Pogrujenie.Core
             Add("Борт трюма", BoxKind.Wall2, 0.2f, 3f, 4.5f, 2.5f, 1.5f, 21.75f);
             Add("Корма", BoxKind.Wall2, 5, 3f, 0.2f, 0, 1.5f, 24);
             Add("Лампа трюма", BoxKind.Lamp, 0.15f, 0.04f, 3.8f, 0, 2.99f, 21.75f);
-            Add("Люк шлюза в полу", BoxKind.Lamp, 1.6f, 0.02f, 1.6f, 0, 0.01f, Airlock.Z); // метка над крышкой
+            // люк шлюза: светлая кромка вокруг проёма, решётка вровень с полом, шахта до крышки
+            const float hh = LockHole / 2, rim = 0.12f;
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Add("Кромка люка шлюза", BoxKind.Lamp, LockHole + 2 * rim, 0.03f, rim, 0, 0.015f, Airlock.Z + s * (hh + rim / 2));
+                Add("Кромка люка шлюза", BoxKind.Lamp, rim, 0.03f, LockHole, s * (hh + rim / 2), 0.015f, Airlock.Z);
+                Add("Шахта шлюза", BoxKind.Dark, LockHole + 0.2f, ShaftDepth, 0.1f, 0, -ShaftDepth / 2, Airlock.Z + s * (hh + 0.05f));
+                Add("Шахта шлюза", BoxKind.Dark, 0.1f, ShaftDepth, LockHole, s * (hh + 0.05f), -ShaftDepth / 2, Airlock.Z);
+            }
+            foreach (float x in GrateBars)
+                Add("Решётка люка", BoxKind.Trim, 0.06f, 0.04f, LockHole, x, -0.02f, Airlock.Z);
             return b.ToArray();
         }
 

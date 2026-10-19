@@ -117,6 +117,49 @@ namespace Pogrujenie.Core
             z = s.Z + (float)Math.Cos(s.Yaw) * Airlock.Z;
         }
 
+        /// <summary>Точка в осях корабля → в мир: корабль в (X, Y, Z), поворот Yaw вокруг y (как Quaternion.Euler).</summary>
+        public static void ToWorld(ShipPhysics s, float lx, float ly, float lz, out float x, out float y, out float z)
+        {
+            float sin = (float)Math.Sin(s.Yaw), cos = (float)Math.Cos(s.Yaw);
+            x = s.X + cos * lx + sin * lz;
+            y = s.Y + ly;
+            z = s.Z - sin * lx + cos * lz;
+        }
+
+        /// <summary>
+        /// Шкив лебёдки — верх троса, в осях корабля: под решёткой люка над шахтой шлюза.
+        /// Захват в покое: в шахте над закрытой крышкой (RestY) или под днищем у открытого шлюза (RestOpenY).
+        /// </summary>
+        public const float PulleyY = -0.1f, RestY = -0.6f, RestOpenY = Airlock.Y - 0.75f;
+
+        /// <summary>
+        /// Где висит захват в покое, в осях корабля по y: опускается из шахты под днище во второй
+        /// половине открытия крышки (lockT от 0,5 до 1), чтобы не задеть откидывающуюся крышку.
+        /// </summary>
+        public static float RestHeight(float lockT)
+        {
+            float k = Math.Max(0f, Math.Min(1f, (lockT - 0.5f) * 2f));
+            return RestY + (RestOpenY - RestY) * k;
+        }
+
+        /// <summary>Шкив лебёдки в мире.</summary>
+        public static void PulleyPoint(ShipPhysics s, out float x, out float y, out float z)
+            => ToWorld(s, 0f, PulleyY, Airlock.Z, out x, out y, out z);
+
+        /// <summary>
+        /// Захват на конце троса в мире: в покое под шахтой; при захвате тянется к образцу на дне
+        /// (доля Progress), при подъёме несёт образец обратно к шлюзу (доля Lift).
+        /// </summary>
+        public void HookPoint(ShipPhysics s, float lockT, out float x, out float y, out float z)
+        {
+            ToWorld(s, 0f, RestHeight(lockT), Airlock.Z, out float rx, out float ry, out float rz);
+            float k = 0f;
+            if (Target != null && State == GrabState.Reach) k = Progress;
+            else if (Target != null && State == GrabState.Back) k = 1f - Lift;
+            float tx = Target?.X ?? rx, ty = Target?.Y ?? ry, tz = Target?.Z ?? rz;
+            x = rx + (tx - rx) * k; y = ry + (ty - ry) * k; z = rz + (tz - rz) * k;
+        }
+
         /// <summary>Ближайший образец на дне ниже шлюза и не дальше Reach; null — дотянуться не до чего.</summary>
         public Sample Find(float lx, float ly, float lz)
         {

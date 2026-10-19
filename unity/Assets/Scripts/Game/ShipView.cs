@@ -6,13 +6,25 @@ namespace Pogrujenie.Game
 {
     /// <summary>
     /// Отсеки «Ковчега-7» из ShipLayout.Boxes: полы, стены, переборки, люки и свет внутри.
-    /// Один материал на вид бруска, чтобы не плодить вызовы отрисовки.
+    /// Один материал на вид бруска, чтобы не плодить вызовы отрисовки. Пол трюма вокруг проёма и мелкие
+    /// детали люка шлюза (кромка, решётка, шахта) слиты в один меш на группу (MergeGroup).
     /// </summary>
     public sealed class ShipView : MonoBehaviour
     {
         public ShipLayout Layout { get; private set; }
         public Transform[] DoorMeshes { get; private set; }
         public int BoxCount { get; private set; }
+        /// <summary>Слитые меши по группам: «Пол трюма», «Кромка люка шлюза», «Решётка люка», «Шахта шлюза».</summary>
+        public readonly Dictionary<string, MeshFilter> Merged = new Dictionary<string, MeshFilter>();
+        readonly List<Mesh> ownMeshes = new List<Mesh>();
+
+        /// <summary>В какой слитый меш идёт брусок; null — рисуется отдельно.</summary>
+        public static string MergeGroup(string name)
+        {
+            if (name.StartsWith("Пол трюма", System.StringComparison.Ordinal)) return "Пол трюма";
+            if (name == "Кромка люка шлюза" || name == "Решётка люка" || name == "Шахта шлюза") return name;
+            return null;
+        }
 
         readonly Dictionary<BoxKind, Material> mats = new Dictionary<BoxKind, Material>();
 
@@ -27,12 +39,33 @@ namespace Pogrujenie.Game
                 return m;
             }
 
+            var groups = new Dictionary<string, List<CombineInstance>>();
+            var groupKind = new Dictionary<string, BoxKind>();
             foreach (var b in ShipLayout.Boxes)
             {
-                var go = Shapes.Make(Shape.Cube, b.Name, transform, M(b.Kind));
-                go.transform.localPosition = new Vector3(b.X, b.Y, b.Z);
-                go.transform.localScale = new Vector3(b.W, b.H, b.D);
                 BoxCount++;
+                var pos = new Vector3(b.X, b.Y, b.Z);
+                var size = new Vector3(b.W, b.H, b.D);
+                string g = MergeGroup(b.Name);
+                if (g != null)
+                {
+                    if (!groups.TryGetValue(g, out var list)) { list = new List<CombineInstance>(); groups[g] = list; groupKind[g] = b.Kind; }
+                    list.Add(new CombineInstance { mesh = Shapes.MeshOf(Shape.Cube), transform = Matrix4x4.TRS(pos, Quaternion.identity, size) });
+                    continue;
+                }
+                var go = Shapes.Make(Shape.Cube, b.Name, transform, M(b.Kind));
+                go.transform.localPosition = pos;
+                go.transform.localScale = size;
+            }
+            foreach (var kv in groups)
+            {
+                var mesh = new Mesh { name = kv.Key };
+                mesh.CombineMeshes(kv.Value.ToArray(), true, true);
+                ownMeshes.Add(mesh);
+                var go = Shapes.Make(Shape.Cube, kv.Key, transform, M(groupKind[kv.Key]));
+                var mf = go.GetComponent<MeshFilter>();
+                mf.sharedMesh = mesh;
+                Merged[kv.Key] = mf;
             }
 
             DoorMeshes = new Transform[layout.Doors.Length];
@@ -109,6 +142,7 @@ namespace Pogrujenie.Game
         void OnDestroy()
         {
             foreach (var m in mats.Values) Destroy(m);
+            foreach (var m in ownMeshes) Destroy(m);
         }
     }
 }

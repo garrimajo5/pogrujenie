@@ -130,5 +130,57 @@ namespace Pogrujenie.Tests
             Assert.IsFalse(carried.gameObject.activeSelf, "дошёл до шлюза");
             Assert.AreEqual(1, boot.Samples.Cargo.Count);
         }
+
+        [UnityTest]
+        public IEnumerator ТросЛебёдкиОтШкиваКЗахвату_ЗахватВыходитИзШлюза()
+        {
+            yield return null;
+            var v = boot.SampleView;
+            boot.Step(0.1f);
+            Assert.IsTrue(v.Cable.gameObject.activeSelf, "трос виден");
+            Assert.IsTrue(v.Hook.gameObject.activeSelf, "захват виден");
+
+            // шлюз закрыт: захват висит в шахте над крышкой
+            var local = boot.Ship.InverseTransformPoint(v.Hook.position);
+            Assert.AreEqual(0f, local.x, 0.01f);
+            Assert.AreEqual(Airlock.Z, local.z, 0.01f);
+            Assert.Greater(local.y, Airlock.Y + Airlock.Thick, "выше крышки");
+            Assert.Less(local.y, 0f, "ниже пола трюма — видно сквозь решётку");
+            AssertCable(v);
+
+            var s = boot.Samples.All[0];
+            OverSampleWithOpenLock(s);
+            local = boot.Ship.InverseTransformPoint(v.Hook.position);
+            Assert.Less(local.y, Airlock.Y, "шлюз открыт — захват под днищем");
+            Assert.IsFalse(HullPlan.Inside(local.x, local.y, local.z), "в воде");
+            var bed = new Vector3(s.X, s.Y, s.Z);
+            float rest = Vector3.Distance(v.Hook.position, bed);
+
+            // держим лебёдку: захват тянется к образцу, трос — за ним
+            for (int i = 0; i < 7; i++) { boot.Winch.Hold(0.1f); boot.Step(0.1f); }
+            Assert.AreEqual(GrabState.Reach, boot.Samples.State);
+            Assert.Less(Vector3.Distance(v.Hook.position, bed), rest * 0.7f, "захват на пути к образцу");
+            AssertCable(v);
+
+            // захватили: образец висит под захватом и поднимается вместе с ним
+            for (int i = 0; i < 10 && boot.Samples.State != GrabState.Back; i++) { boot.Winch.Hold(0.1f); boot.Step(0.1f); }
+            Assert.AreEqual(GrabState.Back, boot.Samples.State);
+            boot.Step(0.3f);
+            Assert.IsTrue(v.Carried.gameObject.activeSelf);
+            Assert.Less(Vector3.Distance(v.Carried.position, v.Hook.position), 0.6f, "образец на захвате");
+            Assert.Less(v.Carried.position.y, v.Hook.position.y, "висит под ним");
+            AssertCable(v);
+        }
+
+        /// <summary>Трос — цилиндр от шкива под решёткой люка до захвата.</summary>
+        void AssertCable(SamplesView v)
+        {
+            var top = boot.Ship.TransformPoint(new Vector3(0f, Samples.PulleyY, Airlock.Z));
+            var axis = v.Cable.rotation * Vector3.up;
+            float half = v.Cable.lossyScale.y; // цилиндр формы высотой 2
+            Assert.Less(Vector3.Distance(v.Cable.position - axis * half, top), 0.02f, "трос от шкива");
+            Assert.Less(Vector3.Distance(v.Cable.position + axis * half, v.Hook.position), 0.02f, "до захвата");
+            Assert.AreEqual(SamplesView.CableWidth, v.Cable.lossyScale.x, 1e-4f);
+        }
     }
 }
