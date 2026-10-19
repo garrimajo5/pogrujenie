@@ -113,13 +113,13 @@ namespace Pogrujenie.Core
         }
 
         /// <summary>Ближайшее живое существо вида не дальше maxDist (null — нет такого).</summary>
-        public EcoAgent Nearest(string species, EcoVec pos, float maxDist = float.MaxValue, Func<EcoAgent, bool> where = null)
+        public EcoAgent Nearest(string species, EcoVec pos, float maxDist = float.MaxValue, Func<EcoAgent, bool> filter = null)
         {
             EcoAgent best = null;
             float bd = maxDist;
             foreach (var a in Agents)
             {
-                if (!a.Alive || a.SpeciesId != species || (where != null && !where(a))) continue;
+                if (!a.Alive || a.SpeciesId != species || (filter != null && !filter(a))) continue;
                 float d = EcoVec.Distance(a.P, pos);
                 if (d <= bd) { bd = d; best = a; }
             }
