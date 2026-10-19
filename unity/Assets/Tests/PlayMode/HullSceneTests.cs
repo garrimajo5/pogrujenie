@@ -149,5 +149,49 @@ namespace Pogrujenie.Tests
             Assert.Less(boot.Lamp.transform.localPosition.z, HullPlan.NoseCut, "перед носом, а не внутри корпуса");
             Assert.Less(Vector3.Dot(boot.Lamp.transform.forward, boot.Ship.forward), -0.9f, "светит вперёд, к носу (−Z)");
         }
+
+        [UnityTest]
+        public IEnumerator КрышкаШлюзаОткрываетсяКнопкойДействияВТрюме()
+        {
+            yield return null;
+            var cover = boot.Hull.Cover;
+            Assert.IsNotNull(cover);
+            Assert.AreEqual("Нижний шлюз", cover.name);
+            var closedPos = cover.localPosition;
+            Assert.Less(Vector3.Distance(new Vector3(0, Airlock.Y, Airlock.Z), closedPos), 1e-4f);
+
+            // в трюме лицом к корме над крышкой — пост шлюза на кнопке действия
+            boot.Player.Place(0, 21f, 0f);
+            yield return null;
+            yield return null;
+            Assert.IsNotNull(boot.Player.Target);
+            Assert.AreEqual("Открыть шлюз", boot.Player.Target.Label());
+            Assert.AreEqual("Открыть шлюз", boot.Controls.ActionLabel);
+            boot.Controls.PressAction();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(boot.Layout.Lock.Open, "кнопка действия открывает шлюз");
+            Assert.AreEqual("Закрыть шлюз", boot.Controls.ActionLabel);
+
+            for (int i = 0; i < 25; i++) { boot.Layout.Update(0.1f); boot.Step(0.1f); }
+            Assert.IsTrue(boot.Layout.Lock.FullyOpen);
+            Assert.AreEqual(Airlock.MaxAngle, Quaternion.Angle(Quaternion.identity, cover.localRotation), 0.5f, "крышка откинута");
+            // петля (носовая кромка) на месте, кормовая кромка ушла вниз — под корпус
+            var hinge = boot.Ship.InverseTransformPoint(cover.TransformPoint(new Vector3(0, 0, -0.5f)));
+            Assert.Less(Vector3.Distance(new Vector3(0, Airlock.Y, Airlock.HingeZ), hinge), 1e-3f, "крышка висит на петле");
+            var edge = boot.Ship.InverseTransformPoint(cover.TransformPoint(new Vector3(0, 0, 0.5f)));
+            Assert.Less(edge.y, Airlock.Y - 1.9f * Airlock.Radius, "кормовая кромка внизу");
+            Assert.IsFalse(HullPlan.Inside(edge.x, edge.y, edge.z));
+
+            // закрыли — крышка вернулась на место детали корпуса
+            boot.Controls.PressAction();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(boot.Layout.Lock.Open);
+            for (int i = 0; i < 25; i++) { boot.Layout.Update(0.1f); boot.Step(0.1f); }
+            Assert.IsTrue(boot.Layout.Lock.Closed);
+            Assert.Less(Vector3.Distance(closedPos, cover.localPosition), 1e-4f);
+            Assert.Less(Quaternion.Angle(Quaternion.identity, cover.localRotation), 0.01f);
+        }
     }
 }

@@ -158,7 +158,7 @@ namespace Pogrujenie.Core
                 Add("Губка захвата", HullNode.Manipulator, Form.Wedge, HullPaint.Seam, sx * 0.17f, -1.65f, -8.85f, 0.12f, 0.25f, 0.6f, 0, 180);
 
             // нижний шлюз трюма и сервисные крышки на спине
-            Add("Нижний шлюз", HullNode.Airlock, Form.Cylinder, HullPaint.Lock, 0, -1.15f, 22f, 2.2f, 0.2f, 2.2f);
+            Add("Нижний шлюз", HullNode.Airlock, Form.Cylinder, HullPaint.Lock, 0, Airlock.Y, Airlock.Z, Airlock.Radius * 2, Airlock.Thick, Airlock.Radius * 2);
             Add("Сервисная крышка", HullNode.Cover, Form.Cube, HullPaint.Seam, 0, 4.62f, 15.5f, 2.4f, 0.25f, 1.8f);
             Add("Сервисная крышка", HullNode.Cover, Form.Cube, HullPaint.Seam, 0, 4.62f, 19f, 2.4f, 0.25f, 1.8f);
             return p.ToArray();
