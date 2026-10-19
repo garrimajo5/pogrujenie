@@ -54,7 +54,7 @@ namespace Pogrujenie.Tests
         {
             boot = new GameObject("Погружение").AddComponent<Bootstrap>();
             yield return null;
-            var hull = boot.Ship.Find("Корпус").GetComponent<Renderer>().sharedMaterial;
+            var hull = boot.Hull.Body.sharedMaterial;
             Assert.AreEqual(Shapes.ShaderName, hull.shader.name);
             Assert.AreEqual(0.55f, hull.color.r, 0.01f, "корпус охристый, как раньше");
             var fly = boot.Fireflies[0].GetComponent<Renderer>().sharedMaterial;
