@@ -43,8 +43,11 @@ namespace Pogrujenie.Core
             new EcoVec(-76.8304f, -31.1474f, 52.3365f),
         };
 
-        /// <summary>Цвет стаи (0xRRGGBB), у каждой рыбки своя яркость <see cref="Fish.Bright"/>.</summary>
-        public static readonly uint[] Colors = { 0x5ef2d6, 0xffd36b, 0x8fd0ff, 0xff8fd8, 0xb6ff7a, 0x7fe7ff };
+        /// <summary>
+        /// Цвет полос стаи (0xRRGGBB): по концепту ART-011 стаи светятся в голубой гамме (#67DDEB, #6FE3FF и
+        /// близкие оттенки; в браузере были шесть разных цветов). У каждой рыбки своя яркость <see cref="Fish.Bright"/>.
+        /// </summary>
+        public static readonly uint[] Colors = { 0x67DDEB, 0x6FE3FF, 0x5EF2D6, 0x7FE7FF, 0x8FD0FF, 0x4FD8E8 };
 
         /// <summary>Стая.</summary>
         public sealed class Shoal
