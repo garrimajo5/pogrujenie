@@ -13,7 +13,9 @@
   - [x] `.meta` для всех ассетов `unity/Assets` с постоянными GUID (`tools/unity_meta.py`, проверка в CI «Тесты»)
   - [x] Дописать в `ProjectVersion.txt` строку `m_EditorVersionWithRevision: 6000.6.6f1 (d20c9ac777da)` (ревизия из лога сборки в CI) и убедиться, что «Unity» зелёная
 - [x] Unity: за штурвалом не видно рамы носового окна, весь кадр — «лёд». Камера на месте, но угол обзора был 60° (Unity по умолчанию) вместо браузерных 72°/85° и взгляд опущен — угол как в браузере, за штурвалом взгляд прямо на нос (`Core/CameraView.cs`). Отчёт `qa/2026-10-19-0150-unity-shader-fix`, наблюдение
-- [ ] Unity: `.utmp/` в `.gitignore`; закоммитить `Packages/packages-lock.json` и `ProjectSettings/*.asset`, которые Unity создаёт при сборке, чтобы сборки в CI и у тестера совпадали (файлы взять из сборки CI — выложить артефактом). Отчёт `qa/2026-10-19-0150-unity-shader-fix`, мелочь по репозиторию
+- Unity: `.utmp/` в `.gitignore`; закоммитить `Packages/packages-lock.json` и `ProjectSettings/*.asset`, которые Unity создаёт при сборке, чтобы сборки в CI и у тестера совпадали. Отчёт `qa/2026-10-19-0150-unity-shader-fix`, мелочь по репозиторию — разделено на две части:
+  - [x] `.utmp/` в `.gitignore`, «Unity» выкладывает эти файлы артефактом `unity-project-files` после сборки APK
+  - [ ] Положить файлы из артефакта `unity-project-files` в `unity/` (без машинных путей и секретов), «Unity» зелёная
 - [ ] Unity: `ClassNotFoundException … AssetPackManager` при старте — безвредно, убрать, если Play Asset Delivery можно отключить настройкой сборки (в Unity Issue Tracker похожая ошибка `AssetPackStateUpdateListener ClassNotFoundException` в пустом проекте — возможно, настройкой не убирается). Отчёт `qa/2026-10-18-unity-pervyy-zapusk`, мелочи
 
 ## Концепт-арт

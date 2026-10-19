@@ -5,6 +5,7 @@
 """
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -49,6 +50,33 @@ class ProjectVersion(unittest.TestCase):
         m = re.search(r'(?m)^m_EditorVersionWithRevision: (\S+) \(([0-9a-f]{12})\)$', text)
         self.assertIsNotNone(m, 'нет строки m_EditorVersionWithRevision')
         self.assertEqual(m.group(1), ci)
+
+
+class RepoFiles(unittest.TestCase):
+    """Закрепляет отчёт qa/2026-10-19-0150-unity-shader-fix: после сборки в unity/ остаются неотслеживаемые файлы."""
+
+    TOP = os.path.dirname(um.ROOT)
+
+    def ignored(self, rel):
+        r = subprocess.run(['git', 'check-ignore', '-q', '--no-index', rel], cwd=self.TOP)
+        return r.returncode == 0
+
+    def test_utmp_ignored(self):
+        self.assertTrue(self.ignored('unity/.utmp/x.tmp'))
+        self.assertTrue(self.ignored('unity/Library/x'))
+
+    def test_project_files_not_ignored(self):
+        # эти файлы должны попадать в репозиторий, а не теряться в .gitignore
+        self.assertFalse(self.ignored('unity/Packages/packages-lock.json'))
+        self.assertFalse(self.ignored('unity/ProjectSettings/ProjectSettings.asset'))
+
+    def test_ci_uploads_project_files(self):
+        with open(os.path.join(self.TOP, '.github', 'workflows', 'unity.yml'), encoding='utf-8') as fh:
+            text = fh.read()
+        m = re.search(r'name: unity-project-files\n(.*?)(?:\n      - |\Z)', text, re.S)
+        self.assertIsNotNone(m, 'нет артефакта unity-project-files')
+        self.assertIn('unity/Packages/packages-lock.json', m.group(1))
+        self.assertIn('unity/ProjectSettings/*.asset', m.group(1))
 
 
 class Generator(unittest.TestCase):
