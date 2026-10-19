@@ -1,36 +1,18 @@
 name: Тесты
+# Браузерная версия в архиве (archive/web), её тесты в CI больше не идут.
+# Здесь — быстрые проверки репозитория Unity без редактора; сами тесты Unity — в «Unity».
 on:
   pull_request:
   push:
     branches: [main]
 jobs:
-  smoke:
+  repo:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Синтаксис JS
-        run: for f in js/*.js; do node --check "$f"; done
-      - name: Сервер синхронизации
-        run: node server/test.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Unity .meta
+      - name: Unity .meta и файлы проекта
         run: python tools/test_unity_meta.py
-      - name: Playwright
-        run: |
-          pip install playwright==1.47.0
-          python -m playwright install --with-deps chromium
-      - name: Логические тесты
-        run: python tools/test.py
-      - name: Смоук-тест
-        run: python tools/smoke.py --shots shots
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots
-          path: shots/
