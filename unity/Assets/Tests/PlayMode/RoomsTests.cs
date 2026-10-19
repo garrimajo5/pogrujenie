@@ -110,6 +110,19 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(1f, table.GetFloat("_TexGlow"), "огни голостола светятся");
             Assert.AreEqual(0f, boot.View.Props["Кресло пилота"].sharedMaterial.GetFloat("_TexGlow"));
             Assert.IsNull(boot.View.transform.Find("Спинка кресла"), "бруски кресла убраны");
+            // MOD-004: пульт пилота вместо тёмного бруска, кнопки светятся, экраны светятся целиком
+            Assert.IsNull(boot.View.transform.Find("Пульт штурвала"), "брусок пульта убран");
+            var console = boot.View.Props["Пульт пилота"];
+            Assert.AreEqual(1f, console.sharedMaterial.GetFloat("_TexGlow"), "огни кнопок пульта светятся");
+            Assert.AreEqual(new Vector3(1f, BridgeProps.ConsoleSY, BridgeProps.ConsoleSZ), console.transform.localScale);
+            var screens = boot.View.Props["Экраны пульта"];
+            Assert.AreEqual(console.transform.localPosition, screens.transform.localPosition, "экраны на корпусе, общий ноль");
+            Color glow = screens.sharedMaterial.GetColor("_Glow");
+            Assert.Greater(glow.b, 0.2f, "экраны светятся голубым");
+            Assert.AreEqual(Color.black, console.sharedMaterial.GetColor("_Glow"), "корпус целиком не светится");
+            // из кресла пульт в кадре внизу, над ним — окно
+            Assert.Less(console.bounds.max.y - boot.Ship.position.y, 1.2f, "пульт не закрывает окно пилоту");
+            Assert.Less(console.bounds.max.z - boot.Ship.position.z, BridgeProps.WheelZ - BridgeProps.WheelHalfDepth, "колесо перед пультом");
             Assert.Less(boot.GetComponentsInChildren<Renderer>().Length, 120);
             yield return null;
         }
