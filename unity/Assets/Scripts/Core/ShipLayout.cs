@@ -66,6 +66,8 @@ namespace Pogrujenie.Core
         public readonly List<Obstacle> Obstacles = new List<Obstacle>
         {
             new Obstacle(0, -5.5f, 1.0f),   // пульт штурвала
+            new Obstacle(-0.95f, -5.65f, 0.35f), // тумбы пульта пилота (MOD-004, ширина 2,5 м)
+            new Obstacle(0.95f, -5.65f, 0.35f),
             new Obstacle(0, -3.95f, 0.35f), // кресло пилота
             new Obstacle(0, -1.2f, 1.2f),   // голостол сонара
             new Obstacle(0, 17.2f, 1.05f),  // реактор
@@ -187,8 +189,7 @@ namespace Pogrujenie.Core
             Add("Борт мостика", BoxKind.Wall, 0.2f, 3.2f, 8, 5, 1.6f, -2);
             Bulkhead(b, 2, 10, 3.2f);
             // свет мостика — 10 плафонов на бортах, рама окна и скос потолка: Core/BridgePlan.cs (ART-002)
-            Add("Пульт штурвала", BoxKind.Dark, 1.9f, 0.55f, 0.55f, 0, 0.275f, -5.6f);
-            // кресло пилота, голостол и штурвал — модели художника MOD-001…003 (Core/BridgeProps.cs)
+            // кресло пилота, голостол, штурвал и пульт пилота — модели художника MOD-001…004 (Core/BridgeProps.cs)
 
             // коридор
             Add("Стена коридора", BoxKind.Wall, 0.2f, 2.6f, 6, -1.1f, 1.3f, 5);
