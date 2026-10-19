@@ -140,6 +140,7 @@ namespace Pogrujenie.Tests
                     {
                         if (b.Kind == BoxKind.Floor || b.Kind == BoxKind.Ceil || b.Kind == BoxKind.Lamp) continue;
                         if (b.MinY > 1.8f) continue; // над головой
+                        if (b.MaxY <= 0.01f) continue; // под полом: шахта и решётка шлюза
                         bool inside = x > b.MinX - 0.05f && x < b.MaxX + 0.05f && z > b.MinZ - 0.05f && z < b.MaxZ + 0.05f;
                         Assert.IsFalse(inside, $"{b.Name} мешает стоять в ({x}; {z})");
                     }

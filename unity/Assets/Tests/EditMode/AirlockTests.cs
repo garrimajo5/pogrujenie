@@ -122,14 +122,84 @@ namespace Pogrujenie.Tests
         }
 
         [Test]
-        public void МеткаШлюзаВПолуНеМешаетХодить()
+        public void КромкаЛюкаВПолуНеМешаетХодить()
         {
-            var mark = ShipLayout.Boxes.Single(b => b.Name == "Люк шлюза в полу");
-            Assert.AreEqual(BoxKind.Lamp, mark.Kind);
-            Assert.AreEqual(Airlock.Z, mark.Z, 1e-5f);
-            Assert.Less(mark.MaxY, 0.05f, "лежит на полу");
+            var rims = ShipLayout.Boxes.Where(b => b.Name == "Кромка люка шлюза").ToList();
+            Assert.AreEqual(4, rims.Count, "кромка с четырёх сторон проёма");
+            foreach (var r in rims)
+            {
+                Assert.AreEqual(BoxKind.Lamp, r.Kind);
+                Assert.Less(r.MaxY, 0.05f, "лежит на полу");
+                Assert.GreaterOrEqual(r.MinY, -0.001f);
+            }
+            float h = ShipLayout.LockHole / 2;
+            Assert.LessOrEqual(rims.Min(r => r.MinX), -h); Assert.GreaterOrEqual(rims.Max(r => r.MaxX), h);
+            Assert.LessOrEqual(rims.Min(r => r.MinZ), Airlock.Z - h); Assert.GreaterOrEqual(rims.Max(r => r.MaxZ), Airlock.Z + h);
+            foreach (var r in rims)
+                Assert.IsFalse(r.MaxX > -h + 0.01f && r.MinX < h - 0.01f && r.MaxZ > Airlock.Z - h + 0.01f && r.MinZ < Airlock.Z + h - 0.01f,
+                    "кромка вокруг проёма, а не в нём");
             var l = new ShipLayout();
-            Assert.IsTrue(l.CanStand(0, Airlock.Z), "по крышке можно ходить");
+            Assert.IsTrue(l.CanStand(0, Airlock.Z), "по решётке над крышкой можно ходить");
+        }
+
+        /// <summary>Что видно сверху в точке (x, z) трюма: самый высокий брусок над крышкой шлюза.</summary>
+        static Box? TopAt(float x, float z)
+        {
+            Box? top = null;
+            foreach (var b in ShipLayout.Boxes)
+            {
+                if (b.MaxY <= Airlock.Y + Airlock.Thick || b.MinY > 0.1f) continue;
+                if (x < b.MinX || x > b.MaxX || z < b.MinZ || z > b.MaxZ) continue;
+                if (top == null || b.MaxY > top.Value.MaxY) top = b;
+            }
+            return top;
+        }
+
+        [Test]
+        public void ВПолуТрюмаПроёмНадКрышкой_ЧерезРешёткуВидноВниз()
+        {
+            float h = ShipLayout.LockHole / 2;
+            Assert.LessOrEqual(h, Airlock.Radius, "проём не шире крышки");
+            int free = 0, total = 0;
+            for (float x = -h + 0.02f; x < h; x += 0.04f)
+                for (float z = Airlock.Z - h + 0.02f; z < Airlock.Z + h; z += 0.04f)
+                {
+                    total++;
+                    var t = TopAt(x, z);
+                    if (t == null) { free++; continue; }
+                    Assert.AreEqual("Решётка люка", t.Value.Name, $"проём закрыт в ({x}; {z})");
+                    Assert.LessOrEqual(t.Value.MaxY, 0.001f, "решётка вровень с полом");
+                }
+            Assert.Greater(free, total * 3 / 4, "сквозь решётку видно больше трёх четвертей проёма");
+            Assert.IsNull(TopAt(0f, Airlock.Z), "по оси проёма пусто — там трос лебёдки");
+            // пол трюма вокруг проёма на месте
+            foreach (var (x, z) in new[] { (0f, 20f), (0f, 23.5f), (-1.8f, Airlock.Z), (1.8f, Airlock.Z), (-2f, 20.5f), (2f, 23.8f) })
+            {
+                var t = TopAt(x, z);
+                Assert.IsNotNull(t, $"пол в ({x}; {z})");
+                Assert.AreEqual(BoxKind.Floor, t.Value.Kind, $"({x}; {z})");
+            }
+        }
+
+        [Test]
+        public void ШахтаОтПолаДоКрышки()
+        {
+            var shaft = ShipLayout.Boxes.Where(b => b.Name == "Шахта шлюза").ToList();
+            Assert.AreEqual(4, shaft.Count);
+            float h = ShipLayout.LockHole / 2;
+            foreach (var w in shaft)
+            {
+                Assert.AreEqual(0f, w.MaxY, 1e-4f, "от пола");
+                Assert.Less(w.MinY, -0.8f, "вниз почти до крышки");
+                Assert.GreaterOrEqual(w.MinY, Airlock.Y + Airlock.Thick, "крышку не протыкает");
+                // стенки снаружи проёма, не перекрывают его
+                bool overHole = w.MaxX > -h + 0.01f && w.MinX < h - 0.01f && w.MaxZ > Airlock.Z - h + 0.01f && w.MinZ < Airlock.Z + h - 0.01f;
+                Assert.IsFalse(overHole, "стенка шахты в проёме");
+                Assert.IsTrue(HullPlan.Inside(w.MinX, w.MinY, w.MinZ) && HullPlan.Inside(w.MaxX, w.MinY, w.MaxZ), "внутри корпуса");
+            }
+            // четыре стороны: две поперёк корабля и две вдоль
+            Assert.AreEqual(2, shaft.Count(w => w.W > w.D));
+            Assert.AreEqual(2, shaft.Count(w => w.D > w.W));
         }
     }
 }

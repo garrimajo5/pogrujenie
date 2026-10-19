@@ -258,6 +258,123 @@ namespace Pogrujenie.Tests
             Assert.AreEqual("Закрыть шлюз", lockPost.Label(), "над крышкой — пост шлюза, его можно закрыть");
         }
 
+        /// <summary>Мировая точка → оси корабля (обратно Samples.ToWorld).</summary>
+        static void ToShip(ShipPhysics s, float x, float y, float z, out float lx, out float ly, out float lz)
+        {
+            float dx = x - s.X, dz = z - s.Z, sin = (float)System.Math.Sin(s.Yaw), cos = (float)System.Math.Cos(s.Yaw);
+            lx = cos * dx - sin * dz; ly = y - s.Y; lz = sin * dx + cos * dz;
+        }
+
+        [Test]
+        public void ВОсиКорабляКакLockPoint()
+        {
+            foreach (float yaw in new[] { 0f, 0.7f, -2.4f, 3.1f })
+            {
+                var ship = new ShipPhysics { X = 10f, Y = -20f, Z = 50f, Yaw = yaw };
+                Samples.LockPoint(ship, out float ax, out float ay, out float az);
+                Samples.ToWorld(ship, 0f, Airlock.Y, Airlock.Z, out float bx, out float by, out float bz);
+                Assert.AreEqual(ax, bx, 1e-3f); Assert.AreEqual(ay, by, 1e-4f); Assert.AreEqual(az, bz, 1e-3f);
+                // правый борт (+x корабля в Unity — левый лицом к носу) и обратно
+                Samples.ToWorld(ship, 1.5f, 0.3f, 4f, out float wx, out float wy, out float wz);
+                ToShip(ship, wx, wy, wz, out float lx, out float ly, out float lz);
+                Assert.AreEqual(1.5f, lx, 1e-3f); Assert.AreEqual(0.3f, ly, 1e-4f); Assert.AreEqual(4f, lz, 1e-3f);
+            }
+            // Yaw = π/2: +x корабля смотрит в −Z мира, как Quaternion.Euler(0, 90, 0) * (1, 0, 0)
+            var q = new ShipPhysics { X = 0f, Y = 0f, Z = 0f, Yaw = (float)(System.Math.PI / 2) }; // конструктор ставит корабль на старт (Z = 95)
+            Samples.ToWorld(q, 1f, 0f, 0f, out float qx, out _, out float qz);
+            Assert.AreEqual(0f, qx, 1e-4f); Assert.AreEqual(-1f, qz, 1e-4f);
+        }
+
+        [Test]
+        public void ЗахватВШахтеПриЗакрытойКрышкеИПодДнищемПриОткрытой()
+        {
+            var m = new Samples();
+            var ship = new ShipPhysics { X = 3f, Y = -20f, Z = 40f, Yaw = 0.9f };
+            // шкив под решёткой, внутри корпуса, над шахтой
+            Samples.PulleyPoint(ship, out float px, out float py, out float pz);
+            ToShip(ship, px, py, pz, out float plx, out float ply, out float plz);
+            Assert.AreEqual(0f, plx, 1e-3f); Assert.AreEqual(Airlock.Z, plz, 1e-3f);
+            Assert.Less(ply, 0f, "под полом трюма");
+            Assert.Greater(ply, -ShipLayout.ShaftDepth);
+            Assert.IsTrue(HullPlan.Inside(plx, ply, plz));
+
+            // закрыто: захват в шахте над крышкой, внутри корпуса
+            m.HookPoint(ship, 0f, out float hx, out float hy, out float hz);
+            ToShip(ship, hx, hy, hz, out float lx, out float ly, out float lz);
+            Assert.AreEqual(0f, lx, 1e-3f); Assert.AreEqual(Airlock.Z, lz, 1e-3f);
+            Assert.Less(ly, ply, "ниже шкива");
+            Assert.Greater(ly, Airlock.Y + Airlock.Thick, "выше закрытой крышки");
+            Assert.IsTrue(HullPlan.Inside(lx, ly, lz));
+            // пока крышка открыта наполовину — захват ещё в шахте
+            m.HookPoint(ship, 0.5f, out _, out float halfY, out _);
+            Assert.AreEqual(hy, halfY, 1e-4f);
+            // открыто: под днищем, снаружи корпуса
+            m.HookPoint(ship, 1f, out hx, out hy, out hz);
+            ToShip(ship, hx, hy, hz, out lx, out ly, out lz);
+            Assert.Less(ly, Airlock.Y);
+            Assert.IsFalse(HullPlan.Inside(lx, ly, lz), "вышел из шлюза в воду");
+            Assert.AreEqual(Samples.RestOpenY, ly, 1e-4f);
+            // опускается плавно, без прыжков
+            float prev = Samples.RestHeight(0f);
+            for (float t = 0.05f; t <= 1.001f; t += 0.05f)
+            {
+                float h = Samples.RestHeight(t);
+                Assert.LessOrEqual(h, prev + 1e-5f);
+                Assert.Less(prev - h, 0.2f, $"t = {t}");
+                prev = h;
+            }
+        }
+
+        [Test]
+        public void ЗахватТянетсяКОбразцуИНесётЕгоКШлюзу()
+        {
+            var m = new Samples();
+            var s = m.All[5];
+            var ship = Over(s, 6f);
+            m.HookPoint(ship, 1f, out float rx, out float ry, out float rz);
+            float full = m.DistanceTo(s, rx, ry, rz);
+            Assert.Greater(full, 4f);
+
+            // половина захвата — захват на полпути от покоя к образцу
+            Hold(m, s, 0.7f);
+            Assert.AreEqual(GrabState.Reach, m.State);
+            m.HookPoint(ship, 1f, out float x, out float y, out float z);
+            Assert.AreEqual(full * (1f - m.Progress), m.DistanceTo(s, x, y, z), 0.01f);
+            Assert.Less(m.DistanceTo(s, x, y, z), full * 0.6f);
+
+            // полный захват — захват у образца
+            Hold(m, s, 0.75f);
+            Assert.AreEqual(GrabState.Back, m.State);
+            m.HookPoint(ship, 1f, out x, out y, out z);
+            Assert.Less(m.DistanceTo(s, x, y, z), full * 0.1f, "захват на образце");
+            // подъём: обратно к шлюзу
+            Wait(m, 0.6f);
+            m.HookPoint(ship, 1f, out x, out y, out z);
+            float back = m.DistanceTo(s, x, y, z);
+            Assert.AreEqual(full * m.Lift, back, 0.05f);
+            Assert.Greater(back, full * 0.3f);
+            // в трюме — захват снова в покое под шлюзом
+            Wait(m, 0.8f);
+            Assert.AreEqual(GrabState.Idle, m.State);
+            m.HookPoint(ship, 1f, out x, out y, out z);
+            Assert.AreEqual(rx, x, 1e-4f); Assert.AreEqual(ry, y, 1e-4f); Assert.AreEqual(rz, z, 1e-4f);
+        }
+
+        [Test]
+        public void ОтпустилКнопку_ЗахватВозвращается()
+        {
+            var m = new Samples();
+            var s = m.All[2];
+            var ship = Over(s, 5f);
+            m.HookPoint(ship, 1f, out float rx, out float ry, out float rz);
+            Hold(m, s, 1.0f);
+            m.HookPoint(ship, 1f, out float x, out float y, out float z);
+            Assert.Greater(System.Math.Abs(y - ry), 1f, "захват ушёл вниз");
+            Wait(m, 1f);
+            m.HookPoint(ship, 1f, out x, out y, out z);
+            Assert.AreEqual(ry, y, 1e-4f, "вернулся под шлюз");
+        }
+
         [Test]
         public void СбросВозвращаетОбразцыНаДно()
         {

@@ -261,7 +261,7 @@ namespace Pogrujenie.Game
             Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
-            SampleView.Sync(Motion);
+            SampleView.Sync(Motion, Layout.Lock.T);
         }
 
         /// <summary>Подсказка у открытого шлюза: что можно достать и как далеко.</summary>

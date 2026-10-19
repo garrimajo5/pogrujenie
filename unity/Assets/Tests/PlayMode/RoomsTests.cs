@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections;
 using NUnit.Framework;
 using Pogrujenie.Core;
@@ -77,6 +78,16 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(4, boot.View.DoorMeshes.Length);
             int renderers = boot.GetComponentsInChildren<Renderer>().Length;
             Assert.Less(renderers, 120, "мешей на весь корабль немного: бюджет 260 вызовов отрисовки");
+            // пол трюма вокруг проёма и детали люка шлюза — по одному мешу на группу
+            int cube = Shapes.MeshOf(Shape.Cube).vertexCount;
+            foreach (var g in new[] { "Пол трюма", "Кромка люка шлюза", "Решётка люка", "Шахта шлюза" })
+            {
+                Assert.IsTrue(boot.View.Merged.ContainsKey(g), g);
+                int pieces = ShipLayout.Boxes.Count(b => ShipView.MergeGroup(b.Name) == g);
+                Assert.Greater(pieces, 1, g);
+                Assert.AreEqual(pieces * cube, boot.View.Merged[g].sharedMesh.vertexCount, g);
+            }
+            Assert.AreEqual(4, boot.View.Merged.Count);
             yield return null;
         }
     }
