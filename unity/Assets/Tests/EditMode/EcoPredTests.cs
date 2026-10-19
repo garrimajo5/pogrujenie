@@ -148,6 +148,9 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(12, hits[0].Damage, "как Game.hullHit(12, 'bite') в браузере");
             Assert.Less(EcoVec.Distance(hits[0].Pos, w.Ship.Pos), EcoPred.BiteDist);
             Assert.IsTrue(w.LastHit.HasValue);
+            var bite = Notes(w, "bite");
+            Assert.AreEqual(1, bite.Count, "укус слышен на приборах");
+            StringAssert.Contains("укусил корпус", bite[0].Text);
             Assert.AreEqual(EcoPred.Mode.Retreat, pr.Mode, "после укуса уходит");
             Assert.AreEqual(EcoState.Flee, pr.Agent.State);
             Assert.AreEqual(EcoPred.BiteCooldown, pr.Cooldown, 1e-4f);
