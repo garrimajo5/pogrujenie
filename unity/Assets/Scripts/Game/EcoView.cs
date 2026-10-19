@@ -10,7 +10,10 @@ namespace Pogrujenie.Game
     /// полосы цвета стаи, ярче в тревоге) на шейдере дна с цветом вершин, светятся сами, как MeshBasicMaterial в браузере:
     /// один вызов отрисовки на 132 рыбки. Светящийся мох — 22 пятна одним мешем на шейдере EcoGlow (свет
     /// прибавляется к дну), яркость пятна по EcoMoss.Glow. Скребуны по концепту ART-006 — десять одним
-    /// мешем на шейдере дна (EcoGrazerLook: панцирь, шесть лап, скребок), без своего света. Корабль передаёт сюда место, ход и прожектор
+    /// мешем на шейдере дна (EcoGrazerLook: панцирь, шесть лап, скребок), без своего света. Серпохвосты (EcoPredLook:
+    /// голова, десять сегментов, хвост-серп) — три одним мешем тела на шейдере дна и одним мешем огней (красные глаза,
+    /// оранжевые огни по бокам светятся сами). Укус по корпусу мир отдаёт событием <see cref="EcoWorld.ShipStruck"/>,
+    /// что он делает с кораблём — решает корабль. Корабль передаёт сюда место, ход и прожектор
     /// (<see cref="SetShip"/>), события ближе 80 м забирает <see cref="TakeMessages"/>.
     /// </summary>
     public sealed class EcoView : MonoBehaviour
@@ -28,8 +31,18 @@ namespace Pogrujenie.Game
         /// <summary>Меш всех скребунов (перестраивается каждый кадр).</summary>
         public Mesh GrazerMesh { get; private set; }
         public MeshRenderer GrazerRenderer { get; private set; }
+        public EcoPred Preds { get; private set; }
+        /// <summary>Меш тел серпохвостов и меш их огней (оба перестраиваются каждый кадр).</summary>
+        public Mesh PredMesh { get; private set; }
+        public MeshRenderer PredRenderer { get; private set; }
+        public Mesh PredLightMesh { get; private set; }
+        public MeshRenderer PredLightRenderer { get; private set; }
+        /// <summary>Цепочки сегментов серпохвостов (по одной на хищника).</summary>
+        public EcoPredLook.Chain[] PredChains { get; private set; }
 
-        Material fishMat, mossMat, grazerMat;
+        Material fishMat, mossMat, grazerMat, predMat, predLightMat;
+        Vector3[] predVerts, predLightVerts;
+        EcoVec[] predPlace, predLightPlace;
         EcoMossLook.Mesh moss;
         Color[] mossCols;
         float[] mossShown;
@@ -46,6 +59,7 @@ namespace Pogrujenie.Game
             Fish = World.Add(new EcoFish());
             Moss = World.Add(new EcoMoss());           // мох раньше скребунов: они его едят
             Grazers = World.Add(new EcoGrazer(Moss));
+            Preds = World.Add(new EcoPred(Fish));      // серпохвосты охотятся на светляков
 
             int per = EcoFishLook.VertsPerFish, n = Fish.All.Count;
             verts = new Vector3[n * per];
@@ -78,6 +92,7 @@ namespace Pogrujenie.Game
 
             BuildMoss();
             BuildGrazers();
+            BuildPreds();
         }
 
         MeshRenderer Renderer(string name, Mesh mesh, Material mat)
@@ -135,6 +150,53 @@ namespace Pogrujenie.Game
             GrazerMesh.RecalculateBounds();
         }
 
+        void BuildPreds()
+        {
+            int n = Preds.All.Count, bv = EcoPredLook.BodyVerts, lv = EcoPredLook.LightVerts;
+            PredChains = new EcoPredLook.Chain[n];
+            for (int i = 0; i < n; i++) PredChains[i] = new EcoPredLook.Chain();
+            predVerts = new Vector3[n * bv]; predPlace = new EcoVec[n * bv];
+            predLightVerts = new Vector3[n * lv]; predLightPlace = new EcoVec[n * lv];
+            var bodyCols = new Color[n * bv];
+            var lightCols = new Color[n * lv];
+            var bodyTris = new int[n * EcoPredLook.BodyTris.Length];
+            var lightTris = new int[n * EcoPredLook.LightTris.Length];
+            for (int i = 0; i < n; i++)
+            {
+                for (int k = 0; k < bv; k++) bodyCols[i * bv + k] = ColorOf(EcoPredLook.BodyPaint[k]);
+                for (int k = 0; k < lv; k++) lightCols[i * lv + k] = ColorOf(EcoPredLook.LightPaint[k]);
+                for (int k = 0; k < EcoPredLook.BodyTris.Length; k++)
+                    bodyTris[i * EcoPredLook.BodyTris.Length + k] = i * bv + EcoPredLook.BodyTris[k];
+                for (int k = 0; k < EcoPredLook.LightTris.Length; k++)
+                    lightTris[i * EcoPredLook.LightTris.Length + k] = i * lv + EcoPredLook.LightTris[k];
+            }
+            PredMesh = new Mesh { name = "Серпохвосты" };
+            PredMesh.MarkDynamic();
+            predMat = new Material(Resources.Load<Shader>("Seabed")) { name = "Серпохвосты" };
+            predMat.SetFloat("_Lit", 1f);
+            predMat.SetColor("_Glow", new Color(0.12f, 0.12f, 0.12f)); // тело своего света не даёт, но в глубине не чёрное
+            PredRenderer = Renderer("Серпохвосты", PredMesh, predMat);
+
+            PredLightMesh = new Mesh { name = "Огни серпохвостов" };
+            PredLightMesh.MarkDynamic();
+            predLightMat = new Material(Resources.Load<Shader>("Seabed")) { name = "Огни серпохвостов" };
+            predLightMat.SetFloat("_Lit", 0f);
+            predLightMat.SetColor("_Glow", Color.white); // глаза и огни светятся сами, как MeshBasicMaterial
+            PredLightRenderer = Renderer("Огни серпохвостов", PredLightMesh, predLightMat);
+
+            SyncPreds();
+            PredMesh.colors = bodyCols;
+            PredMesh.triangles = bodyTris;
+            PredMesh.RecalculateNormals();
+            PredMesh.RecalculateBounds();
+            var normals = new Vector3[n * lv];
+            for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
+            PredLightMesh.normals = normals;
+            PredLightMesh.colors = lightCols;
+            PredLightMesh.triangles = lightTris;
+            PredLightMesh.RecalculateBounds();
+        }
+
         public static Color ColorOf(uint c) =>
             new Color(((c >> 16) & 255) / 255f, ((c >> 8) & 255) / 255f, (c & 255) / 255f);
 
@@ -153,6 +215,7 @@ namespace Pogrujenie.Game
             Sync();
             SyncMoss();
             SyncGrazers();
+            SyncPreds();
         }
 
         /// <summary>Тексты событий, которые слышны с корабля (ближе 80 м); очередь очищается.</summary>
@@ -236,6 +299,42 @@ namespace Pogrujenie.Game
             GrazerMesh.RecalculateBounds();
         }
 
+        /// <summary>Вершины серпохвостов по миру сейчас: цепочка тянется за головой, тело извивается.</summary>
+        public void SyncPreds()
+        {
+            int bv = EcoPredLook.BodyVerts, lv = EcoPredLook.LightVerts;
+            float t = World.Time;
+            foreach (var pr in Preds.All)
+            {
+                var chain = PredChains[pr.Index];
+                EcoPredLook.Follow(chain, pr);
+                EcoPredLook.Place(pr, chain, t, predPlace, pr.Index * bv, predLightPlace, pr.Index * lv);
+            }
+            for (int i = 0; i < predVerts.Length; i++) { var p = predPlace[i]; predVerts[i] = new Vector3(p.X, p.Y, p.Z); }
+            for (int i = 0; i < predLightVerts.Length; i++) { var p = predLightPlace[i]; predLightVerts[i] = new Vector3(p.X, p.Y, p.Z); }
+            PredMesh.vertices = predVerts;
+            if (PredMesh.subMeshCount > 0 && PredMesh.GetIndexCount(0) > 0) PredMesh.RecalculateNormals();
+            PredMesh.RecalculateBounds();
+            PredLightMesh.vertices = predLightVerts;
+            PredLightMesh.RecalculateBounds();
+        }
+
+        /// <summary>Середина вершин головы серпохвоста (для тестов): где он нарисован.</summary>
+        public Vector3 PredHeadAt(int pred)
+        {
+            int bv = EcoPredLook.BodyVerts, n = 0;
+            var s = Vector3.zero;
+            for (int k = 0; k < bv; k++)
+                if (EcoPredLook.BodyPart[k] == EcoPredLook.HeadPart) { s += predVerts[pred * bv + k]; n++; }
+            return s / n;
+        }
+
+        /// <summary>Вершина огня серпохвоста в мире (для тестов).</summary>
+        public Vector3 PredLightAt(int pred, int vertex) => predLightVerts[pred * EcoPredLook.LightVerts + vertex];
+
+        /// <summary>Вершина тела серпохвоста в мире (для тестов).</summary>
+        public Vector3 PredBodyAt(int pred, int vertex) => predVerts[pred * EcoPredLook.BodyVerts + vertex];
+
         /// <summary>Яркость мха в меше у вершины v (зелёный канал, для тестов).</summary>
         public float MossShown(int v) => mossCols[v].g;
 
@@ -271,6 +370,10 @@ namespace Pogrujenie.Game
             if (MossMesh != null) Destroy(MossMesh);
             if (grazerMat != null) Destroy(grazerMat);
             if (GrazerMesh != null) Destroy(GrazerMesh);
+            if (predMat != null) Destroy(predMat);
+            if (PredMesh != null) Destroy(PredMesh);
+            if (predLightMat != null) Destroy(predLightMat);
+            if (PredLightMesh != null) Destroy(PredLightMesh);
         }
     }
 }
