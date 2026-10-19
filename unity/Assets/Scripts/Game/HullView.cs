@@ -18,6 +18,8 @@ namespace Pogrujenie.Game
         public Transform[] Rotors { get; private set; }
         /// <summary>Рули глубины, по борту на каждый.</summary>
         public Transform[] Rudders { get; private set; }
+        /// <summary>Крышка нижнего шлюза: откидывается на петле (Core/Airlock).</summary>
+        public Transform Cover { get; private set; }
 
         readonly List<Quaternion> rotorBase = new List<Quaternion>(), rudderBase = new List<Quaternion>();
         readonly List<float> rotorSide = new List<float>();
@@ -71,6 +73,7 @@ namespace Pogrujenie.Game
                 if (p.Node == HullNode.Body) Body = go.GetComponent<Renderer>();
                 if (p.Node == HullNode.Rotor) { rotors.Add(t); rotorBase.Add(t.localRotation); rotorSide.Add(Mathf.Sign(p.X)); }
                 if (p.Node == HullNode.Rudder) { rudders.Add(t); rudderBase.Add(t.localRotation); }
+                if (p.Node == HullNode.Airlock) Cover = t;
             }
             Rotors = rotors.ToArray();
             Rudders = rudders.ToArray();
@@ -86,6 +89,15 @@ namespace Pogrujenie.Game
                 Rotors[i].localRotation = rotorBase[i] * Quaternion.Euler(0f, m.RotorAngleOf(rotorSide[i]), 0f);
             for (int i = 0; i < Rudders.Length; i++)
                 Rudders[i].localRotation = Quaternion.Euler(m.Pitch, 0f, 0f) * rudderBase[i];
+        }
+
+        /// <summary>Крышка шлюза поворачивается вокруг петли у носовой кромки (Airlock.CoverPose).</summary>
+        public void AnimateLock(Airlock a)
+        {
+            if (Cover == null) return;
+            a.CoverPose(out float y, out float z, out float rx);
+            Cover.localPosition = new Vector3(0f, y, z);
+            Cover.localRotation = Quaternion.Euler(rx, 0f, 0f);
         }
 
         void OnDestroy()

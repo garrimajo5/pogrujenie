@@ -120,6 +120,7 @@ namespace Pogrujenie.Game
             View = new GameObject("Отсеки").AddComponent<ShipView>();
             View.transform.SetParent(ship, false);
             View.Build(Layout);
+            Layout.Lock.Message += Say;
 
             // штурвал на пульте: поворачивается вместе с кораблём
             var wheel = new GameObject("Штурвал").transform;
@@ -241,6 +242,7 @@ namespace Pogrujenie.Game
             Motion.Update(dt, k, Current.X, Current.Z);
             HullAnim.Update(dt, Motion.InThrust, Motion.InVert, k);
             Hull.Animate(HullAnim);
+            Hull.AnimateLock(Layout.Lock);
             Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
@@ -255,6 +257,7 @@ namespace Pogrujenie.Game
             style.fontSize = Mathf.RoundToInt(16 * s);
             string place = Player.Piloting ? "За штурвалом" : ShipLayout.RoomName(Player.Room);
             string line = $"{place} · глубина {Motion.Depth:0} м · ход {Motion.Speed:0.0} м/с · реактор {Reactor.Used}/{Reactor.Limit} · прожектор {Reactor[ShipSystem.Lamp]}";
+            if (Layout.Lock.FullyOpen) line += " · шлюз открыт";
             if (lastMsg.Length > 0) line += " · " + lastMsg;
             GUI.Label(new Rect(16 * s, 52 * s, 900 * s, 30 * s), line, style);
         }

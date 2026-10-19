@@ -69,6 +69,8 @@ namespace Pogrujenie.Core
             new Obstacle(0, 17.2f, 1.05f),  // реактор
         };
         public readonly List<Interactable> Inter = new List<Interactable>();
+        /// <summary>Нижний шлюз трюма: пост «Открыть шлюз»/«Закрыть шлюз» над крышкой.</summary>
+        public readonly Airlock Lock = new Airlock();
 
         public ShipLayout()
         {
@@ -78,6 +80,7 @@ namespace Pogrujenie.Core
                 var d = Doors[i] = new Door(DoorZ[i]);
                 Inter.Add(new Interactable(0, d.Z, 1.5f, () => d.Open ? "Закрыть люк" : "Открыть люк", () => d.Open = !d.Open));
             }
+            Inter.Add(new Interactable(0, Airlock.PostZ, Airlock.PostR, () => Lock.Label, Lock.Toggle));
         }
 
         public static Room RoomAt(float z) =>
@@ -123,6 +126,7 @@ namespace Pogrujenie.Core
         public void Update(float dt)
         {
             foreach (var d in Doors) d.Update(dt);
+            Lock.Update(dt);
         }
 
         /// <summary>
@@ -201,6 +205,7 @@ namespace Pogrujenie.Core
             Add("Борт трюма", BoxKind.Wall2, 0.2f, 3f, 4.5f, 2.5f, 1.5f, 21.75f);
             Add("Корма", BoxKind.Wall2, 5, 3f, 0.2f, 0, 1.5f, 24);
             Add("Лампа трюма", BoxKind.Lamp, 0.15f, 0.04f, 3.8f, 0, 2.99f, 21.75f);
+            Add("Люк шлюза в полу", BoxKind.Lamp, 1.6f, 0.02f, 1.6f, 0, 0.01f, Airlock.Z); // метка над крышкой
             return b.ToArray();
         }
 
