@@ -122,7 +122,10 @@ namespace Pogrujenie.Tests
             Assert.IsFalse(ShipLayout.Boxes.Any(b => b.Name == "Кресло пилота" || b.Name == "Спинка кресла"));
             Assert.AreEqual(5, BridgeProps.Fixed.Length, "кресло, голостол, стойка, пульт и его экраны; колесо — на штурвале");
             Assert.IsTrue(BridgeProps.GlowingLights(BridgeProps.Table));
+            Assert.IsTrue(BridgeProps.GlowingLights(BridgeProps.Console), "огни кнопок пульта");
             Assert.IsFalse(BridgeProps.GlowingLights(BridgeProps.Chair));
+            Assert.IsTrue(BridgeProps.GlowingScreen(BridgeProps.Screens));
+            Assert.IsFalse(BridgeProps.GlowingScreen(BridgeProps.Console));
         }
 
         [TestCase(BridgeProps.Wheel)]
