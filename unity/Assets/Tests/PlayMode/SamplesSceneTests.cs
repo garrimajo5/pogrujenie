@@ -40,6 +40,32 @@ namespace Pogrujenie.Tests
             Assert.IsTrue(boot.Layout.Lock.FullyOpen);
         }
 
+        /// <summary>
+        /// По отчёту qa/2026-10-19-0950-bridge-shell, замечание 2: в трюме у открытого шлюза строка
+        /// «… · образцов рядом нет · Шлюз открыт» не помещалась. Теперь части — по строкам экрана, без повтора.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator СтрокаСостоянияВТрюмеУОткрытогоШлюзаПомещается()
+        {
+            boot.Player.Place(0f, 23f, Mathf.PI);
+            Assert.AreEqual(Room.Cargo, boot.Player.Room);
+            boot.Layout.Lock.Toggle();
+            for (int i = 0; i < 25; i++) { boot.Layout.Update(0.1f); boot.Step(0.1f); }
+            Assert.IsTrue(boot.Layout.Lock.FullyOpen);
+            Assert.IsTrue(boot.Status.Visible, "на приборах «Шлюз открыт»");
+            string line = boot.StatusLine();
+            StringAssert.StartsWith("Трюм · ", line);
+            int first = line.ToLowerInvariant().IndexOf("шлюз открыт");
+            Assert.GreaterOrEqual(first, 0, line);
+            Assert.AreEqual(-1, line.ToLowerInvariant().IndexOf("шлюз открыт", first + 1), "«шлюз открыт» один раз: " + line);
+
+            var lines = boot.StatusLines(t => t.Length, 56);
+            Assert.Greater(lines.Count, 1);
+            foreach (var l in lines) Assert.LessOrEqual(l.Length, 56, l);
+            Assert.AreEqual(line, string.Join(StatusBoard.Separator, lines), "по строкам — те же части");
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator ОбразцыЛежатНаДнеОднимМешем()
         {
