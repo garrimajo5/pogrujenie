@@ -92,6 +92,54 @@ namespace Pogrujenie.Tests
         }
 
         [UnityTest]
+        public IEnumerator ЗаШтурваломРоторыКрутятсяРулиСледуютЗаВсплытием()
+        {
+            yield return null;
+            Assert.AreEqual(2, boot.Hull.Rudders.Length);
+            var rotor0 = boot.Hull.Rotors[0].localRotation;
+            var rudder = boot.Hull.Rudders[0];
+            Assert.AreEqual(0f, rudder.TransformDirection(Vector3.back).y, 1e-3f, "на стоянке руль ровно");
+
+            // садимся за штурвал и даём полный ход и «Всплыть» с крестовины и кнопки
+            boot.Player.Place(0, -3f, Mathf.PI);
+            yield return null;
+            boot.Controls.PressAction();
+            yield return null;
+            yield return null;
+            Assert.IsTrue(boot.Player.Piloting);
+            boot.Controls.PadOverride = new Vector2Int(0, 1);
+            boot.Controls.VertOverride = 1;
+            yield return null;
+            for (int i = 0; i < 20; i++) boot.Step(0.1f);
+            Assert.Greater(boot.HullAnim.Spin, 0.9f, "роторы раскрутились от тяги");
+            Assert.Greater(boot.HullAnim.Pitch, HullMotion.MaxPitch * 0.9f);
+            Assert.Greater(Quaternion.Angle(rotor0, boot.Hull.Rotors[0].localRotation), 1f, "ротор повернулся");
+            // ротор крутится вокруг своей оси: ось вдоль корабля не уходит
+            Assert.Greater(Vector3.Dot(boot.Hull.Rotors[0].up, boot.Ship.forward), 0.99f);
+            // передняя (толстая) кромка руля к носу, при всплытии — вверх
+            Assert.Greater(rudder.TransformDirection(Vector3.back).y, 0.3f, "руль поднял переднюю кромку");
+            Assert.Less(Vector3.Distance(rudder.localPosition,
+                new Vector3(HullPlan.Parts[boot.Hull.Parts.IndexOf(rudder)].X, 2.6f, 24.6f)), 1e-4f, "руль на месте");
+            // пара роторов — навстречу друг другу: повороты вокруг общей оси с разными знаками
+            var spin0 = Quaternion.Inverse(rotor0) * boot.Hull.Rotors[0].localRotation;
+            var spin1 = Quaternion.Inverse(Quaternion.Euler(90, 0, 0)) * boot.Hull.Rotors[1].localRotation;
+            Assert.Less(Quaternion.Angle(Quaternion.Inverse(spin0), spin1), 0.5f, "роторы крутятся навстречу");
+
+            // без энергии двигателей роторы останавливаются, «Вниз» опускает кромку
+            boot.Reactor.Set(ShipSystem.Engines, 0);
+            boot.Controls.VertOverride = -1;
+            yield return null;
+            for (int i = 0; i < 80; i++) boot.Step(0.1f);
+            Assert.Less(Mathf.Abs(boot.HullAnim.Spin), 0.01f, "роторы встали");
+            Assert.Less(rudder.TransformDirection(Vector3.back).y, -0.3f, "при погружении кромка вниз");
+            var still = boot.Hull.Rotors[0].localRotation;
+            boot.Step(0.1f);
+            Assert.Less(Quaternion.Angle(still, boot.Hull.Rotors[0].localRotation), 0.5f);
+            boot.Controls.PadOverride = null;
+            boot.Controls.VertOverride = null;
+        }
+
+        [UnityTest]
         public IEnumerator ПрожекторСветитИзЛинзы()
         {
             yield return null;

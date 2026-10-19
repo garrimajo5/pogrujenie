@@ -32,6 +32,8 @@ namespace Pogrujenie.Game
         public Transform Wheel { get; private set; }
         public SeabedView Seafloor { get; private set; }
         public HullView Hull { get; private set; }
+        /// <summary>Роторы и рули глубины по ART-001: следуют за тягой и вертикалью пилота.</summary>
+        public HullMotion HullAnim { get; private set; }
         /// <summary>Свет сквозь лёд: слабеет с глубиной.</summary>
         public Light Sun { get; private set; }
 
@@ -58,6 +60,7 @@ namespace Pogrujenie.Game
             Reactor.Message += (title, text) => lastMsg = title;
             Motion = new ShipPhysics { Ground = Seabed.Height };
             Current = new SeaCurrent();
+            HullAnim = new HullMotion();
             Current.Changed += i => Say("Течение сменилось");
             Application.targetFrameRate = 60;
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
@@ -234,7 +237,10 @@ namespace Pogrujenie.Game
             if (dt <= 0f) return;
             dt = Mathf.Min(dt, 0.25f); // после паузы не прыгаем
             Current.Update(dt);
-            Motion.Update(dt, Reactor.K(ShipSystem.Engines), Current.X, Current.Z);
+            float k = Reactor.K(ShipSystem.Engines);
+            Motion.Update(dt, k, Current.X, Current.Z);
+            HullAnim.Update(dt, Motion.InThrust, Motion.InVert, k);
+            Hull.Animate(HullAnim);
             Ship.SetPositionAndRotation(new Vector3(Motion.X, Motion.Y, Motion.Z),
                 Quaternion.Euler(0f, Motion.Yaw * Mathf.Rad2Deg, 0f));
             Wheel.localRotation = Quaternion.Euler(-20f, 0f, -Motion.Turn * 80f);
