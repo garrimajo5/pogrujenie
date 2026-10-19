@@ -185,12 +185,34 @@ namespace Pogrujenie.Game
                 var small = new GUIStyle(style) { fontSize = Mathf.RoundToInt(Router.Up.R * 0.36f) };
                 PilotButton(Router.Up, "Всплыть", Vert > 0, small);
                 PilotButton(Router.Down, "Вниз", Vert < 0, small);
-                PilotButton(Router.Light, "Свет", LampLit, small);
+                LightButton(Router.Light, small);
             }
         }
 
-        /// <summary>Прожектор горит — кнопка «Свет» подсвечена.</summary>
+        /// <summary>Прожектор горит — кнопка «Свет» янтарная, «Свет вкл»; погашен — тусклое кольцо, «Свет выкл».</summary>
         public bool LampLit;
+
+        /// <summary>Подпись кнопки «Свет» сейчас (Core/Searchlight.cs).</summary>
+        public string LightLabel => Searchlight.ButtonLabel(LampLit);
+
+        /// <summary>Цвет кнопки «Свет» сейчас.</summary>
+        public Color LightColor
+        {
+            get
+            {
+                Searchlight.ButtonColor(LampLit, out float r, out float g, out float b, out float a);
+                return new Color(r, g, b, a);
+            }
+        }
+
+        void LightButton(Circle c, GUIStyle style)
+        {
+            DrawTex(Searchlight.ButtonRingOnly(LampLit) ? ring : disc, c.C, c.R, LightColor);
+            GUI.color = Color.white;
+            var st = new GUIStyle(style);
+            st.normal.textColor = LampLit ? new Color(0.02f, 0.1f, 0.15f) : new Color(0.75f, 0.95f, 1f, 0.85f);
+            GUI.Label(GuiRect(c.C, c.R), LightLabel, st);
+        }
 
         void PilotButton(Circle c, string label, bool on, GUIStyle style)
         {

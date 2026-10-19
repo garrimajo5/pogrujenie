@@ -15,7 +15,8 @@ namespace Pogrujenie.Game
     /// </summary>
     public sealed class Bootstrap : MonoBehaviour
     {
-        public const float LampRange = 32f; // как в браузерной версии: 32 м при базовой доле
+        /// <summary>Дальность прожектора при базовой доле, м (как S.spot в js/ship.js).</summary>
+        public const float LampRange = Searchlight.BaseRange;
 
         public static Bootstrap Instance { get; private set; }
 
@@ -23,6 +24,8 @@ namespace Pogrujenie.Game
         public Camera Cam { get; private set; }
         public Transform Ship { get; private set; }
         public Light Lamp { get; private set; }
+        /// <summary>Видимый конус луча в воде; горит вместе с прожектором.</summary>
+        public MeshRenderer Beam { get; private set; }
         /// <summary>Живой мир отмели (поток Б): EcoWorld из Core и его существа в сцене.</summary>
         public EcoView Eco { get; private set; }
         public TouchInput Controls { get; private set; }
@@ -167,12 +170,18 @@ namespace Pogrujenie.Game
             var lampGo = new GameObject("Прожектор");
             lampGo.transform.SetParent(ship, false);
             lampGo.transform.localPosition = new Vector3(0, HullPlan.SearchlightY, HullPlan.LensZ - 0.1f); // перед линзой
-            lampGo.transform.localRotation = Quaternion.Euler(15, 180, 0);
+            lampGo.transform.localRotation = Quaternion.Euler(Searchlight.PitchDeg, 180, 0); // вперёд и вниз на 18°
             Lamp = lampGo.AddComponent<Light>();
             Lamp.type = LightType.Spot;
-            Lamp.spotAngle = 40f;
-            Lamp.intensity = 3f;
-            Lamp.color = new Color(0.85f, 0.95f, 1f);
+            Lamp.spotAngle = Searchlight.SpotAngleDeg;
+            Lamp.intensity = Searchlight.Intensity;
+            Lamp.color = new Color(0.9f, 0.98f, 1f); // 0xe6fbff
+            // на телефоне (качество Medium) попиксельный свет один; без этого прожектор светил бы
+            // по вершинам крупной сетки дна и пятна на дне не было бы видно
+            Lamp.renderMode = LightRenderMode.ForcePixel;
+            Lamp.shadows = LightShadows.None;
+            Beam = SearchlightView.MakeBeam(lampGo.transform);
+            ownMats.Add(Beam.sharedMaterial);
 
             // живой мир отмели: шесть стай светляков-полосников у кораллов (Core/EcoFish.cs)
             Eco = new GameObject("Живой мир").AddComponent<EcoView>();
@@ -222,8 +231,11 @@ namespace Pogrujenie.Game
         public void ApplyPower()
         {
             float k = Reactor.K(ShipSystem.Lamp);
-            Lamp.enabled = LampOn && k > 0f;
-            Lamp.range = LampRange * k;
+            Lamp.enabled = Searchlight.Lit(LampOn, k);
+            Lamp.range = Searchlight.Range(k);
+            Beam.enabled = Lamp.enabled;
+            float bk = Mathf.Max(Searchlight.Scale(k), 0.01f);
+            Beam.transform.localScale = new Vector3(bk, bk, bk);
         }
 
         /// <summary>Строка-сообщение на приборах.</summary>
@@ -234,6 +246,7 @@ namespace Pogrujenie.Game
         {
             LampOn = !LampOn;
             if (LampOn && Reactor.K(ShipSystem.Lamp) <= 0f) Say("Прожектор обесточен");
+            else Say(LampOn ? "Прожектор включён" : "Прожектор погашен");
             ApplyPower();
         }
 
