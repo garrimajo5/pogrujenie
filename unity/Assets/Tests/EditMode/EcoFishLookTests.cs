@@ -23,23 +23,68 @@ namespace Pogrujenie.Tests
             Assert.Less(EcoVec.Distance(expected, actual), 1e-3f, $"{msg}: ждали {expected}, вышло {actual}");
         }
 
-        [Test]
-        public void ТелоИХвостВОбеСтороны()
+        static EcoVec Cross(EcoVec a, EcoVec b) =>
+            new EcoVec(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
+
+        /// <summary>Номер вершины формы с координатами (x, y, z).</summary>
+        static int Find(float x, float y, float z)
         {
-            Assert.AreEqual(9, EcoFishLook.VertsPerFish);
-            Assert.AreEqual(54, EcoFishLook.Tris.Length, "8 граней тела и хвост, каждая дважды");
-            int half = EcoFishLook.Tris.Length / 2;
-            for (int i = 0; i < half; i += 3)
+            for (int i = 0; i < EcoFishLook.Shape.Length; i++)
+                if (EcoVec.Distance(EcoFishLook.Shape[i], new EcoVec(x, y, z)) < 1e-4f) return i;
+            Assert.Fail($"нет вершины ({x}, {y}, {z})");
+            return -1;
+        }
+
+        [Test]
+        public void ВеретеноСЧетырьмяПолосамиПоКонцепту()
+        {
+            var s = EcoFishLook.Shape;
+            Assert.AreEqual(s.Length, EcoFishLook.Paints.Length);
+            Assert.Less(EcoFishLook.Tris.Length / 3, 150, "до 150 треугольников, как в ART-011");
+            foreach (int i in EcoFishLook.Tris) Assert.That(i, Is.InRange(0, s.Length - 1));
+            int stripes = 0;
+            foreach (bool b in EcoFishLook.RingStripe) if (b) stripes++;
+            Assert.AreEqual(4, stripes, "четыре полосы");
+            Assert.AreEqual(EcoFishLook.Paint.Stripe, EcoFishLook.Paints[EcoFishLook.StripeVertex]);
+            // размеры как в браузере: нос 0,28, полуширина 0,07, полувысота 0,1, хвост до −0,42
+            float maxX = 0, maxY = 0, minZ = 0, maxZ = 0;
+            foreach (var p in s) { maxX = Math.Max(maxX, p.X); maxY = Math.Max(maxY, p.Y); minZ = Math.Min(minZ, p.Z); maxZ = Math.Max(maxZ, p.Z); }
+            Assert.AreEqual(0.28f, maxZ, 1e-5f);
+            Assert.AreEqual(-0.42f, minZ, 1e-5f);
+            Assert.That(maxX, Is.InRange(0.06f, 0.07f));
+            Assert.That(maxY, Is.InRange(0.1f, 0.121f), "спина и хвост");
+            Assert.AreEqual(EcoFishLook.Paint.Fin, EcoFishLook.Paints[Find(0, 0.12f, -0.42f)], "концы хвоста светятся");
+            Assert.AreEqual(EcoFishLook.Paint.Body, EcoFishLook.Paints[Find(0, 0, 0.28f)], "нос тёмный");
+        }
+
+        [Test]
+        public void ТелоЗамкнутоИСмотритНаружуХвостВОбеСтороны()
+        {
+            var s = EcoFishLook.Shape;
+            var t = EcoFishLook.Tris;
+            int fin = Find(0, 0.12f, -0.42f);
+            float vol = 0;
+            var edges = new System.Collections.Generic.Dictionary<long, int>();
+            int finTris = 0;
+            for (int i = 0; i < t.Length; i += 3)
             {
-                var t = EcoFishLook.Tris;
-                Assert.That(t[i], Is.InRange(0, 8));
-                Assert.AreEqual(t[i], t[half + i]);
-                Assert.AreEqual(t[i + 1], t[half + i + 2], "обратная сторона — тот же треугольник наоборот");
-                Assert.AreEqual(t[i + 2], t[half + i + 1]);
+                if (t[i] == fin || t[i + 1] == fin || t[i + 2] == fin) { finTris++; continue; }
+                vol += (s[t[i]].X * Cross(s[t[i + 1]], s[t[i + 2]]).X + s[t[i]].Y * Cross(s[t[i + 1]], s[t[i + 2]]).Y
+                        + s[t[i]].Z * Cross(s[t[i + 1]], s[t[i + 2]]).Z) / 6f;
+                for (int k = 0; k < 3; k++)
+                {
+                    long e = (long)t[i + k] * 1000 + t[i + (k + 1) % 3];
+                    edges[e] = edges.TryGetValue(e, out int n) ? n + 1 : 1;
+                }
             }
-            // размеры как в браузере: тело 0,07 × 0,1 × 0,28 (полуоси), хвост до −0,42
-            Assert.AreEqual(0.28f, EcoFishLook.Shape[4].Z, 1e-6f);
-            Assert.AreEqual(-0.42f, EcoFishLook.Shape[7].Z, 1e-6f);
+            Assert.Greater(vol, 0f, "грани тела смотрят наружу");
+            foreach (var kv in edges)
+            {
+                Assert.AreEqual(1, kv.Value, "ребро тела один раз в каждую сторону");
+                long back = (kv.Key % 1000) * 1000 + kv.Key / 1000;
+                Assert.IsTrue(edges.ContainsKey(back), "тело замкнуто");
+            }
+            Assert.AreEqual(2, finTris, "хвост — один треугольник в обе стороны");
         }
 
         [Test]
@@ -49,13 +94,14 @@ namespace Pogrujenie.Tests
             var f = fish.All[0];
             f.Agent.V = new EcoVec(3, 0, 0);
             var p = f.Agent.P;
-            var v = new EcoVec[9];
+            var v = new EcoVec[EcoFishLook.VertsPerFish];
             EcoFishLook.Place(f, Straight(f), v, 0);
-            Near(p + new EcoVec(0.28f, 0, 0), v[4], "нос по ходу");
-            Near(p + new EcoVec(-0.28f, 0, 0), v[5], "корма сзади");
-            Near(p + new EcoVec(0, 0.1f, 0), v[2], "спина вверх");
-            Near(p + new EcoVec(-0.42f, 0.12f, 0), v[7], "хвост позади и вверх");
-            Assert.AreEqual(0.14f, Math.Abs(v[0].Z - v[1].Z), 1e-3f, "бока поперёк хода");
+            Near(p + new EcoVec(0.28f, 0, 0), v[Find(0, 0, 0.28f)], "нос по ходу");
+            Near(p + new EcoVec(-0.25f, 0, 0), v[Find(0, 0, -0.25f)], "корма сзади");
+            Near(p + new EcoVec(-0.42f, 0.12f, 0), v[Find(0, 0.12f, -0.42f)], "хвост позади и вверх");
+            var side = EcoFishLook.Shape[EcoFishLook.StripeVertex];
+            Assert.Greater(side.X, 0.05f, "вершина полосы — на боку");
+            Near(p + new EcoVec(side.Z, 0, -side.X), v[EcoFishLook.StripeVertex], "бок поперёк хода");
         }
 
         [Test]
@@ -81,10 +127,10 @@ namespace Pogrujenie.Tests
         {
             World(out var fish);
             var f = fish.All[5];
-            var v = new EcoVec[9];
+            var v = new EcoVec[EcoFishLook.VertsPerFish];
             f.Agent.V = new EcoVec(0, 2, 0);
             EcoFishLook.Place(f, 1.3f, v, 0);
-            Near(f.Agent.P + new EcoVec(0, 0.28f, 0), v[4], "плывёт вверх — нос вверх");
+            Near(f.Agent.P + new EcoVec(0, 0.28f, 0), v[Find(0, 0, 0.28f)], "плывёт вверх — нос вверх");
             f.Agent.V = EcoVec.Zero;
             EcoFishLook.Place(f, 1.3f, v, 0);
             foreach (var p in v) Assert.IsFalse(float.IsNaN(p.X) || float.IsNaN(p.Y) || float.IsNaN(p.Z));
@@ -96,24 +142,45 @@ namespace Pogrujenie.Tests
             World(out var fish);
             var f = fish.All[7];
             fish.Kill(f);
-            var v = new EcoVec[18];
-            EcoFishLook.Place(f, 0f, v, 9);
-            for (int i = 9; i < 18; i++) Assert.AreEqual(f.Agent.P, v[i], "все вершины в одной точке");
+            int n = EcoFishLook.VertsPerFish;
+            var v = new EcoVec[2 * n];
+            EcoFishLook.Place(f, 0f, v, n);
+            for (int i = n; i < 2 * n; i++) Assert.AreEqual(f.Agent.P, v[i], "все вершины в одной точке");
         }
 
         [Test]
-        public void ЦветСтаиИЯркостьРыбки()
+        public void ПолосыЦветаСтаиТелоТёмное()
         {
             World(out var fish);
             for (int s = 0; s < fish.Shoals.Count; s++)
             {
                 var f = fish.Shoals[s].Members[0];
                 uint c = EcoFish.Colors[s];
-                EcoFishLook.Color(f, out float r, out float g, out float b);
+                Assert.Greater(c & 255, (c >> 16) & 255, "полосы в голубой гамме: синего больше красного");
+                EcoFishLook.Stripe(f, out float r, out float g, out float b);
                 Assert.AreEqual(((c >> 16) & 255) / 255f * f.Bright, r, 1e-4f);
                 Assert.AreEqual(((c >> 8) & 255) / 255f * f.Bright, g, 1e-4f);
                 Assert.AreEqual((c & 255) / 255f * f.Bright, b, 1e-4f);
+                EcoFishLook.VertexColor(f, EcoFishLook.Paint.Fin, out float fr, out float fg, out float fb);
+                Assert.AreEqual(g * EcoFishLook.FinGlow, fg, 1e-4f, "концы хвоста — тише полос");
+                EcoFishLook.VertexColor(f, EcoFishLook.Paint.Body, out float br, out float bg, out float bb);
+                Assert.AreEqual(0x34 / 255f, br, 1e-4f, "тело #344F63");
+                Assert.AreEqual(0x4F / 255f, bg, 1e-4f);
+                Assert.AreEqual(0x63 / 255f, bb, 1e-4f);
             }
+            CheckAlarm(fish);
+        }
+
+        static void CheckAlarm(EcoFish fish)
+        {
+            var f = fish.Shoals[0].Members[0];
+            EcoFishLook.VertexColor(f, EcoFishLook.Paint.Body, out float r0, out _, out _);
+            EcoFishLook.Stripe(f, out _, out float g0, out _);
+            fish.Shoals[0].Alarm = 2f;
+            EcoFishLook.VertexColor(f, EcoFishLook.Paint.Body, out float r1, out _, out _);
+            EcoFishLook.Stripe(f, out _, out float g1, out _);
+            Assert.AreEqual(r0, r1, 1e-6f, "в тревоге тело не меняется");
+            Assert.AreEqual(g0 * EcoFishLook.AlarmGlow, g1, 1e-4f, "полосы ярче");
         }
 
         [Test]

@@ -121,7 +121,10 @@ namespace Pogrujenie.Tests
             sh.Alarm = 3f;
             eco.Sync();
             var alarm = eco.DrawnColor(f.Index);
-            Assert.AreEqual(calm.g * EcoFishLook.AlarmGlow, alarm.g, 0.01f, "в тревоге стая горит ярче");
+            Assert.AreEqual(calm.g * EcoFishLook.AlarmGlow, alarm.g, 0.01f, "в тревоге полосы горят ярче");
+            var body = eco.DrawnBody(f.Index);
+            Assert.AreEqual(0x34 / 255f, body.r, 0.01f, "тело тёмное #344F63 и в тревоге");
+            Assert.AreEqual(0x63 / 255f, body.b, 0.01f);
             var other = eco.Fish.Shoals[1].Members[0];
             Assert.AreNotEqual(calm, eco.DrawnColor(other.Index), "у стай свои цвета");
         }
