@@ -6,6 +6,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Pogrujenie.EditorTools
 {
@@ -21,15 +22,51 @@ namespace Pogrujenie.EditorTools
         [MenuItem("Погружение/Создать сцену Main")]
         public static void EnsureScene()
         {
-            if (!File.Exists(ScenePath))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                new GameObject("Погружение").AddComponent<Bootstrap>();
-                EditorSceneManager.SaveScene(scene, ScenePath);
-                AssetDatabase.Refresh();
-            }
+            PrepareScene(ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        /// <summary>
+        /// Сцена готова к сборке: есть, в ней ровно один Bootstrap и нет компонентов без скрипта.
+        /// Иначе сцена собирается заново. Сцена, созданная до постоянных GUID в .meta (#61), ссылалась
+        /// на старый GUID Bootstrap — в APK «The referenced script … ('Погружение') is missing!».
+        /// Возвращает true, если сцена (пере)создана.
+        /// </summary>
+        public static bool PrepareScene(string path)
+        {
+            string problem = SceneProblem(path);
+            if (problem == null) return false;
+            if (File.Exists(path)) Debug.Log($"Сцена {path} собирается заново: {problem}");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            new GameObject("Погружение").AddComponent<Bootstrap>();
+            EditorSceneManager.SaveScene(scene, path);
+            AssetDatabase.Refresh();
+            return true;
+        }
+
+        /// <summary>Что не так со сценой по пути path; null — всё в порядке.</summary>
+        public static string SceneProblem(string path)
+        {
+            if (!File.Exists(path)) return "сцены нет";
+            var scene = SceneManager.GetSceneByPath(path);
+            bool opened = false;
+            if (!scene.isLoaded)
+            {
+                scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+                opened = true;
+            }
+            int missing = 0, boots = 0;
+            foreach (var root in scene.GetRootGameObjects())
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                {
+                    missing += GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(t.gameObject);
+                    boots += t.GetComponents<Bootstrap>().Length;
+                }
+            if (opened) EditorSceneManager.CloseScene(scene, true);
+            if (missing > 0) return $"компонентов без скрипта: {missing}";
+            if (boots != 1) return $"Bootstrap в сцене: {boots}";
+            return null;
         }
 
         static void ApplyAndroidSettings()
