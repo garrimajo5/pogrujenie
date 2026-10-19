@@ -3,6 +3,7 @@
 
     python3 tools/test_unity_meta.py
 """
+import json
 import os
 import re
 import subprocess
@@ -77,6 +78,63 @@ class RepoFiles(unittest.TestCase):
         self.assertIsNotNone(m, 'нет артефакта unity-project-files')
         self.assertIn('unity/Packages/packages-lock.json', m.group(1))
         self.assertIn('unity/ProjectSettings/*.asset', m.group(1))
+
+
+class ProjectFiles(unittest.TestCase):
+    """Закрепляет отчёт qa/2026-10-19-0150-unity-shader-fix: файлы, которые Unity создаёт при сборке,
+    лежат в репозитории, чтобы сборки в CI и у тестера совпадали."""
+
+    UNITY = um.ROOT  # unity/
+    MACHINE = re.compile(r'/github/workspace|/home/runner|/root/|\b[A-Z]:[\\/]|/Users/|/tmp/')
+    CORE = ['ProjectSettings', 'EditorBuildSettings', 'GraphicsSettings', 'QualitySettings',
+            'TagManager', 'InputManager', 'EditorSettings']
+
+    def read(self, *parts):
+        with open(os.path.join(self.UNITY, *parts), encoding='utf-8') as fh:
+            return fh.read()
+
+    def settings(self):
+        d = os.path.join(self.UNITY, 'ProjectSettings')
+        return sorted(f for f in os.listdir(d) if f.endswith('.asset'))
+
+    def test_packages_lock_matches_manifest(self):
+        lock = json.loads(self.read('Packages', 'packages-lock.json'))['dependencies']
+        manifest = json.loads(self.read('Packages', 'manifest.json'))['dependencies']
+        for name, version in manifest.items():
+            self.assertIn(name, lock, name)
+            self.assertEqual(lock[name].get('depth'), 0, name)
+            # встроенные пакеты (test-framework в Unity 6) редактор берёт своей версии, остальные — как в manifest
+            if lock[name].get('source') != 'builtin':
+                self.assertEqual(lock[name]['version'], version, name)
+
+    def test_core_settings_committed(self):
+        have = self.settings()
+        for name in self.CORE:
+            self.assertIn(name + '.asset', have)
+
+    def test_settings_are_text_yaml(self):
+        # двоичные .asset не сливаются и не читаются в PR: проект должен сохранять их текстом
+        for name in self.settings():
+            text = self.read('ProjectSettings', name)
+            self.assertTrue(text.startswith('%YAML 1.1'), name)
+
+    def test_no_machine_paths(self):
+        files = [('Packages', 'packages-lock.json')] + [('ProjectSettings', n) for n in self.settings()]
+        for parts in files:
+            m = self.MACHINE.search(self.read(*parts))
+            self.assertIsNone(m, '%s: %s' % ('/'.join(parts), m and m.group(0)))
+
+    def test_player_settings_match_build_script(self):
+        # BuildScript.ApplyAndroidSettings выставляет то же самое перед сборкой — в файле не должно быть другого
+        text = self.read('ProjectSettings', 'ProjectSettings.asset')
+        self.assertRegex(text, r'(?m)^  companyName: garrimajo5$')
+        self.assertRegex(text, r'(?m)^    Android: com\.garrimajo5\.pogrujenie$')
+        self.assertRegex(text, r'(?m)^  AndroidMinSdkVersion: 26$')
+        self.assertRegex(text, r'(?m)^  bundleVersion: 0\.1\.0$')
+        self.assertRegex(text, r'(?m)^  AndroidTargetArchitectures: 2$')  # ARM64
+        self.assertRegex(text, r'(?m)^  scriptingBackend:\n(?:    .*\n)*?    Android: 1$')  # IL2CPP
+        self.assertRegex(text, r'(?m)^  cloudProjectId: ?$')
+        self.assertRegex(text, r'(?m)^  androidUseCustomKeystore: 0$')
 
 
 class Generator(unittest.TestCase):

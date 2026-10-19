@@ -51,8 +51,6 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions:
-      contents: write # временно: шаг «Файлы проекта в ветку»
     steps:
       - uses: jlumbroso/free-disk-space@v1.3.1
         with:
@@ -87,17 +85,6 @@ jobs:
           name: pogrujenie-apk
           path: build/Android
           retention-days: 14
-      # Временно: по ручному запуску коммитим созданные файлы проекта в ветку запуска
-      - name: Файлы проекта в ветку
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          sudo chown -R "$(id -u):$(id -g)" unity
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add unity/Packages/packages-lock.json unity/ProjectSettings/*.asset
-          git status --short
-          git commit -m "Unity: файлы проекта из сборки CI (packages-lock.json, ProjectSettings)" || exit 0
-          git push origin "HEAD:${GITHUB_REF_NAME}"
       # Файлы проекта, которые Unity создаёт при сборке (отчёт qa/2026-10-19-0150-unity-shader-fix):
       # отсюда их берём в репозиторий, чтобы сборки в CI и у тестера совпадали
       - uses: actions/upload-artifact@v4
