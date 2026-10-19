@@ -8,14 +8,19 @@ namespace Pogrujenie.Game
     /// Отсеки «Ковчега-7» из ShipLayout.Boxes: полы, стены, переборки, люки и свет внутри.
     /// Один материал на вид бруска, чтобы не плодить вызовы отрисовки. Пол трюма вокруг проёма и мелкие
     /// детали люка шлюза (кромка, решётка, шахта) слиты в один меш на группу (MergeGroup).
+    /// Мостик в палитре ART-002 (BridgePlan.PaintOf), его оболочка из BridgePlan.Parts — по одному мешу на краску.
     /// </summary>
     public sealed class ShipView : MonoBehaviour
     {
         public ShipLayout Layout { get; private set; }
         public Transform[] DoorMeshes { get; private set; }
         public int BoxCount { get; private set; }
-        /// <summary>Слитые меши по группам: «Пол трюма», «Кромка люка шлюза», «Решётка люка», «Шахта шлюза».</summary>
+        /// <summary>Слитые меши по группам: «Пол трюма», «Кромка люка шлюза», «Решётка люка», «Шахта шлюза»,
+        /// «Носовая стена», «Борт мостика».</summary>
         public readonly Dictionary<string, MeshFilter> Merged = new Dictionary<string, MeshFilter>();
+        /// <summary>Оболочка мостика (BridgePlan.Parts): один меш на краску.</summary>
+        public readonly Dictionary<BridgePaint, MeshFilter> Bridge = new Dictionary<BridgePaint, MeshFilter>();
+        readonly Dictionary<BridgePaint, Material> bridgeMats = new Dictionary<BridgePaint, Material>();
         readonly List<Mesh> ownMeshes = new List<Mesh>();
 
         /// <summary>В какой слитый меш идёт брусок; null — рисуется отдельно.</summary>
@@ -23,6 +28,8 @@ namespace Pogrujenie.Game
         {
             if (name.StartsWith("Пол трюма", System.StringComparison.Ordinal)) return "Пол трюма";
             if (name == "Кромка люка шлюза" || name == "Решётка люка" || name == "Шахта шлюза") return name;
+            if (name.StartsWith("Нос:", System.StringComparison.Ordinal)) return "Носовая стена";
+            if (name == "Борт мостика") return name;
             return null;
         }
 
@@ -39,8 +46,14 @@ namespace Pogrujenie.Game
                 return m;
             }
 
+            Material Of(Box b)
+            {
+                var bp = BridgePlan.PaintOf(b);
+                return bp.HasValue ? BridgeMat(bp.Value) : M(b.Kind);
+            }
+
             var groups = new Dictionary<string, List<CombineInstance>>();
-            var groupKind = new Dictionary<string, BoxKind>();
+            var groupMat = new Dictionary<string, Material>();
             foreach (var b in ShipLayout.Boxes)
             {
                 BoxCount++;
@@ -49,11 +62,11 @@ namespace Pogrujenie.Game
                 string g = MergeGroup(b.Name);
                 if (g != null)
                 {
-                    if (!groups.TryGetValue(g, out var list)) { list = new List<CombineInstance>(); groups[g] = list; groupKind[g] = b.Kind; }
+                    if (!groups.TryGetValue(g, out var list)) { list = new List<CombineInstance>(); groups[g] = list; groupMat[g] = Of(b); }
                     list.Add(new CombineInstance { mesh = Shapes.MeshOf(Shape.Cube), transform = Matrix4x4.TRS(pos, Quaternion.identity, size) });
                     continue;
                 }
-                var go = Shapes.Make(Shape.Cube, b.Name, transform, M(b.Kind));
+                var go = Shapes.Make(Shape.Cube, b.Name, transform, Of(b));
                 go.transform.localPosition = pos;
                 go.transform.localScale = size;
             }
@@ -62,10 +75,26 @@ namespace Pogrujenie.Game
                 var mesh = new Mesh { name = kv.Key };
                 mesh.CombineMeshes(kv.Value.ToArray(), true, true);
                 ownMeshes.Add(mesh);
-                var go = Shapes.Make(Shape.Cube, kv.Key, transform, M(groupKind[kv.Key]));
-                var mf = go.GetComponent<MeshFilter>();
-                mf.sharedMesh = mesh;
-                Merged[kv.Key] = mf;
+                Merged[kv.Key] = MergedObject(kv.Key, mesh, groupMat[kv.Key]);
+            }
+
+            // оболочка мостика по ART-002: рама и переплёты окна, скос потолка, рёбра, плафоны, решётки пола
+            var parts = new Dictionary<BridgePaint, List<CombineInstance>>();
+            foreach (var p in BridgePlan.Parts)
+            {
+                if (!parts.TryGetValue(p.Paint, out var list)) parts[p.Paint] = list = new List<CombineInstance>();
+                list.Add(new CombineInstance
+                {
+                    mesh = Shapes.MeshOf(Shape.Cube),
+                    transform = Matrix4x4.TRS(new Vector3(p.X, p.Y, p.Z), Quaternion.Euler(p.RX, 0, 0), new Vector3(p.W, p.H, p.D)),
+                });
+            }
+            foreach (var kv in parts)
+            {
+                var mesh = new Mesh { name = "Мостик: " + kv.Key };
+                mesh.CombineMeshes(kv.Value.ToArray(), true, true);
+                ownMeshes.Add(mesh);
+                Bridge[kv.Key] = MergedObject(mesh.name, mesh, BridgeMat(kv.Key));
             }
 
             DoorMeshes = new Transform[layout.Doors.Length];
@@ -86,6 +115,26 @@ namespace Pogrujenie.Game
             Lamp(new Vector3(0, 2.4f, 17.2f), 9f, new Color(0.44f, 0.9f, 1f), 0.9f);
             Lamp(new Vector3(0, 2.7f, 21.75f), 7f, new Color(1f, 0.9f, 0.75f), 0.7f);
             Sync();
+        }
+
+        MeshFilter MergedObject(string name, Mesh mesh, Material m)
+        {
+            var go = Shapes.Make(Shape.Cube, name, transform, m);
+            var mf = go.GetComponent<MeshFilter>();
+            mf.sharedMesh = mesh;
+            return mf;
+        }
+
+        /// <summary>Материал краски мостика; плафоны светятся тёплым #F6DEAC.</summary>
+        public Material BridgeMat(BridgePaint p)
+        {
+            if (bridgeMats.TryGetValue(p, out var m)) return m;
+            BridgePlan.Color(p, out float r, out float g, out float b);
+            var c = new Color(r, g, b);
+            m = Shapes.Paint(c, "Мостик: " + p);
+            if (p == BridgePaint.Plafond) m.SetColor("_Glow", c * 0.85f);
+            bridgeMats[p] = m;
+            return m;
         }
 
         static Color KindColor(BoxKind k)
@@ -142,6 +191,7 @@ namespace Pogrujenie.Game
         void OnDestroy()
         {
             foreach (var m in mats.Values) Destroy(m);
+            foreach (var m in bridgeMats.Values) Destroy(m);
             foreach (var m in ownMeshes) Destroy(m);
         }
     }
