@@ -280,7 +280,7 @@ namespace Pogrujenie.Tests
                 Assert.AreEqual(1.5f, lx, 1e-3f); Assert.AreEqual(0.3f, ly, 1e-4f); Assert.AreEqual(4f, lz, 1e-3f);
             }
             // Yaw = π/2: +x корабля смотрит в −Z мира, как Quaternion.Euler(0, 90, 0) * (1, 0, 0)
-            var q = new ShipPhysics { Yaw = (float)(System.Math.PI / 2) };
+            var q = new ShipPhysics { X = 0f, Y = 0f, Z = 0f, Yaw = (float)(System.Math.PI / 2) }; // конструктор ставит корабль на старт (Z = 95)
             Samples.ToWorld(q, 1f, 0f, 0f, out float qx, out _, out float qz);
             Assert.AreEqual(0f, qx, 1e-4f); Assert.AreEqual(-1f, qz, 1e-4f);
         }
