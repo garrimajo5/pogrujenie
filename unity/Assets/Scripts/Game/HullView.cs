@@ -16,6 +16,11 @@ namespace Pogrujenie.Game
         public readonly List<Transform> Parts = new List<Transform>();
         public Renderer Body { get; private set; }
         public Transform[] Rotors { get; private set; }
+        /// <summary>Рули глубины, по борту на каждый.</summary>
+        public Transform[] Rudders { get; private set; }
+
+        readonly List<Quaternion> rotorBase = new List<Quaternion>(), rudderBase = new List<Quaternion>();
+        readonly List<float> rotorSide = new List<float>();
 
         readonly Dictionary<HullPaint, Material> mats = new Dictionary<HullPaint, Material>();
 
@@ -54,6 +59,7 @@ namespace Pogrujenie.Game
         public void Build()
         {
             var rotors = new List<Transform>();
+            var rudders = new List<Transform>();
             foreach (var p in HullPlan.Parts)
             {
                 var go = Shapes.Make(ShapeOf(p.Form), p.Name, transform, MaterialOf(p.Paint));
@@ -63,9 +69,23 @@ namespace Pogrujenie.Game
                 t.localScale = new Vector3(p.SX, p.SY, p.SZ);
                 Parts.Add(t);
                 if (p.Node == HullNode.Body) Body = go.GetComponent<Renderer>();
-                if (p.Node == HullNode.Rotor) rotors.Add(t);
+                if (p.Node == HullNode.Rotor) { rotors.Add(t); rotorBase.Add(t.localRotation); rotorSide.Add(Mathf.Sign(p.X)); }
+                if (p.Node == HullNode.Rudder) { rudders.Add(t); rudderBase.Add(t.localRotation); }
             }
             Rotors = rotors.ToArray();
+            Rudders = rudders.ToArray();
+        }
+
+        /// <summary>
+        /// Анимация по заметкам ART-001 (Core/HullMotion): ротор крутится вокруг своей оси (ось y формы
+        /// вдоль корабля), руль глубины поворачивается вокруг поперечной оси x корабля.
+        /// </summary>
+        public void Animate(HullMotion m)
+        {
+            for (int i = 0; i < Rotors.Length; i++)
+                Rotors[i].localRotation = rotorBase[i] * Quaternion.Euler(0f, m.RotorAngleOf(rotorSide[i]), 0f);
+            for (int i = 0; i < Rudders.Length; i++)
+                Rudders[i].localRotation = Quaternion.Euler(m.Pitch, 0f, 0f) * rudderBase[i];
         }
 
         void OnDestroy()
