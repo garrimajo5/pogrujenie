@@ -120,7 +120,7 @@ namespace Pogrujenie.Tests
         public void СтарыеБрускиКреслаУбраны()
         {
             Assert.IsFalse(ShipLayout.Boxes.Any(b => b.Name == "Кресло пилота" || b.Name == "Спинка кресла"));
-            Assert.AreEqual(3, BridgeProps.Fixed.Length, "кресло, голостол, стойка; колесо — на штурвале");
+            Assert.AreEqual(5, BridgeProps.Fixed.Length, "кресло, голостол, стойка, пульт и его экраны; колесо — на штурвале");
             Assert.IsTrue(BridgeProps.GlowingLights(BridgeProps.Table));
             Assert.IsFalse(BridgeProps.GlowingLights(BridgeProps.Chair));
         }
