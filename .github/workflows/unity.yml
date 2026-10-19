@@ -85,6 +85,16 @@ jobs:
           name: pogrujenie-apk
           path: build/Android
           retention-days: 14
+      # Временно: выводим те же файлы в лог (base64 tar.gz), чтобы забрать их без скачивания артефакта
+      - name: Файлы проекта в лог
+        if: always()
+        run: |
+          cd unity
+          tar czf /tmp/upf.tgz Packages/packages-lock.json ProjectSettings/*.asset || true
+          sha256sum /tmp/upf.tgz
+          echo "UPF-BEGIN"
+          base64 -w 100 /tmp/upf.tgz
+          echo "UPF-END"
       # Файлы проекта, которые Unity создаёт при сборке (отчёт qa/2026-10-19-0150-unity-shader-fix):
       # отсюда их берём в репозиторий, чтобы сборки в CI и у тестера совпадали
       - uses: actions/upload-artifact@v4
