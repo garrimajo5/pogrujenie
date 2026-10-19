@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Pogrujenie.Game
 {
     /// <summary>
-    /// Модели художника из Resources/Models: меш PGM1 (`<имя>.bytes`, Core/MeshPack) и текстура `<имя>-tex.png`.
+    /// Модели художника из Resources/Models: меш PGM1 (`<имя>.bytes`, Core/MeshPack) и текстура `<имя>-tex.bytes` (PNG).
     /// Материал — наш Pogrujenie/Lit с текстурой (Standard в APK вырезается). Меш и текстура грузятся один раз.
     /// </summary>
     public static class Models
@@ -33,7 +33,20 @@ namespace Pogrujenie.Game
             return m;
         }
 
-        public static Texture2D TextureOf(string model) => Resources.Load<Texture2D>(Folder + model + "-tex");
+        static readonly Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
+
+        /// <summary>Текстура модели: PNG из TextAsset, с mipmaps, после загрузки только для GPU.</summary>
+        public static Texture2D TextureOf(string model)
+        {
+            if (textures.TryGetValue(model, out var t) && t != null) return t;
+            var asset = Resources.Load<TextAsset>(Folder + model + "-tex");
+            if (asset == null) throw new System.IO.FileNotFoundException("нет текстуры Resources/" + Folder + model + "-tex.bytes");
+            t = new Texture2D(2, 2, TextureFormat.RGBA32, true) { name = model };
+            if (!t.LoadImage(asset.bytes, true)) throw new System.IO.InvalidDataException("текстура " + model + " не PNG");
+            t.wrapMode = TextureWrapMode.Clamp;
+            textures[model] = t;
+            return t;
+        }
 
         /// <summary>Материал модели: белый цвет, её текстура; у голостола светятся голубые огни.</summary>
         public static Material Paint(string model)

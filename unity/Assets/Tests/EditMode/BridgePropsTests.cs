@@ -96,14 +96,17 @@ namespace Pogrujenie.Tests
             int checkedPoints = 0;
             foreach (var p in BridgeProps.Fixed)
             {
+                // круг модели на полу: самая дальняя от центра вершина (голостол круглый, углы его рамки пусты)
                 var m = Load(p.Model);
-                m.Bounds(out var min, out var max);
+                double rMax = 0;
+                for (int i = 0; i < m.Vertices; i++)
+                    rMax = Math.Max(rMax, Math.Sqrt(Math.Pow(m.Pos[i * 3] * p.SX, 2) + Math.Pow(m.Pos[i * 3 + 2] * p.SZ, 2)));
                 for (float z = -6f; z <= 2f; z += 0.1f)
                     for (float x = -5f; x <= 5f; x += 0.1f)
                     {
                         if (!l.CanStand(x, z)) continue;
                         checkedPoints++;
-                        bool inside = x > p.X + min[0] * p.SX && x < p.X + max[0] * p.SX && z > p.Z + min[2] * p.SZ && z < p.Z + max[2] * p.SZ;
+                        bool inside = Math.Sqrt((x - p.X) * (x - p.X) + (z - p.Z) * (z - p.Z)) < rMax;
                         Assert.IsFalse(inside, $"{p.Name} мешает стоять в ({x}; {z})");
                     }
             }

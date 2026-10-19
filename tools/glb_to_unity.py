@@ -9,7 +9,8 @@
 - `<имя>.bytes` — свой простой формат (читает `Core/MeshPack.cs`):
   "PGM1", int32 число вершин, int32 число индексов, затем позиции (3 float), нормали (3 float),
   UV (2 float) и индексы (uint16), всё little-endian;
-- `<имя>-tex.png` — текстура цвета, как есть из GLB.
+- `<имя>-tex.bytes` — текстура цвета: PNG как есть из GLB. Unity читает её как TextAsset и раскрывает
+  `Texture2D.LoadImage` — так не зависим от настроек импорта текстур (с минимальным .meta Unity её не загрузил).
 glTF правый, Unity левый: x меняет знак (как при переносе из браузерной версии), поэтому порядок вершин
 в треугольниках разворачивается, а v текстуры переворачивается (в glTF v идёт сверху вниз).
 """
@@ -96,7 +97,7 @@ def build(dst):
     for path in sorted(glob.glob(os.path.join(SRC, '*.glb'))):
         name = os.path.splitext(os.path.basename(path))[0]
         mesh, png = convert(path)
-        for fname, data in ((name + '.bytes', mesh), (name + '-tex.png', png)):
+        for fname, data in ((name + '.bytes', mesh), (name + '-tex.bytes', png)):
             with open(os.path.join(dst, fname), 'wb') as fh:
                 fh.write(data)
             made.append(fname)
