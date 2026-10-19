@@ -169,6 +169,32 @@ namespace Pogrujenie.Tests
             Assert.Less(Vector3.Distance(p0, boot.Ship.position), 0.3f, "корабль без пилота не набирает ход");
         }
 
+        /// <summary>По отчёту qa/2026-10-19-0950-bridge-shell: после «Встать» в строке оставалось «Вы за штурвалом».</summary>
+        [UnityTest]
+        public IEnumerator ВсталИСообщениеЗаШтурваломГаснет()
+        {
+            yield return Sit();
+            StringAssert.Contains(Player.HelmMessage, boot.StatusLine(), "сели — сообщение на приборах");
+            boot.Controls.PressAction();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(boot.Player.Piloting, "встали");
+            StringAssert.DoesNotContain(Player.HelmMessage, boot.StatusLine(), "встали — сообщение погасло сразу");
+            Assert.IsFalse(boot.Status.Visible);
+        }
+
+        [UnityTest]
+        public IEnumerator СообщениеНаПриборахГаснетЧерезЧетыреСекунды()
+        {
+            boot.Say("Течение сменилось");
+            StringAssert.Contains("· Течение сменилось", boot.StatusLine());
+            for (int i = 0; i < 16; i++) boot.Step(0.25f); // 4 с
+            StringAssert.Contains("Течение сменилось", boot.StatusLine(), "4 с ещё видно");
+            for (int i = 0; i < 2; i++) boot.Step(0.25f); // 4,5 с
+            StringAssert.DoesNotContain("Течение сменилось", boot.StatusLine(), "погасло");
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator ВсталНаХодуКорабльТеряетТягу()
         {

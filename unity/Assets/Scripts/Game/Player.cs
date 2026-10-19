@@ -12,6 +12,8 @@ namespace Pogrujenie.Game
     public sealed class Player : MonoBehaviour
     {
         public const float SeatZ = CameraView.SeatZ, SeatEye = CameraView.SeatEye, StandZ = -3.2f;
+        /// <summary>Сообщение, пока игрок за штурвалом; гаснет, когда он встаёт.</summary>
+        public const string HelmMessage = "Вы за штурвалом";
 
         public readonly Walker Walker = new Walker();
         Bootstrap boot;
@@ -43,7 +45,7 @@ namespace Pogrujenie.Game
             Piloting = true;
             Walker.Yaw = Mathf.PI; Walker.Pitch = CameraView.SeatPitch;
             boot.Controls.PilotButtons = true;
-            boot.Say("Вы за штурвалом");
+            boot.Say(HelmMessage);
             Apply();
         }
 
@@ -56,6 +58,7 @@ namespace Pogrujenie.Game
             s.InThrust = s.InTurn = s.InVert = 0;
             Walker.X = 0; Walker.Z = StandZ; Walker.Yaw = Mathf.PI; Walker.Pitch = CameraView.StandPitch;
             boot.Controls.PilotButtons = false;
+            boot.Status.Clear(HelmMessage); // встали — «Вы за штурвалом» больше не правда
             Apply();
         }
 
