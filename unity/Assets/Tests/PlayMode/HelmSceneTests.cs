@@ -218,6 +218,28 @@ namespace Pogrujenie.Tests
             Assert.Less(Vector3.Distance(p0, boot.Ship.position), 0.3f, "корабль без пилота не набирает ход");
         }
 
+        /// <summary>По отчёту qa/2026-10-19-1315-bridge-models-status: после «Встать» кресла почти не было видно.</summary>
+        [UnityTest]
+        public IEnumerator ВсталИКреслоВКадреКакНаСтарте()
+        {
+            float startZ = boot.Player.Walker.Z;
+            yield return Sit();
+            boot.Controls.PressAction();
+            yield return null;
+            yield return null;
+            Assert.IsFalse(boot.Player.Piloting, "встали");
+            var w = boot.Player.Walker;
+            Assert.AreEqual(startZ, w.Z, 0.01f, "встали туда же, где начинали");
+            Assert.AreEqual(0f, w.X, 0.01f);
+            Assert.Less(boot.Cam.transform.forward.z, -0.9f, "лицом к носу");
+            var b = boot.View.Props["Кресло пилота"].bounds;
+            // верх спинки (кромка к корме) — в кадре
+            Vector3 v = boot.Cam.WorldToViewportPoint(new Vector3(b.center.x, b.max.y, b.max.z));
+            Assert.Greater(v.z, 0f, "кресло перед камерой");
+            Assert.That(v.x, Is.InRange(0f, 1f), "спинка в кадре по ширине");
+            Assert.That(v.y, Is.InRange(0f, 1f), "спинка в кадре по высоте: " + v.y);
+        }
+
         /// <summary>По отчёту qa/2026-10-19-0950-bridge-shell: после «Встать» в строке оставалось «Вы за штурвалом».</summary>
         [UnityTest]
         public IEnumerator ВсталИСообщениеЗаШтурваломГаснет()

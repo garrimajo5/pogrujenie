@@ -11,6 +11,11 @@ namespace Pogrujenie.Core
     {
         public const float Landscape = 72f, Portrait = 85f;
         public const float SeatZ = -4.3f, SeatEye = 1.62f, SeatPitch = 0f, StandPitch = -0.08f;
+        /// <summary>
+        /// Где игрок стоит на мостике на старте и куда встаёт из-за штурвала: за креслом пилота, лицом к носу,
+        /// спинка кресла в кадре снизу (отчёт qa/2026-10-19-1315-bridge-models-status: вставал на 0,2 м ближе — кресла не было видно).
+        /// </summary>
+        public const float StandZ = -3f;
 
         /// <summary>Вертикальный угол обзора в градусах по соотношению сторон кадра (ширина / высота).</summary>
         public static float Fov(float aspect) => aspect < 1f ? Portrait : Landscape;
