@@ -6,8 +6,8 @@ namespace Pogrujenie.Game
 {
     /// <summary>
     /// Живой мир отмели в сцене: держит <see cref="EcoWorld"/> (Core) и рисует его существ.
-    /// Светляки-полосники — все шесть стай одним мешем (EcoFishLook: тело, хвост, цвет стаи, ярче
-    /// в тревоге) на шейдере дна с цветом вершин, светятся сами, как MeshBasicMaterial в браузере:
+    /// Светляки-полосники по ART-011 — все шесть стай одним мешем (EcoFishLook: тёмное тело, четыре
+    /// полосы цвета стаи, ярче в тревоге) на шейдере дна с цветом вершин, светятся сами, как MeshBasicMaterial в браузере:
     /// один вызов отрисовки на 132 рыбки. Светящийся мох — 22 пятна одним мешем на шейдере EcoGlow (свет
     /// прибавляется к дну), яркость пятна по EcoMoss.Glow. Скребуны по концепту ART-006 — десять одним
     /// мешем на шейдере дна (EcoGrazerLook: панцирь, шесть лап, скребок), без своего света. Корабль передаёт сюда место, ход и прожектор
@@ -176,14 +176,18 @@ namespace Pogrujenie.Game
             {
                 int at = f.Index * per;
                 EcoFishLook.Place(f, t, place, at);
-                EcoFishLook.Color(f, out float r, out float g, out float b);
+                EcoFishLook.VertexColor(f, EcoFishLook.Paint.Body, out float r, out float g, out float b);
                 var body = new Color(r, g, b);
-                var tail = body * EcoFishLook.TailShade;
+                EcoFishLook.VertexColor(f, EcoFishLook.Paint.Stripe, out r, out g, out b);
+                var stripe = new Color(r, g, b);
+                EcoFishLook.VertexColor(f, EcoFishLook.Paint.Fin, out r, out g, out b);
+                var fin = new Color(r, g, b);
                 for (int k = 0; k < per; k++)
                 {
                     var p = place[at + k];
                     verts[at + k] = new Vector3(p.X, p.Y, p.Z);
-                    cols[at + k] = k >= 6 ? tail : body;
+                    var paint = EcoFishLook.Paints[k];
+                    cols[at + k] = paint == EcoFishLook.Paint.Stripe ? stripe : paint == EcoFishLook.Paint.Fin ? fin : body;
                 }
             }
             FishMesh.vertices = verts;
@@ -254,7 +258,10 @@ namespace Pogrujenie.Game
         }
 
         /// <summary>Цвет тела рыбки в меше (для тестов).</summary>
-        public Color DrawnColor(int fish) => cols[fish * EcoFishLook.VertsPerFish];
+        public Color DrawnColor(int fish) => cols[fish * EcoFishLook.VertsPerFish + EcoFishLook.StripeVertex];
+
+        /// <summary>Цвет тела рыбки в меше (нос, для тестов).</summary>
+        public Color DrawnBody(int fish) => cols[fish * EcoFishLook.VertsPerFish];
 
         void OnDestroy()
         {
