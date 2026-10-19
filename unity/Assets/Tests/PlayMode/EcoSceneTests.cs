@@ -37,11 +37,56 @@ namespace Pogrujenie.Tests
             Assert.AreEqual(132, eco.Fish.All.Count);
             Assert.AreEqual(132 * EcoFishLook.VertsPerFish, eco.FishMesh.vertexCount);
             Assert.AreEqual(132 * EcoFishLook.Tris.Length, eco.FishMesh.triangles.Length);
-            Assert.AreEqual(1, eco.GetComponentsInChildren<Renderer>().Length, "132 рыбки — один вызов отрисовки");
+            Assert.AreEqual(3, eco.GetComponentsInChildren<Renderer>().Length, "рыбки, мох и скребуны — по одному вызову отрисовки");
             Assert.AreEqual("Pogrujenie/Seabed", eco.FishRenderer.sharedMaterial.shader.name, "цвет из вершин");
             foreach (Transform t in boot.transform)
                 Assert.AreNotEqual("Светляк", t.name, "тестовых шариков-светляков больше нет");
             Assert.Less(boot.GetComponentsInChildren<Renderer>().Length, 120);
+        }
+
+        [UnityTest]
+        public IEnumerator МохОднимМешемИТускнеетПодСкребуном()
+        {
+            yield return null;
+            var eco = boot.Eco;
+            Assert.AreEqual(22, eco.Moss.Patches.Count);
+            Assert.AreEqual(22 * EcoMossLook.VertsPerPatch, eco.MossMesh.vertexCount);
+            Assert.AreEqual("Pogrujenie/EcoGlow", eco.MossRenderer.sharedMaterial.shader.name, "свет мха прибавляется к дну");
+            var p = eco.Moss.Patches[3];
+            int center = p.Index * EcoMossLook.VertsPerPatch + 4 * EcoMossLook.Side + 4;
+            p.Food = 1f;
+            eco.SyncMoss();
+            float full = eco.MossShown(center);
+            Assert.Greater(full, 0.2f, "нетронутый мох светится");
+            p.Food = 0f;
+            eco.SyncMoss();
+            Assert.AreEqual(full * EcoMoss.MinGlow, eco.MossShown(center), 0.01f, "объеденный — тусклый");
+            p.Food = 1f;
+            eco.SyncMoss();
+            Assert.AreEqual(full, eco.MossShown(center), 0.01f, "отрос — снова яркий");
+        }
+
+        [UnityTest]
+        public IEnumerator СкребуныНарисованыНаДне()
+        {
+            yield return null;
+            var eco = boot.Eco;
+            Assert.AreEqual(EcoGrazer.Count, eco.Grazers.All.Count);
+            Assert.AreEqual(EcoGrazer.Count * EcoGrazerLook.VertsPerGrazer, eco.GrazerMesh.vertexCount);
+            Assert.AreEqual("Pogrujenie/Seabed", eco.GrazerRenderer.sharedMaterial.shader.name);
+            foreach (var g in eco.Grazers.All)
+            {
+                var p = g.Agent.P;
+                var at = eco.GrazerDrawnAt(g.Index);
+                Assert.Less(Vector2.Distance(new Vector2(at.x, at.z), new Vector2(p.X, p.Z)), 0.5f, "скребун " + g.Index);
+                Assert.That(at.y - Seabed.Height(p.X, p.Z), Is.InRange(0f, 0.6f), "стоит на дне");
+            }
+            // через 2 с мира меш идёт следом: скребун нарисован там, куда дошёл
+            var g0 = eco.Grazers.All[0];
+            for (int i = 0; i < 40; i++) eco.Step(0.05f);
+            var pp = g0.Agent.P;
+            var now = eco.GrazerDrawnAt(0);
+            Assert.Less(Vector2.Distance(new Vector2(now.x, now.z), new Vector2(pp.X, pp.Z)), 0.5f, "меш следует за скребуном");
         }
 
         [UnityTest]
